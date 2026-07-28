@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:15:19+08:00`
+- Last updated: `2026-07-28T17:22:11+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 3ab4e9b feat(layers): preserve mapping evidence and
-  conflicts`
-- Phase: `[CONFIRMED] Phase 3 in progress — parsing and normalization`
+- HEAD: `[CONFIRMED] 854496e feat(outline): reconstruct board contours and
+  cutouts`
+- Phase: `[CONFIRMED] Phase 5 in progress — assembly-data parsing`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -60,6 +60,10 @@
     explicit conflict uncertainty and SameCoordinates evidence.`
   - `[CONFIRMED] Analytic outline graph reconstruction with bounded endpoint
     snapping, arc chord error, nested cutout topology, and explicit ambiguity.`
+  - `[CONFIRMED] Deterministic, bounded UTF-8 CSV parsing for normalized BOM
+    and placement records with typed column, unit, numeric, and DNP errors.`
+  - `[CONFIRMED] BOM and placement records retain source row/byte spans,
+    unmapped metadata, raw coordinates, and stable object provenance.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -71,15 +75,15 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (66 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (73 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 170 tests, 91.08% coverage.`
+    --cov-fail-under=85 -q passed: 195 tests, 90.75% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    BOM/CPL, full project assembly, rule execution, complete diagnostics,
+    XLSX BOM, full project assembly, rule execution, complete diagnostics,
     rendering, and review orchestration remain unimplemented.`
   - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified outline-reconstruction slice is pending
+- Working tree: `[CONFIRMED] Verified BOM/placement CSV parser slice is pending
   commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -129,28 +133,84 @@ the current capabilities.
 
 ## Next Action
 
-Parse normalized BOM and placement CSV inputs with row/column provenance.
+Preflight and parse normalized BOM XLSX inputs without exposing workbook
+objects beyond the adapter.
 
 Start with:
 
-- `src/boardgate/parsers/tabular.py`
+- `src/boardgate/parsers/xlsx.py`
 - `src/boardgate/parsers/bom.py`
-- `src/boardgate/parsers/placement.py`
-- `tests/unit/parsers/test_tabular.py`
+- `tests/unit/parsers/test_xlsx.py`
 
 Acceptance criteria:
 
-1. UTF-8 CSV dialect/header discovery is deterministic and bounded.
-2. Explicit aliases map reference, value/MPN/quantity/DNP and
-   reference/X/Y/rotation/side fields.
-3. Every BOM item and placement carries source row and byte/line provenance.
-4. Duplicate headers, conflicting aliases, invalid numbers, ambiguous units,
-   and missing required columns are typed failures.
-5. DNP is represented as data and not silently discarded.
-6. BOM and placement positive/error/round-trip tests pass before a separate
-   commit.
+1. OOXML ZIP/XML preflight rejects macros, external links, formulas,
+   encryption, unsafe paths, and resource-limit violations before calamine.
+2. A single worksheet is selected automatically; multiple worksheets require
+   an explicit exact sheet name.
+3. Header and column mapping semantics match BOM CSV and retain worksheet,
+   row, and column evidence while source line/span remains `null`.
+4. `python-calamine` workbook/sheet objects remain adapter-local.
+5. Positive, multi-sheet, forbidden-content, malformed, limit, and
+   round-trip tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:22:11+08:00 — Codex — BOM and placement CSV adapters
+
+- Role: primary implementation agent
+- Task: Normalize bounded assembly CSV inputs with source provenance.
+- Context inspected:
+  - `HANDOFF.md`
+  - BOM, CPL, ambiguity, DNP, unit, and provenance requirements in the
+    approved plan
+- Actions performed:
+  - Added deterministic UTF-8 CSV delimiter and header discovery with bounded
+    rows, columns, and cell sizes.
+  - Added strict alias resolution that rejects duplicate and conflicting
+    columns instead of selecting one silently.
+  - Added BOM reference grouping/range expansion, quantity consistency,
+    explicit DNP retention, optional fields, and unmapped metadata.
+  - Added placement coordinate-unit evidence, finite-number validation,
+    inch-to-millimetre normalization, side mapping, and raw coordinates.
+  - Preserved logical source, line/byte span, source row, stable object IDs,
+    and parser version on each normalized record.
+  - Allowed zero-quantity BOM items only when explicitly marked DNP and
+    regenerated the PCBProject schema.
+- Files modified:
+  - `src/boardgate/parsers/tabular.py`
+  - `src/boardgate/parsers/bom.py`
+  - `src/boardgate/parsers/placement.py`
+  - `src/boardgate/domain/component.py`
+  - `tests/unit/parsers/`
+  - `tests/unit/domain/test_component.py`
+  - `schemas/v1/project.schema.json`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/parsers/test_tabular.py
+    tests/unit/parsers/test_bom.py tests/unit/parsers/test_placement.py
+    tests/unit/domain/test_component.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused assembly/domain tests: 25 passed.
+  - Full suite: 195 passed, 90.75% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - Placement coordinate units cannot be safely inferred from bare numeric
+    values; the adapter requires header/unit-column evidence or caller config.
+  - BOM quantity zero is useful for retained DNP rows but unsafe without an
+    explicit DNP marker.
+- Evidence: Commands and positive/error/round-trip tests above.
+- Commit: PENDING (this BOM/placement CSV commit)
+- Issues created or updated: None.
+- Remaining uncertainty: XLSX source positions cannot carry text line/byte
+  spans and need worksheet/cell evidence instead.
+- Recommended next action: Add bounded XLSX preflight and calamine adapter.
 
 ### 2026-07-28T17:15:19+08:00 — Codex — Analytic outline reconstruction
 
@@ -200,7 +260,7 @@ Acceptance criteria:
   - Endpoint snapping contributes a measured error bound rather than altering
     geometry invisibly.
 - Evidence: Commands and property/golden topology tests above.
-- Commit: PENDING (this outline commit)
+- Commit: `854496e feat(outline): reconstruct board contours and cutouts`
 - Issues created or updated: None.
 - Remaining uncertainty: Multiple trusted outline source files still require
   coordinate confirmation.

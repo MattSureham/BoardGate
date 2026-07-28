@@ -247,7 +247,7 @@
           "$ref": "#/$defs/Provenance"
         },
         "quantity": {
-          "minimum": 1,
+          "minimum": 0,
           "title": "Quantity",
           "type": "integer"
         },
