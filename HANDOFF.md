@@ -16,11 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:26:58+08:00`
+- Last updated: `2026-07-28T16:32:11+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] e5b9c63 docs: establish PCB agent implementation baseline`
+- HEAD: `[CONFIRMED] 6e5907b feat(domain): add geometry and provenance
+  models`
 - Phase: `[CONFIRMED] Phase 1 in progress — domain model and configuration`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
@@ -31,21 +32,25 @@
     CoordinateSystem, SourceSpan, and Provenance models.`
   - `[CONFIRMED] Canonical JSON serialization with six-decimal persisted
     coordinates.`
+  - `[CONFIRMED] Parser-independent source manifest, layer primitive, drill,
+    component, board-outline, PCBProject, Finding, and risk-mode models.`
+  - `[CONFIRMED] Stable source, project, object, and finding identifier
+    helpers.`
 - Supported inputs: `[CONFIRMED] None yet.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
-  - `[CONFIRMED] uv run ruff format --check . passed (12 files).`
+  - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (11 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (22 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 23 tests, 100% coverage.`
+    --cov-fail-under=85 -q passed: 32 tests, 90.31% coverage.`
 - Known limitations:
-  - `[CONFIRMED] PCBProject, Finding, ingestion, parsers, rules, rendering,
-    and review orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified geometry/provenance slice is pending
-  commit.`
+  - `[CONFIRMED] Rule profiles, ingestion, parsers, rules, rendering, and
+    review orchestration remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified PCBProject/Finding domain slice is
+  pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -73,26 +78,66 @@ the current capabilities.
 
 ## Next Action
 
-Implement versioned `PCBProject`, layer/drill/component models, `Finding`,
-`RiskMode`, and deterministic identifier helpers.
+Implement the versioned manufacturing Rule Profile and its restricted
+YAML/JSON loader.
 
 Start with:
 
-- `src/boardgate/domain/project.py`
-- `src/boardgate/domain/finding.py`
-- `tests/unit/domain/`
+- `src/boardgate/config/models.py`
+- `src/boardgate/config/loader.py`
+- `rules/default.yaml`
+- `schemas/v1/`
 
 Acceptance criteria:
 
-1. Models are parser-independent and strictly serializable.
-2. Unknown and uncertain values remain explicit.
-3. Stable project, source-object, and finding IDs are reproducible.
-4. Finding facts, requirements, suggestions, and human confirmation are
-   separate fields.
-5. JSON round-trip and identifier stability tests pass.
-6. Commit separately before adding the manufacturing Rule Profile.
+1. Schema version `1.0` expresses required layers, all rule settings,
+   manufacturing thresholds, tolerance, severity, and readiness effects.
+2. YAML is limited to 1 MiB, one document, no aliases/anchors/custom tags,
+   and no YAML 1.1 `yes/no/on/off` implicit booleans.
+3. JSON and YAML produce the same strict model and deterministic profile hash.
+4. Draft 2020-12 schemas for public boundary models are exported and validate
+   representative artifacts.
+5. Invalid configuration fails with typed, source-safe diagnostics.
+6. The complete quality gate passes before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:32:11+08:00 — Codex — PCB project and finding contracts
+
+- Role: primary implementation agent
+- Task: Complete the parser-independent Phase 1 project and finding slice.
+- Context inspected:
+  - `HANDOFF.md`
+  - Domain and identifier requirements in `IMPLEMENT_PCB_AGENT.md`
+- Actions performed:
+  - Added source-manifest and classification-evidence contracts.
+  - Added typed PCB layer primitives, apertures, drill hits/slots, component
+    placements, BOM entries, and board outlines.
+  - Added PCBProject requirements, Findings, measurements, evidence, statuses,
+    severities, and risk modes.
+  - Added canonical stable source, project, object, and finding identifiers.
+- Files modified:
+  - `src/boardgate/domain/`
+  - `tests/unit/domain/`
+- Commands run:
+  - `uv run ruff format .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/domain -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Domain tests: 31 passed.
+  - Full suite: 32 passed, 90.31% branch coverage.
+  - Ruff and mypy passed.
+- Findings:
+  - Third-party parser and Shapely objects cannot enter the serialized
+    contracts.
+  - Finding confirmation state is validated independently from severity.
+- Evidence: Commands and results above.
+- Commit: PENDING (this domain commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Rule Profile configuration is not yet represented.
+- Recommended next action: Add the strict Rule Profile loader and schemas.
 
 ### 2026-07-28T16:26:58+08:00 — Codex — Geometry and provenance models
 
@@ -123,7 +168,7 @@ Acceptance criteria:
   - Persisted coordinates round to six decimals while in-memory calculations
     retain their original double precision.
 - Evidence: Commands and results above.
-- Commit: PENDING (this domain commit)
+- Commit: `6e5907b feat(domain): add geometry and provenance models`
 - Issues created or updated: None.
 - Remaining uncertainty: PCB project and finding IDs are not implemented yet.
 - Recommended next action: Add PCBProject, Finding, RiskMode, and stable IDs.
