@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from shapely.ops import unary_union
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import nearest_points, unary_union
 
 from boardgate.config.models import RuleId
 from boardgate.domain.drill import DrillHit, DrillSlot
@@ -16,7 +17,10 @@ from boardgate.domain.layer import ArcPrimitive, LinePrimitive
 from boardgate.rules.common import make_finding
 from boardgate.rules.derived_geometry import (
     DerivedGeometry,
+    LayerComposite,
+    component_pairs_within,
     composite_layer,
+    geometry_components,
     shapely_bounds,
 )
 from boardgate.rules.engine import RuleContext
@@ -424,4 +428,178 @@ class MinimumTraceWidthRule:
             ),
             evaluated_object_count=len(eligible),
             applicable_object_count=len(eligible) + excluded_supported,
+        )
+
+
+def _component_evidence(
+    layer_id: str,
+    composite: LayerComposite,
+    component: BaseGeometry,
+    *,
+    geometry_epsilon_mm: float,
+) -> tuple[FindingEvidence, ...]:
+    bounds = shapely_bounds(component)
+    return tuple(
+        FindingEvidence(
+            provenance=primitive.provenance,
+            layer_id=layer_id,
+            witness_bounds=bounds,
+            note="Primitive contributes to this final connected copper component.",
+        )
+        for primitive, derived in composite.primitive_geometries
+        if primitive.polarity is Polarity.DARK
+        and derived.geometry.intersects(component.buffer(geometry_epsilon_mm))
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class MinimumCopperSpacingRule:
+    """Compare distinct connected components of final composite copper."""
+
+    rule_id: RuleId = RuleId.MINIMUM_COPPER_SPACING
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Use per-layer STRtrees without inferring electrical nets."""
+        trusted_layers = tuple(
+            layer
+            for layer in context.project.layers
+            if layer.role in _COPPER_ROLES and not layer.uncertainties
+        )
+        if not trusted_layers:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="No trusted copper layer is available for spacing checks.",
+            )
+        required = context.profile.fabrication.min_copper_spacing
+        epsilon = context.profile.tolerances.geometry_epsilon
+        findings = []
+        applicable_pairs = 0
+        coverage_partial = False
+        for layer in trusted_layers:
+            composite = composite_layer(
+                layer,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+            )
+            coverage_partial = coverage_partial or not composite.coverage_complete
+            components = geometry_components(composite.geometry)
+            applicable_pairs += len(components) * (len(components) - 1) // 2
+            error = 2.0 * composite.error_bound_mm + epsilon
+            for first_index, second_index, distance in component_pairs_within(
+                components,
+                maximum_distance=required + error,
+            ):
+                disposition = evaluate_minimum_threshold(
+                    actual=distance,
+                    required=required,
+                    error_bound=error,
+                )
+                if disposition is ThresholdDisposition.SATISFIED:
+                    continue
+                confirmation = disposition is ThresholdDisposition.REQUIRES_CONFIRMATION
+                coverage_partial = coverage_partial or confirmation
+                first = components[first_index]
+                second = components[second_index]
+                nearest_first, nearest_second = nearest_points(first, second)
+                location = Point(
+                    x=(nearest_first.x + nearest_second.x) / 2.0,
+                    y=(nearest_first.y + nearest_second.y) / 2.0,
+                )
+                evidence = (
+                    *_component_evidence(
+                        layer.layer_id,
+                        composite,
+                        first,
+                        geometry_epsilon_mm=epsilon,
+                    ),
+                    *_component_evidence(
+                        layer.layer_id,
+                        composite,
+                        second,
+                        geometry_epsilon_mm=epsilon,
+                    ),
+                )
+                measurement = Measurement(
+                    actual=distance,
+                    required=required,
+                    operator=">=",
+                    unit=Unit.MILLIMETRE,
+                    error_bound=error,
+                    config_path="fabrication.min_copper_spacing",
+                )
+                findings.append(
+                    make_finding(
+                        context,
+                        rule_id=self.rule_id,
+                        category=RiskMode.GEOMETRY_VIOLATION,
+                        config_path="fabrication.min_copper_spacing",
+                        title=(
+                            "Copper spacing requires confirmation"
+                            if confirmation
+                            else "Copper components are too close"
+                        ),
+                        summary=(
+                            "The derived component spacing overlaps the "
+                            "configured minimum after geometry error."
+                            if confirmation
+                            else (
+                                "Two distinct connected copper components remain "
+                                "closer than the configured minimum after error."
+                            )
+                        ),
+                        facts=(
+                            f"Component spacing is {distance:.6f} mm.",
+                            "Components are geometric; no electrical net was inferred.",
+                        ),
+                        evidence=tuple(evidence),
+                        confidence=(0.5 if confirmation else 1.0),
+                        location=location,
+                        measurement=measurement,
+                        suggested_action=(
+                            f"Increase geometric copper spacing to {required:.6f} mm."
+                        ),
+                        requires_human_confirmation=confirmation,
+                    )
+                )
+        if applicable_pairs == 0:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary=(
+                    "Fewer than two final connected copper components exist on "
+                    "each trusted layer."
+                ),
+            )
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=(
+                    RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL
+                ),
+                summary=(
+                    "No spacing issue was found in the supported component scope."
+                    if coverage_partial
+                    else (
+                        "All distinct final copper components meet the "
+                        "configured spacing."
+                    )
+                ),
+                evaluated_object_count=applicable_pairs,
+                applicable_object_count=applicable_pairs,
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
+            findings=tuple(findings),
+            summary=(
+                "One or more distinct geometric copper components do not "
+                "clearly meet spacing."
+            ),
+            evaluated_object_count=applicable_pairs,
+            applicable_object_count=applicable_pairs,
         )

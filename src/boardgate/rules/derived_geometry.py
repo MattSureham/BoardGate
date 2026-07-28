@@ -10,6 +10,7 @@ from shapely.geometry import LineString, Polygon, box
 from shapely.geometry import Point as ShapelyPoint
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
+from shapely.strtree import STRtree
 
 from boardgate.domain.enums import ApertureShape, Polarity
 from boardgate.domain.geometry import BoundingBox, Point
@@ -23,6 +24,8 @@ from boardgate.domain.layer import (
     RegionPrimitive,
 )
 from boardgate.geometry.arcs import approximate_arc
+
+_PAIR_SIZE = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +44,7 @@ class LayerComposite:
     geometry: BaseGeometry
     primitive_geometries: tuple[tuple[GraphicPrimitive, DerivedGeometry], ...]
     coverage_complete: bool
+    error_bound_mm: float
 
 
 def _quad_segments(radius: float, chord_error_mm: float) -> int:
@@ -279,6 +283,10 @@ def composite_layer(
         geometry=composite,
         primitive_geometries=derived,
         coverage_complete=all(item.exact_supported for _, item in derived),
+        error_bound_mm=max(
+            (item.error_bound_mm for _, item in derived),
+            default=0.0,
+        ),
     )
 
 
@@ -291,3 +299,48 @@ def shapely_bounds(geometry: BaseGeometry) -> BoundingBox | None:
         minimum=Point(x=minimum_x, y=minimum_y),
         maximum=Point(x=maximum_x, y=maximum_y),
     )
+
+
+def geometry_components(geometry: BaseGeometry) -> tuple[BaseGeometry, ...]:
+    """Flatten final polygonal copper into stable connected components."""
+    if geometry.is_empty:
+        return ()
+    if geometry.geom_type == "Polygon":
+        return (geometry,)
+    components = tuple(
+        child for child in geometry.geoms if not child.is_empty and child.area > 0.0
+    )
+    return tuple(sorted(components, key=lambda item: (*item.bounds, item.wkb_hex)))
+
+
+def component_pairs_within(
+    components: tuple[BaseGeometry, ...],
+    *,
+    maximum_distance: float,
+) -> tuple[tuple[int, int, float], ...]:
+    """Use STRtree to return stable unique component pairs within a distance."""
+    if maximum_distance < 0.0 or not math.isfinite(maximum_distance):
+        raise ValueError("maximum component distance must be finite and non-negative")
+    if len(components) < _PAIR_SIZE:
+        return ()
+    tree = STRtree(components)
+    pairs: list[tuple[int, int, float]] = []
+    for first_index, component in enumerate(components):
+        candidate_indices = tree.query(
+            component,
+            predicate="dwithin",
+            distance=maximum_distance,
+        )
+        for raw_index in candidate_indices:
+            second_index = int(raw_index)
+            if second_index <= first_index:
+                continue
+            distance = component.distance(components[second_index])
+            if distance <= maximum_distance or math.isclose(
+                distance,
+                maximum_distance,
+                rel_tol=1e-12,
+                abs_tol=1e-12,
+            ):
+                pairs.append((first_index, second_index, distance))
+    return tuple(sorted(pairs))

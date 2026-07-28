@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:08:20+08:00`
+- Last updated: `2026-07-28T18:11:36+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 4139215 feat(rule): detect gross drill coordinate mismatch`
+- HEAD: `[CONFIRMED] 7565483 feat(rule): measure eligible trace widths`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -91,22 +91,22 @@
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
-  minimum_trace_width v1.`
+  minimum_trace_width and minimum_copper_spacing v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (98 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (99 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 269 tests, 88.71% coverage.`
+    --cov-fail-under=85 -q passed: 277 tests, 89.21% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_trace_width rule slice is pending
-  commit.`
+- Working tree: `[CONFIRMED] Verified minimum_copper_spacing rule slice is
+  pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -155,27 +155,49 @@ the current capabilities.
 
 ## Next Action
 
-Implement `minimum_copper_spacing` v1.
+Implement `minimum_copper_to_edge` v1.
 
 Start with:
 
 - `src/boardgate/rules/geometry_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_copper_spacing.py`
+- `tests/unit/rules/test_minimum_copper_to_edge.py`
 
 Acceptance criteria:
 
-1. Compare different connected components of final polarity-composited copper
-   on each trusted layer; never call them different nets.
-2. STRtree results match a brute-force component-pair baseline and never
-   compare a component with itself or across layers.
-3. Equality passes; confirmed/error-band findings carry both component
-   witnesses and the derived-geometry error bound.
-4. Positive, negative, equality, same-component, polarity, spatial-index,
-   error-band, stable-ID, and round-trip tests pass before the rule's separate
-   commit.
+1. Measure final composite copper to both outer boundary and cutout boundaries
+   of the trusted BoardOutline.
+2. Copper outside board material is a confirmed blocker; copper touching an
+   edge follows profile `confirm|strict` policy exactly.
+3. Equality passes; derived geometry and outline error propagate into
+   confirmed versus PARTIAL confirmation decisions.
+4. Outer/cutout/pass/equality/touch-policy/outside/error-band/stable-ID and
+   round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:11:36+08:00 — Codex — minimum_copper_spacing v1
+
+- Role: primary implementation agent
+- Task: Compare distinct connected final-copper components without net data.
+- Actions performed:
+  - Flattened polarity-composited copper into stable per-layer components.
+  - Added STRtree distance candidate selection with unique same-layer pairs
+    and a brute-force equivalence test.
+  - Preserved both component witnesses and explicitly avoided net claims.
+  - Applied geometry error to equality/confirmed/PARTIAL spacing outcomes.
+- Files modified:
+  - `src/boardgate/rules/derived_geometry.py`
+  - `src/boardgate/rules/geometry_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_copper_spacing.py`
+- Tests:
+  - Focused spacing tests: 8 passed.
+  - Full suite: 277 passed, 89.21% branch coverage.
+- Evidence: Component/polarity/layer/STRtree/equality/error-band tests.
+- Commit: PENDING (this minimum_copper_spacing commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_copper_to_edge` v1.
 
 ### 2026-07-28T18:08:20+08:00 — Codex — minimum_trace_width v1
 
@@ -198,7 +220,7 @@ Acceptance criteria:
   - Focused trace/engine tests: 21 passed.
   - Full suite: 269 passed, 88.71% branch coverage.
 - Evidence: Width pass/fail/equality/widening/polarity/error-band tests.
-- Commit: PENDING (this minimum_trace_width commit)
+- Commit: `7565483 feat(rule): measure eligible trace widths`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_copper_spacing` v1.
 

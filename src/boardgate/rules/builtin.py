@@ -9,6 +9,7 @@ from boardgate.rules.file_rules import (
 )
 from boardgate.rules.geometry_rules import (
     GerberDrillCoordinateAlignmentRule,
+    MinimumCopperSpacingRule,
     MinimumTraceWidthRule,
 )
 from boardgate.rules.registry import Rule, RuleRegistry
@@ -24,6 +25,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         MultipleOutlineRegionsRule(),
         GerberDrillCoordinateAlignmentRule(),
         MinimumTraceWidthRule(),
+        MinimumCopperSpacingRule(),
     )
 
 
