@@ -16,14 +16,15 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:32:21+08:00`
+- Last updated: `2026-07-28T21:35:02+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 0ece4bb feat(rule): validate placement anchor
-  containment`
-- Remote sync: `[CONFIRMED] origin/main and remote HEAD are 0ece4bb; the
-  preceding GitHub Actions run 30362114646 completed successfully.`
+- HEAD: `[CONFIRMED] bb282f4 feat(review): define complete artifact
+  contract`
+- Remote sync: `[CONFIRMED] local main is one atomic commit ahead of
+  origin/main at 0ece4bb; the preceding GitHub Actions run 30362114646
+  completed successfully.`
 - Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
   Phase 9 complete-review artifacts are next.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
@@ -92,6 +93,9 @@
   - `[CONFIRMED] Phase 9 now has an accepted six-artifact/failure contract,
     canonical deterministic JSON, sanitized run diagnostics, structured JSONL
     logs, and cross-artifact validation including safe SVG and Finding IDs.`
+  - `[CONFIRMED] The deterministic Markdown composer projects structured
+    project/review evidence into the normative report sections with safe
+    partial-coverage wording and escaped untrusted text.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -110,17 +114,17 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (111 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (120 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 374 tests, 90.56% coverage.`
+    --cov-fail-under=85 passed: 427 tests, 91.02% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified complete-artifact contract, diagnostic
-  model, ADR, Schema, tests, and this HANDOFF update are pending one atomic
-  commit; report, SVG, and fixture slices remain separately uncommitted.`
+- Working tree: `[CONFIRMED] Verified deterministic Markdown composer, tests,
+  and this HANDOFF update are pending one atomic commit; SVG and fixture
+  slices remain separately uncommitted.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -190,28 +194,63 @@ the current capabilities.
 
 ## Next Action
 
-Commit the deterministic Markdown report composer as the next Phase 9
+Commit the deterministic standalone SVG renderer as the next Phase 9
 presentation slice.
 
 Start with:
 
-- `src/boardgate/reporting/__init__.py`
-- `src/boardgate/reporting/markdown.py`
-- `tests/unit/reporting/test_markdown.py`
+- `src/boardgate/rendering/__init__.py`
+- `src/boardgate/rendering/svg.py`
+- `tests/unit/rendering/test_svg.py`
 
 Acceptance criteria:
 
-1. Produce all normative report sections from `PCBProject` and
-   `ReviewResult`, including evidence confidence, missing inputs, rule
-   coverage, limitations, confirmations, recommended actions, and disclaimer.
-2. Preserve every Finding ID and resolve source digest/object/span evidence
-   without introducing facts not present in the structured models.
-3. Escape untrusted Markdown content and use the bounded “no issue found in
-   checked scope” wording for `PASS + PARTIAL`.
-4. Keep output byte-stable and pass focused report, Ruff, mypy, and full
+1. Render a safe, script-free standalone SVG with automatic viewBox and the
+   internal Y-up to screen-coordinate transform.
+2. Group board outline/cutouts, normalized primitives, drills/slots, and
+   finding markers by stable layer and artifact identifiers.
+3. Include every Finding ID as escaped `data-finding-id` evidence, including a
+   deterministic non-spatial legend when geometry is unavailable.
+4. Keep output byte-stable and pass focused renderer, Ruff, mypy, and full
    repository tests before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T21:35:02+08:00 — Codex — deterministic Markdown report
+
+- Role: primary implementation agent
+- Task: Compose the Phase 9 engineer-facing report solely from structured
+  project and review evidence.
+- Actions performed:
+  - Added all normative report sections for assessment, confidence, inputs,
+    project interpretation, severity-grouped Findings, rule execution,
+    limitations, confirmations, actions, Evidence Index, and disclaimer.
+  - Preserved every Finding ID and resolved source SHA/object/span and witness
+    evidence without inferring missing facts.
+  - Escaped source-controlled Markdown content and enforced bounded wording
+    for `PASS + PARTIAL`.
+  - Rendered sanitized analysis diagnostics for `ANALYSIS_FAILED` bundles.
+- Files modified:
+  - `src/boardgate/reporting/__init__.py`
+  - `src/boardgate/reporting/markdown.py`
+  - `tests/unit/reporting/test_markdown.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused report suite: 7 passed with 98% reporting branch coverage.
+  - Shared-tree full suite: 427 passed, 91.02% branch coverage.
+- Evidence: Exact section coverage, deterministic bytes, severity grouping,
+  escaped Markdown, partial-pass wording, missing inputs, parser and analysis
+  diagnostics, unresolved evidence, line/byte spans, and project-ID mismatch.
+- Commit: PENDING (this deterministic Markdown report commit)
+- Issues created or updated: None.
+- Recommended next action: Commit the deterministic standalone SVG renderer.
 
 ### 2026-07-28T21:32:21+08:00 — Codex — complete review artifact contract
 
@@ -250,7 +289,7 @@ Acceptance criteria:
   public Schema round trips, cross-artifact ID mismatch rejection, unsafe SVG
   rejection, monotonic single-run JSONL, summary sanitization, and
   analysis-unavailable round trip.
-- Commit: PENDING (this complete-review artifact contract commit)
+- Commit: `bb282f4 feat(review): define complete artifact contract`
 - Issues created or updated: ADR 0002 accepted; no blocking issue created.
 - Recommended next action: Commit the deterministic Markdown report composer.
 
