@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:47:04+08:00`
+- Last updated: `2026-07-28T16:51:15+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] ab7050e feat(ingestion): safely stage PCB project
-  inputs`
+- HEAD: `[CONFIRMED] d2198d3 feat(ingestion): classify files and build
+  manifests`
 - Phase: `[CONFIRMED] Phase 2 in progress — safe ingestion and manifest`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
@@ -46,6 +46,8 @@
     and cross-platform logical-path collision detection.`
   - `[CONFIRMED] SHA-256 inventory, conservative content/name/extension
     classification, explicit conflicts, and byte-stable manifest generation.`
+  - `[CONFIRMED] Public inspect CLI contract and validated, recoverable
+    manifest output transaction.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.`
@@ -55,14 +57,14 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (41 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (45 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 97 tests, 90.89% coverage.`
+    --cov-fail-under=85 -q passed: 111 tests, 90.85% coverage.`
 - Known limitations:
-  - `[CONFIRMED] CLI inspection, parsers, rule execution, rendering, and review
-    orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified classification/manifest slice is pending
-  commit.`
+  - `[CONFIRMED] The current CLI slice emits only manifest.json; parsers, rule
+    execution, complete diagnostics, rendering, and review orchestration
+    remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified CLI manifest slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -90,27 +92,73 @@ the current capabilities.
 
 ## Next Action
 
-Add the minimal `pcb-review inspect` CLI slice that safely emits
-`manifest.json`.
+Implement the Excellon parser adapter and lightweight command-span scanner.
 
 Start with:
 
-- `src/boardgate/cli.py`
-- `src/boardgate/application/output.py`
-- `tests/integration/test_inspect_manifest.py`
+- `src/boardgate/parsers/excellon.py`
+- `src/boardgate/parsers/scanner.py`
+- `tests/fixtures/parser/excellon/`
+- `tests/unit/parsers/test_excellon.py`
 
 Acceptance criteria:
 
-1. CLI shape and option choices match the approved public contract.
-2. `--rules` is always explicit and validated before project processing.
-3. A new non-empty output directory is refused unless `--overwrite` is used.
-4. The initial slice atomically writes and validates `manifest.json`.
-5. Configuration/input errors return exit code 2 with no traceback or host-path
-   disclosure.
-6. Directory, ZIP, separate-file, overwrite, and stable-output integration
-   tests pass before a separate commit.
+1. Gerbonara remains behind the adapter and no third-party object escapes.
+2. Metric/inch, zero suppression, tool definitions, absolute round hits, and
+   routed slots normalize to millimetres with provenance.
+3. Slots remain separate from round-hole checks.
+4. Parser warnings and unsupported commands become typed limitations.
+5. Lightweight byte/line spans attach to commands without duplicating geometry
+   parsing.
+6. Golden, malformed-input, and round-trip tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:51:15+08:00 — Codex — Atomic manifest CLI slice
+
+- Role: primary implementation agent
+- Task: Expose the first Phase 2 vertical slice through the public CLI.
+- Context inspected:
+  - `HANDOFF.md`
+  - CLI, exit-code, and overwrite contract in the approved plan
+- Actions performed:
+  - Added the complete inspect command shape and explicit Rule Profile
+    validation.
+  - Added output/input overlap rejection and exit code 2 for safe user/config
+    errors.
+  - Added same-parent staging and backup replacement with restoration on
+    publish failure.
+  - Added required-artifact and canonical model round-trip validation before
+    publishing `manifest.json`.
+  - Added directory, ZIP, separate-file, overwrite, restoration, schema, and
+    stable-byte integration tests.
+- Files modified:
+  - `src/boardgate/cli.py`
+  - `src/boardgate/application/`
+  - `tests/unit/application/`
+  - `tests/integration/`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/application
+    tests/integration/test_inspect_manifest.py tests/unit/test_cli.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused tests: 14 passed.
+  - Full suite: 111 passed, 90.85% branch coverage.
+  - Lock, sync, Ruff, and mypy gates passed.
+- Findings:
+  - Failed staged validation never moves the existing output.
+  - A failure after backup creation restores the prior output directory.
+- Evidence: Commands and results above.
+- Commit: PENDING (this CLI commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Only `manifest.json` is emitted until parsing and the
+  complete review pipeline are connected.
+- Recommended next action: Implement Excellon parsing and command spans.
 
 ### 2026-07-28T16:47:04+08:00 — Codex — Stable project manifest
 
@@ -149,7 +197,7 @@ Acceptance criteria:
   - Strong, conflicting type signals intentionally resolve to UNKNOWN.
   - Directory, ZIP, and reversed explicit-file inputs serialize identically.
 - Evidence: Commands and results above.
-- Commit: PENDING (this manifest commit)
+- Commit: `d2198d3 feat(ingestion): classify files and build manifests`
 - Issues created or updated: ISSUE-003 was not required; ambiguous `.txt`
   drill inputs are resolved only when Excellon content evidence is strong.
 - Remaining uncertainty: The public inspect command does not yet emit a
