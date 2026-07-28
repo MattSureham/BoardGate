@@ -13,7 +13,13 @@ from boardgate.domain.component import BOMItem
 from boardgate.domain.identifiers import object_id
 from boardgate.domain.provenance import JsonScalar, Provenance
 from boardgate.parsers.errors import ParserError
-from boardgate.parsers.tabular import parse_csv, resolve_columns
+from boardgate.parsers.tabular import (
+    TabularData,
+    TabularRow,
+    parse_csv,
+    resolve_columns,
+)
+from boardgate.parsers.xlsx import parse_xlsx
 
 _ALIASES = {
     "references": frozenset(
@@ -132,14 +138,36 @@ def _optional(row: tuple[str, ...], columns: dict[str, int], key: str) -> str | 
     return value or None
 
 
-def parse_bom_csv(
-    payload: bytes,
+def _column_label(index: int) -> str:
+    label = ""
+    current = index + 1
+    while current:
+        current, remainder = divmod(current - 1, 26)
+        label = chr(ord("A") + remainder) + label
+    return label
+
+
+def _source_metadata(
+    table: TabularData,
+    row: TabularRow,
+) -> dict[str, JsonScalar]:
+    metadata: dict[str, JsonScalar] = {"row_number": row.row_number}
+    if table.worksheet is not None:
+        metadata["worksheet"] = table.worksheet
+        metadata["columns"] = ";".join(
+            f"{_column_label(table.column_offset + index)}:{header}"
+            for index, header in enumerate(table.headers)
+        )
+    return metadata
+
+
+def _parse_bom_table(
+    table: TabularData,
     *,
     logical_path: str,
     source_file_id: str,
+    parser_name: str,
 ) -> BOMParseResult:
-    """Parse one BOM CSV without discarding DNP rows."""
-    table = parse_csv(payload, logical_path=logical_path)
     columns = resolve_columns(
         table,
         aliases=_ALIASES,
@@ -194,7 +222,10 @@ def parse_bom_csv(
                 logical_path,
                 f"row {row.row_number} zero quantity requires DNP",
             )
-        raw_signature = json.dumps(row.values, ensure_ascii=False)
+        raw_signature = json.dumps(
+            (table.worksheet, row.row_number, row.values),
+            ensure_ascii=False,
+        )
         identifier = object_id("bom", source_file_id, index, raw_signature)
         mapped_indices = set(columns.values())
         metadata: dict[str, JsonScalar] = {
@@ -213,12 +244,43 @@ def parse_bom_csv(
                 provenance=Provenance(
                     source_file_id=source_file_id,
                     object_id=identifier,
-                    parser="boardgate-bom-csv",
+                    parser=parser_name,
                     parser_version=__version__,
                     source_span=row.source_span,
-                    metadata={"row_number": row.row_number},
+                    metadata=_source_metadata(table, row),
                 ),
                 metadata=metadata,
             )
         )
     return BOMParseResult(source_file_id=source_file_id, items=tuple(items))
+
+
+def parse_bom_csv(
+    payload: bytes,
+    *,
+    logical_path: str,
+    source_file_id: str,
+) -> BOMParseResult:
+    """Parse one BOM CSV without discarding DNP rows."""
+    return _parse_bom_table(
+        parse_csv(payload, logical_path=logical_path),
+        logical_path=logical_path,
+        source_file_id=source_file_id,
+        parser_name="boardgate-bom-csv",
+    )
+
+
+def parse_bom_xlsx(
+    payload: bytes,
+    *,
+    logical_path: str,
+    source_file_id: str,
+    worksheet: str | None = None,
+) -> BOMParseResult:
+    """Parse one preflighted XLSX BOM through the read-only adapter."""
+    return _parse_bom_table(
+        parse_xlsx(payload, logical_path=logical_path, worksheet=worksheet),
+        logical_path=logical_path,
+        source_file_id=source_file_id,
+        parser_name="boardgate-bom-xlsx",
+    )

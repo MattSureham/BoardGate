@@ -22,18 +22,20 @@ class TabularRow:
     """One decoded row with exact source bounds."""
 
     values: tuple[str, ...]
-    source_span: SourceSpan
+    source_span: SourceSpan | None
     row_number: int
 
 
 @dataclass(frozen=True, slots=True)
 class TabularData:
-    """Normalized header and non-empty data rows."""
+    """Normalized header and non-empty data rows from one source table."""
 
     headers: tuple[str, ...]
     normalized_headers: tuple[str, ...]
     rows: tuple[TabularRow, ...]
-    delimiter: str
+    delimiter: str | None
+    worksheet: str | None = None
+    column_offset: int = 0
 
 
 def normalize_header(value: str) -> str:
@@ -121,6 +123,50 @@ def _span(
     )
 
 
+def build_tabular_data(
+    parsed: list[TabularRow],
+    *,
+    logical_path: str,
+    delimiter: str | None,
+    worksheet: str | None = None,
+    column_offset: int = 0,
+) -> TabularData:
+    """Validate a bounded table shared by text and workbook adapters."""
+    if not parsed:
+        raise ParserError("TABULAR_EMPTY", logical_path, "tabular input is empty")
+    header = parsed[0]
+    normalized = tuple(normalize_header(value) for value in header.values)
+    if any(not value for value in normalized):
+        raise ParserError(
+            "TABULAR_HEADER_EMPTY",
+            logical_path,
+            "tabular headers must not be blank",
+        )
+    if len(normalized) != len(set(normalized)):
+        raise ParserError(
+            "TABULAR_HEADER_DUPLICATE",
+            logical_path,
+            "tabular headers must be unique after normalization",
+        )
+    rows: list[TabularRow] = []
+    for row in parsed[1:]:
+        if len(row.values) != len(header.values):
+            raise ParserError(
+                "TABULAR_ROW_WIDTH",
+                logical_path,
+                f"row {row.row_number} does not match header width",
+            )
+        rows.append(row)
+    return TabularData(
+        headers=header.values,
+        normalized_headers=normalized,
+        rows=tuple(rows),
+        delimiter=delimiter,
+        worksheet=worksheet,
+        column_offset=column_offset,
+    )
+
+
 def parse_csv(payload: bytes, *, logical_path: str) -> TabularData:
     """Decode one bounded CSV while preserving multiline row spans."""
     text = _decode(payload, logical_path)
@@ -172,35 +218,9 @@ def parse_csv(payload: bytes, *, logical_path: str) -> TabularData:
             logical_path,
             f"invalid CSV near line {reader.line_num}",
         ) from error
-    if not parsed:
-        raise ParserError("TABULAR_EMPTY", logical_path, "CSV input is empty")
-    header = parsed[0]
-    normalized = tuple(normalize_header(value) for value in header.values)
-    if any(not value for value in normalized):
-        raise ParserError(
-            "TABULAR_HEADER_EMPTY",
-            logical_path,
-            "CSV headers must not be blank",
-        )
-    if len(normalized) != len(set(normalized)):
-        raise ParserError(
-            "TABULAR_HEADER_DUPLICATE",
-            logical_path,
-            "CSV headers must be unique after normalization",
-        )
-    rows: list[TabularRow] = []
-    for row in parsed[1:]:
-        if len(row.values) != len(header.values):
-            raise ParserError(
-                "TABULAR_ROW_WIDTH",
-                logical_path,
-                f"row {row.row_number} does not match header width",
-            )
-        rows.append(row)
-    return TabularData(
-        headers=header.values,
-        normalized_headers=normalized,
-        rows=tuple(rows),
+    return build_tabular_data(
+        parsed,
+        logical_path=logical_path,
         delimiter=delimiter,
     )
 

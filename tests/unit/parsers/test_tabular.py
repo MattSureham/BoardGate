@@ -15,10 +15,12 @@ def test_semicolon_csv_and_multiline_row_spans() -> None:
     assert table.normalized_headers == ("reference", "description", "value")
     assert len(table.rows) == 1
     assert table.rows[0].values[1] == "line one\r\nline two"
-    assert table.rows[0].source_span.start_line == 2
-    assert table.rows[0].source_span.end_line == 3
-    assert table.rows[0].source_span.start_byte == payload.index(b"R1")
-    assert table.rows[0].source_span.end_byte == len(payload)
+    source_span = table.rows[0].source_span
+    assert source_span is not None
+    assert source_span.start_line == 2
+    assert source_span.end_line == 3
+    assert source_span.start_byte == payload.index(b"R1")
+    assert source_span.end_byte == len(payload)
 
 
 @pytest.mark.parametrize(

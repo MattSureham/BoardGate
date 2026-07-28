@@ -16,12 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:22:11+08:00`
+- Last updated: `2026-07-28T17:32:11+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 854496e feat(outline): reconstruct board contours and
-  cutouts`
+- HEAD: `[CONFIRMED] f697b22 feat(assembly): parse BOM and placement CSV`
 - Phase: `[CONFIRMED] Phase 5 in progress — assembly-data parsing`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -64,6 +63,11 @@
     and placement records with typed column, unit, numeric, and DNP errors.`
   - `[CONFIRMED] BOM and placement records retain source row/byte spans,
     unmapped metadata, raw coordinates, and stable object provenance.`
+  - `[CONFIRMED] XLSX BOM preflight rejects active content and unsafe ZIP/XML
+    structure before read-only calamine parsing.`
+  - `[CONFIRMED] XLSX worksheet selection is explicit when ambiguous, and
+    normalized BOM provenance records exact worksheet, row, and column map
+    while keeping unavailable text spans null.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -75,16 +79,16 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (73 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (75 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 195 tests, 90.75% coverage.`
+    --cov-fail-under=85 -q passed: 207 tests, 89.89% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    XLSX BOM, full project assembly, rule execution, complete diagnostics,
+    full project assembly, rule execution, complete diagnostics,
     rendering, and review orchestration remain unimplemented.`
   - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified BOM/placement CSV parser slice is pending
-  commit.`
+- Working tree: `[CONFIRMED] Verified restricted XLSX BOM adapter slice is
+  pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -133,28 +137,84 @@ the current capabilities.
 
 ## Next Action
 
-Preflight and parse normalized BOM XLSX inputs without exposing workbook
-objects beyond the adapter.
+Assemble imported and normalized sources into one strict PCBProject while
+isolating each third-party parser behind its configured timeout.
 
 Start with:
 
-- `src/boardgate/parsers/xlsx.py`
-- `src/boardgate/parsers/bom.py`
-- `tests/unit/parsers/test_xlsx.py`
+- `src/boardgate/application/project_builder.py`
+- `src/boardgate/application/parser_runner.py`
+- `tests/unit/application/test_project_builder.py`
+- `tests/unit/application/test_parser_runner.py`
 
 Acceptance criteria:
 
-1. OOXML ZIP/XML preflight rejects macros, external links, formulas,
-   encryption, unsafe paths, and resource-limit violations before calamine.
-2. A single worksheet is selected automatically; multiple worksheets require
-   an explicit exact sheet name.
-3. Header and column mapping semantics match BOM CSV and retain worksheet,
-   row, and column evidence while source line/span remains `null`.
-4. `python-calamine` workbook/sheet objects remain adapter-local.
-5. Positive, multi-sheet, forbidden-content, malformed, limit, and
-   round-trip tests pass before a separate commit.
+1. Manifest-selected sources dispatch only to type-compatible adapters; weak
+   or conflicting candidates remain uncertainty instead of being guessed.
+2. Per-file parser work runs in an isolated process with a 30-second default
+   timeout, deterministic result ordering, typed timeout/crash diagnostics,
+   and reliable worker cleanup.
+3. Parsed Gerber/Excellon/CSV/XLSX outputs normalize into PCBLayer,
+   BoardOutline, drills, components, BOM items, requirements, and
+   uncertainties without third-party objects.
+4. Project and every object ID remain byte-stable for identical source and
+   profile inputs.
+5. Positive, ambiguity, parser failure/timeout, round-trip, and repeatability
+   tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:32:11+08:00 — Codex — Restricted XLSX BOM adapter
+
+- Role: primary implementation agent
+- Task: Safely normalize BOM XLSX without active workbook behavior.
+- Context inspected:
+  - `HANDOFF.md`
+  - XLSX, calamine, multi-sheet, and source-evidence requirements in the
+    approved plan
+  - Installed python-calamine 0.8.2 typed API
+- Actions performed:
+  - Added complete OOXML ZIP entry indexing before parser invocation with
+    encrypted/symlink/special/path/duplicate/size/ratio checks.
+  - Stream-read and CRC-validated every member before calamine access.
+  - Parsed restricted XML after rejecting DTD/entity declarations and blocked
+    macro content types/files, external relationships/parts, and formulas.
+  - Required ordinary worksheets and exact caller selection when more than
+    one exists.
+  - Converted only finite scalar/date/time cells into bounded deterministic
+    strings and kept calamine workbook/sheet objects adapter-local.
+  - Shared tabular header/column validation with CSV and preserved XLSX
+    worksheet, physical row, and Excel column-label evidence.
+- Files modified:
+  - `src/boardgate/parsers/xlsx.py`
+  - `src/boardgate/parsers/bom.py`
+  - `src/boardgate/parsers/tabular.py`
+  - `src/boardgate/parsers/__init__.py`
+  - `tests/unit/parsers/test_xlsx.py`
+  - `tests/unit/parsers/test_tabular.py`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/parsers/test_xlsx.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused XLSX tests: 12 passed.
+  - Full suite: 207 passed, 89.89% branch coverage.
+  - Lock, sync, Ruff, and mypy gates passed.
+- Findings:
+  - XLSX text line/byte spans do not exist; worksheet, row, and column labels
+    are retained as the truthful source locator.
+  - Calamine accepts a file-like object and context-managed close, allowing
+    its objects to remain wholly inside the adapter.
+- Evidence: Commands and normal/forbidden/limit/round-trip tests above.
+- Commit: PENDING (this restricted XLSX commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Parser timeout isolation is not connected yet.
+- Recommended next action: Build isolated parser dispatch and PCBProject
+  assembly.
 
 ### 2026-07-28T17:22:11+08:00 — Codex — BOM and placement CSV adapters
 
@@ -206,7 +266,7 @@ Acceptance criteria:
   - BOM quantity zero is useful for retained DNP rows but unsafe without an
     explicit DNP marker.
 - Evidence: Commands and positive/error/round-trip tests above.
-- Commit: PENDING (this BOM/placement CSV commit)
+- Commit: `f697b22 feat(assembly): parse BOM and placement CSV`
 - Issues created or updated: None.
 - Remaining uncertainty: XLSX source positions cannot carry text line/byte
   spans and need worksheet/cell evidence instead.
