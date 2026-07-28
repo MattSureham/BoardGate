@@ -180,9 +180,42 @@ class OutlineContour(VersionedModel):
     """One reconstructed board outline contour."""
 
     contour_id: str = Field(min_length=1)
+    kind: Literal["outer", "cutout"]
+    segments: tuple[RegionSegment, ...] = Field(min_length=1)
     points: tuple[Point, ...] = Field(min_length=2)
     closed: bool
+    approximation_error_mm: float = Field(ge=0.0)
     source_primitive_ids: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_contour_geometry(self) -> Self:
+        """Keep analytic and derived contour forms consistent."""
+        if self.points[0] != self.segments[0].start:
+            msg = "outline points must begin at the first segment start"
+            raise ValueError(msg)
+        if self.points[-1] != self.segments[-1].end:
+            msg = "outline points must end at the last segment end"
+            raise ValueError(msg)
+        for current, following in zip(
+            self.segments,
+            self.segments[1:],
+            strict=False,
+        ):
+            if current.end != following.start:
+                msg = "outline segments must be connected"
+                raise ValueError(msg)
+        if self.closed and self.points[0] != self.points[-1]:
+            msg = "closed outline contour points must repeat the first point"
+            raise ValueError(msg)
+        if self.closed and self.segments[0].start != self.segments[-1].end:
+            msg = "closed outline segments must join first to last"
+            raise ValueError(msg)
+        if self.source_primitive_ids and len(self.source_primitive_ids) != len(
+            self.segments
+        ):
+            msg = "outline source IDs must align with analytic segments"
+            raise ValueError(msg)
+        return self
 
 
 class BoardOutline(VersionedModel):
@@ -190,4 +223,15 @@ class BoardOutline(VersionedModel):
 
     contours: tuple[OutlineContour, ...] = Field(min_length=1)
     bounding_box: BoundingBox
-    provenance: tuple[Provenance, ...]
+    outer_contour_count: int = Field(ge=1)
+    measurement_error_mm: float = Field(ge=0.0)
+    provenance: tuple[Provenance, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_outer_count(self) -> Self:
+        """Match the stored outer count to contour topology."""
+        actual = sum(contour.kind == "outer" for contour in self.contours)
+        if actual != self.outer_contour_count:
+            msg = "outer_contour_count must match outer contours"
+            raise ValueError(msg)
+        return self

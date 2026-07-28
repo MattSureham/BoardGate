@@ -302,10 +302,21 @@
           "title": "Contours",
           "type": "array"
         },
+        "measurement_error_mm": {
+          "minimum": 0.0,
+          "title": "Measurement Error Mm",
+          "type": "number"
+        },
+        "outer_contour_count": {
+          "minimum": 1,
+          "title": "Outer Contour Count",
+          "type": "integer"
+        },
         "provenance": {
           "items": {
             "$ref": "#/$defs/Provenance"
           },
+          "minItems": 1,
           "title": "Provenance",
           "type": "array"
         },
@@ -319,6 +330,8 @@
       "required": [
         "contours",
         "bounding_box",
+        "outer_contour_count",
+        "measurement_error_mm",
         "provenance"
       ],
       "title": "BoardOutline",
@@ -969,6 +982,11 @@
       "additionalProperties": false,
       "description": "One reconstructed board outline contour.",
       "properties": {
+        "approximation_error_mm": {
+          "minimum": 0.0,
+          "title": "Approximation Error Mm",
+          "type": "number"
+        },
         "closed": {
           "title": "Closed",
           "type": "boolean"
@@ -976,6 +994,14 @@
         "contour_id": {
           "minLength": 1,
           "title": "Contour Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "outer",
+            "cutout"
+          ],
+          "title": "Kind",
           "type": "string"
         },
         "points": {
@@ -992,6 +1018,14 @@
           "title": "Schema Version",
           "type": "string"
         },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/RegionSegment"
+          },
+          "minItems": 1,
+          "title": "Segments",
+          "type": "array"
+        },
         "source_primitive_ids": {
           "default": [],
           "items": {
@@ -1003,8 +1037,11 @@
       },
       "required": [
         "contour_id",
+        "kind",
+        "segments",
         "points",
-        "closed"
+        "closed",
+        "approximation_error_mm"
       ],
       "title": "OutlineContour",
       "type": "object"

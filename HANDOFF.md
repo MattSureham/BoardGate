@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:08:59+08:00`
+- Last updated: `2026-07-28T17:15:19+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 02899e2 feat(parser): normalize Gerber analytic
-  primitives`
+- HEAD: `[CONFIRMED] 3ab4e9b feat(layers): preserve mapping evidence and
+  conflicts`
 - Phase: `[CONFIRMED] Phase 3 in progress — parsing and normalization`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -58,6 +58,8 @@
     attributes, and diagnostics.`
   - `[CONFIRMED] Evidence-preserving X2/filename/extension layer mapping with
     explicit conflict uncertainty and SameCoordinates evidence.`
+  - `[CONFIRMED] Analytic outline graph reconstruction with bounded endpoint
+    snapping, arc chord error, nested cutout topology, and explicit ambiguity.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -69,15 +71,16 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (61 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (66 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 155 tests, 91.37% coverage.`
+    --cov-fail-under=85 -q passed: 170 tests, 91.08% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    outline reconstruction, BOM/CPL, rule execution, complete diagnostics,
+    BOM/CPL, full project assembly, rule execution, complete diagnostics,
     rendering, and review orchestration remain unimplemented.`
   - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified layer-mapping slice is pending commit.`
+- Working tree: `[CONFIRMED] Verified outline-reconstruction slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -126,27 +129,82 @@ the current capabilities.
 
 ## Next Action
 
-Reconstruct trusted board outlines and cutouts from analytic line/arc graphs.
+Parse normalized BOM and placement CSV inputs with row/column provenance.
 
 Start with:
 
-- `src/boardgate/geometry/arcs.py`
-- `src/boardgate/normalization/outline.py`
-- `tests/unit/normalization/test_outline.py`
+- `src/boardgate/parsers/tabular.py`
+- `src/boardgate/parsers/bom.py`
+- `src/boardgate/parsers/placement.py`
+- `tests/unit/parsers/test_tabular.py`
 
 Acceptance criteria:
 
-1. Only trusted BOARD_OUTLINE Line/Arc primitives enter reconstruction.
-2. Endpoints snap only within configured 0.01 mm closure tolerance and preserve
-   an error bound.
-3. Analytic arcs are derived to Shapely with maximum 0.001 mm chord error.
-4. Nested closed loops become cutouts, not multiple-board findings.
-5. Open, branching, unsupported, and disjoint outer contours remain explicit
-   uncertainty rather than guessed topology.
-6. Closed/open/cutout/multiple/arc/error-bound tests pass before a separate
+1. UTF-8 CSV dialect/header discovery is deterministic and bounded.
+2. Explicit aliases map reference, value/MPN/quantity/DNP and
+   reference/X/Y/rotation/side fields.
+3. Every BOM item and placement carries source row and byte/line provenance.
+4. Duplicate headers, conflicting aliases, invalid numbers, ambiguous units,
+   and missing required columns are typed failures.
+5. DNP is represented as data and not silently discarded.
+6. BOM and placement positive/error/round-trip tests pass before a separate
    commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:15:19+08:00 — Codex — Analytic outline reconstruction
+
+- Role: primary implementation agent
+- Task: Reconstruct trusted board material topology for Phase 4.
+- Context inspected:
+  - `HANDOFF.md`
+  - Closure, arc-error, cutout, and ambiguity requirements in the approved plan
+- Actions performed:
+  - Added deterministic analytic arc approximation with a proven maximum chord
+    error.
+  - Added bounded endpoint clustering and graph-cycle reconstruction for
+    trusted dark Line/Arc outline geometry.
+  - Preserved oriented analytic segments while deriving only local Shapely
+    polygons for validity and nesting.
+  - Classified nested loops as cutouts and disjoint material loops as multiple
+    outer contours with explicit uncertainty.
+  - Propagated snap, radial, and chord approximation errors into BoardOutline.
+  - Rejected open, branching, touching, unsupported, clear-polarity, and
+    multi-source outline ambiguity without guessing.
+  - Updated and regenerated the public PCBProject schema.
+- Files modified:
+  - `src/boardgate/geometry/`
+  - `src/boardgate/normalization/outline.py`
+  - `src/boardgate/domain/layer.py`
+  - `tests/unit/geometry/`
+  - `tests/unit/normalization/test_outline.py`
+  - `schemas/v1/project.schema.json`
+  - `pyproject.toml`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/geometry/test_arcs.py
+    tests/unit/normalization/test_outline.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused geometry/outline tests: 15 passed.
+  - Full suite: 170 passed, 91.08% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - Nested loops can be deterministically classified without treating a
+    cutout as a second board.
+  - Endpoint snapping contributes a measured error bound rather than altering
+    geometry invisibly.
+- Evidence: Commands and property/golden topology tests above.
+- Commit: PENDING (this outline commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Multiple trusted outline source files still require
+  coordinate confirmation.
+- Recommended next action: Parse BOM and placement CSV with provenance.
 
 ### 2026-07-28T17:08:59+08:00 — Codex — Evidence-backed layer mapping
 
@@ -187,7 +245,7 @@ Acceptance criteria:
     BoardGate now refuses to pick either role in that case.
   - SameCoordinates is retained but intentionally does not determine role.
 - Evidence: Commands and mapping tests above.
-- Commit: PENDING (this layer-mapping commit)
+- Commit: `3ab4e9b feat(layers): preserve mapping evidence and conflicts`
 - Issues created or updated: None.
 - Remaining uncertainty: Board outline topology is not reconstructed yet.
 - Recommended next action: Reconstruct analytic outlines and nested cutouts.
