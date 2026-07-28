@@ -1,0 +1,8 @@
+G04 BoardGate macro fixture*
+%FSLAX46Y46*%
+%MOMM*%
+%AMROUND*1,1,$1,0,0*%
+%ADD10ROUND,0.500*%
+D10*
+X1000000Y1000000D03*
+M02*

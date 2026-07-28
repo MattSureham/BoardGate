@@ -16,11 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:58:22+08:00`
+- Last updated: `2026-07-28T17:05:40+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 1494432 feat(cli): emit validated project manifests`
+- HEAD: `[CONFIRMED] d565c0b feat(parser): normalize Excellon drills and
+  slots`
 - Phase: `[CONFIRMED] Phase 3 in progress — parsing and normalization`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -52,25 +53,29 @@
     linear/arc slots, plating hints, units, formats, and diagnostics.`
   - `[CONFIRMED] Lightweight source-command scanner provides line/byte spans
     and raw-coordinate provenance without duplicating geometry parsing.`
+  - `[CONFIRMED] Gerbonara-backed Gerber adapter retains analytic Line, Arc,
+    Flash, and Region segments, standard/macro apertures, polarity, X2
+    attributes, and diagnostics.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
-  Excellon round hits and routed slots are normalized to millimetres.`
+  Excellon round hits/routed slots and Gerber analytic primitives are
+  normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (53 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (58 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 124 tests, 91.04% coverage.`
+    --cov-fail-under=85 -q passed: 136 tests, 91.30% coverage.`
 - Known limitations:
-  - `[CONFIRMED] The current CLI slice still emits only manifest.json; Gerber,
-    BOM/CPL, rule execution, complete diagnostics, rendering, and review
-    orchestration remain unimplemented.`
+  - `[CONFIRMED] The current CLI slice still emits only manifest.json;
+    layer mapping, outline reconstruction, BOM/CPL, rule execution, complete
+    diagnostics, rendering, and review orchestration remain unimplemented.`
   - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified Excellon adapter slice is pending commit.`
+- Working tree: `[CONFIRMED] Verified Gerber adapter slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -93,7 +98,8 @@ the current capabilities.
   object-producing commands by order and retains raw command, coordinates,
   tool, line, and byte span. Count mismatch is an explicit limitation and
   leaves unmatched spans `null`.
-- Remaining work: Reuse and specialize the scanner for Gerber.
+- Remaining work: None for v0.1; retain mismatch limitations in future
+  adapters.
 - Relevant files: `src/boardgate/parsers/scanner.py`,
   `tests/unit/parsers/test_scanner.py`
 - Blocking: No.
@@ -118,28 +124,82 @@ the current capabilities.
 
 ## Next Action
 
-Implement the Gerber adapter for analytic primitives and polarity.
+Implement evidence-preserving Gerber layer mapping and PCBLayer normalization.
 
 Start with:
 
-- `src/boardgate/parsers/gerber.py`
-- `src/boardgate/parsers/gerber_scanner.py`
-- `tests/fixtures/parser/gerber/`
-- `tests/unit/parsers/test_gerber.py`
+- `src/boardgate/normalization/layers.py`
+- `src/boardgate/normalization/project.py`
+- `tests/unit/normalization/test_layers.py`
 
 Acceptance criteria:
 
-1. Gerbonara remains behind the adapter and no third-party object escapes.
-2. Line, Arc, Flash, and Region plus apertures, units, and polarity normalize
-   to BoardGate analytic primitives.
-3. X2 FileFunction/SameCoordinates values remain source evidence and are not
-   treated as an unquestionable final layer mapping.
-4. Macro and unsupported geometry emit explicit limitations.
-5. Command spans align where provable and remain `null` otherwise.
-6. Golden polarity, macro-limitation, malformed-input, and round-trip tests
-   pass before a separate commit.
+1. X2 FileFunction, filename tokens, and extensions produce separate sorted
+   mapping candidates.
+2. Strong conflicting evidence yields role UNKNOWN plus
+   LAYER_MAPPING_UNCERTAIN; no source silently overrides another.
+3. SameCoordinates remains evidence for later alignment, not a layer role.
+4. Normalized PCBLayer contains only BoardGate primitives and stable IDs.
+5. Top/bottom copper, mask, silk, paste, outline, inner copper, and ambiguous
+   names have positive/negative/conflict tests.
+6. Round-trip and stable-mapping tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:05:40+08:00 — Codex — Gerber analytic adapter
+
+- Role: primary implementation agent
+- Task: Complete the Phase 3 Gerber adapter boundary.
+- Context inspected:
+  - `HANDOFF.md`
+  - Gerbonara 1.6.3 parser, aperture, object, region, warning, and X2 behavior
+  - Gerber scope in the approved plan
+- Actions performed:
+  - Added byte-accurate Gerber command tokenization and object/region spans.
+  - Added metric/inch normalization for Line, Arc, Flash, and analytic Region
+    segments.
+  - Added circle, rectangle, obround, polygon, and bounded macro aperture
+    normalization, including holes, rotation, and polygon vertex count.
+  - Preserved dark/clear polarity, aperture numbers, X2 file attributes,
+    source units, raw commands/coordinates, and generator/layer hints.
+  - Rejected include commands and made ignored/unknown statements and macro
+    rule exclusions explicit limitations.
+  - Updated and regenerated the public PCBProject schema.
+- Files modified:
+  - `src/boardgate/parsers/gerber.py`
+  - `src/boardgate/parsers/gerber_scanner.py`
+  - `src/boardgate/domain/layer.py`
+  - `tests/fixtures/parser/gerber/`
+  - `tests/unit/parsers/`
+  - `tests/unit/domain/test_region.py`
+  - `schemas/v1/project.schema.json`
+- Commands run:
+  - Local Gerbonara API and fixture behavior probes.
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/parsers/test_gerber.py
+    tests/unit/parsers/test_gerber_scanner.py
+    tests/unit/domain/test_region.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused Gerber/domain tests: 12 passed.
+  - Full suite: 136 passed, 91.30% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - Gerbonara preserves X2 file attributes separately from its optional
+    filename-derived layer hints.
+  - Macro aperture bounding geometry is available, but standard-aperture DFM
+    coverage must remain excluded and explicit.
+- Evidence: Commands, installed-source references, and original golden fixtures.
+- Commit: PENDING (this Gerber commit)
+- Issues created or updated: ISSUE-001 Gerber scanner work completed.
+- Remaining uncertainty: Step-repeat object expansion can make source mapping
+  partial and will be reported as such.
+- Recommended next action: Normalize evidence-backed PCB layer mappings.
 
 ### 2026-07-28T16:58:22+08:00 — Codex — Excellon adapter
 
@@ -184,7 +244,7 @@ Acceptance criteria:
   - Gerbonara 1.6.3 accepts but does not apply the documented Excellon
     `plated=` hint; the adapter handles confirmed hints conservatively.
 - Evidence: Commands, installed-source references, and original golden fixtures.
-- Commit: PENDING (this Excellon commit)
+- Commit: `d565c0b feat(parser): normalize Excellon drills and slots`
 - Issues created or updated: ISSUE-001 resolved; ISSUE-002 created.
 - Remaining uncertainty: Parser execution is not timeout-isolated.
 - Recommended next action: Add the Gerber analytic-primitive adapter.

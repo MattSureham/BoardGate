@@ -15,8 +15,6 @@ from boardgate.domain.geometry import BoundingBox, Point
 from boardgate.domain.provenance import Provenance
 from boardgate.domain.source import Uncertainty
 
-MIN_POLYGON_POINTS = 3
-
 
 class Aperture(VersionedModel):
     """Normalized aperture dimensions."""
@@ -26,6 +24,7 @@ class Aperture(VersionedModel):
     height_mm: float | None = Field(default=None, gt=0.0)
     hole_diameter_mm: float | None = Field(default=None, ge=0.0)
     rotation_degrees: float = 0.0
+    vertices: int | None = Field(default=None, ge=3)
     macro_name: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
@@ -40,6 +39,12 @@ class Aperture(VersionedModel):
             raise ValueError(msg)
         if self.shape is ApertureShape.MACRO and self.macro_name is None:
             msg = "macro aperture requires macro_name"
+            raise ValueError(msg)
+        if self.shape is ApertureShape.POLYGON and self.vertices is None:
+            msg = "polygon aperture requires vertices"
+            raise ValueError(msg)
+        if self.shape is not ApertureShape.POLYGON and self.vertices is not None:
+            msg = "vertices are only valid for polygon apertures"
             raise ValueError(msg)
         return self
 
@@ -81,23 +86,54 @@ class FlashPrimitive(VersionedModel):
     provenance: Provenance
 
 
+class RegionLineSegment(VersionedModel):
+    """One analytic straight segment in a Gerber region contour."""
+
+    kind: Literal["line"] = "line"
+    start: Point
+    end: Point
+
+
+class RegionArcSegment(VersionedModel):
+    """One analytic circular segment in a Gerber region contour."""
+
+    kind: Literal["arc"] = "arc"
+    start: Point
+    end: Point
+    center: Point
+    clockwise: bool
+
+
+type RegionSegment = Annotated[
+    RegionLineSegment | RegionArcSegment,
+    Field(discriminator="kind"),
+]
+
+
 class RegionPrimitive(VersionedModel):
-    """A normalized polygonal region with optional holes."""
+    """A normalized analytic Gerber region."""
 
     kind: Literal["region"] = "region"
     primitive_id: str = Field(min_length=1)
-    contours: tuple[tuple[Point, ...], ...] = Field(min_length=1)
+    contours: tuple[tuple[RegionSegment, ...], ...] = Field(min_length=1)
     polarity: Polarity
     provenance: Provenance
 
     @model_validator(mode="after")
-    def require_polygon_contours(self) -> Self:
-        """Require at least three unique points per contour."""
+    def require_closed_contours(self) -> Self:
+        """Require connected, closed analytic contours."""
         for contour in self.contours:
-            unique_points = {(point.x, point.y) for point in contour}
-            if len(unique_points) < MIN_POLYGON_POINTS:
-                msg = "region contours require at least three unique points"
+            if not contour:
+                msg = "region contours require at least one segment"
                 raise ValueError(msg)
+            for current, following in zip(
+                contour,
+                (*contour[1:], contour[0]),
+                strict=True,
+            ):
+                if current.end != following.start:
+                    msg = "region contour segments must be connected and closed"
+                    raise ValueError(msg)
         return self
 
 

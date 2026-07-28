@@ -57,6 +57,19 @@
         "shape": {
           "$ref": "#/$defs/ApertureShape"
         },
+        "vertices": {
+          "anyOf": [
+            {
+              "minimum": 3,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vertices"
+        },
         "width_mm": {
           "exclusiveMinimum": 0.0,
           "title": "Width Mm",
@@ -1234,14 +1247,83 @@
       "title": "Provenance",
       "type": "object"
     },
+    "RegionArcSegment": {
+      "additionalProperties": false,
+      "description": "One analytic circular segment in a Gerber region contour.",
+      "properties": {
+        "center": {
+          "$ref": "#/$defs/Point"
+        },
+        "clockwise": {
+          "title": "Clockwise",
+          "type": "boolean"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "const": "arc",
+          "default": "arc",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "center",
+        "clockwise"
+      ],
+      "title": "RegionArcSegment",
+      "type": "object"
+    },
+    "RegionLineSegment": {
+      "additionalProperties": false,
+      "description": "One analytic straight segment in a Gerber region contour.",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "const": "line",
+          "default": "line",
+          "title": "Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "RegionLineSegment",
+      "type": "object"
+    },
     "RegionPrimitive": {
       "additionalProperties": false,
-      "description": "A normalized polygonal region with optional holes.",
+      "description": "A normalized analytic Gerber region.",
       "properties": {
         "contours": {
           "items": {
             "items": {
-              "$ref": "#/$defs/Point"
+              "$ref": "#/$defs/RegionSegment"
             },
             "type": "array"
           },
@@ -1281,6 +1363,23 @@
       ],
       "title": "RegionPrimitive",
       "type": "object"
+    },
+    "RegionSegment": {
+      "discriminator": {
+        "mapping": {
+          "arc": "#/$defs/RegionArcSegment",
+          "line": "#/$defs/RegionLineSegment"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/RegionLineSegment"
+        },
+        {
+          "$ref": "#/$defs/RegionArcSegment"
+        }
+      ]
     },
     "RiskMode": {
       "description": "Explicit risk modes understood by orchestration and reporting.",
