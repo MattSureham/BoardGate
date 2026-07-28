@@ -60,7 +60,10 @@ def make_finding(  # noqa: PLR0913
             rule_id=rule_id.value,
             rule_version=rule_version,
             profile_sha256=context.profile_sha256,
-            evidence_ids=tuple(evidence_identifier(item) for item in evidence),
+            evidence_ids=(
+                f"profile-config:{config_path}",
+                *(evidence_identifier(item) for item in evidence),
+            ),
             location=location,
             measurement=measurement,
         ),

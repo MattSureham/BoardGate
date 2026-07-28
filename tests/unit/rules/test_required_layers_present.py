@@ -194,5 +194,11 @@ def test_rule_result_and_review_round_trip() -> None:
         profile,
     )
 
-    assert len(review.rule_results) == 1
+    assert len(review.rule_results) == 2
+    required_result = next(
+        result
+        for result in review.rule_results
+        if result.rule_id.value == "required_layers_present"
+    )
+    assert required_result.outcome is RuleOutcome.FINDINGS
     assert ReviewResult.model_validate_json(review.model_dump_json()) == review

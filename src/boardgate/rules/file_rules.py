@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from boardgate import __version__
 from boardgate.config.models import RuleId
+from boardgate.domain.diagnostic import SourceDiagnosticLevel
 from boardgate.domain.enums import FileType, LayerRole, RiskMode
 from boardgate.domain.finding import FindingEvidence
 from boardgate.domain.provenance import Provenance
@@ -198,4 +199,140 @@ class RequiredLayersPresentRule:
                 len(context.profile.required_layers) - uncertain_count
             ),
             applicable_object_count=len(context.profile.required_layers),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DrillFilePresentRule:
+    """Require one successfully parsed Excellon source."""
+
+    rule_id: RuleId = RuleId.DRILL_FILE_PRESENT
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = ()
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Distinguish successful empty files, parse failures, and absence."""
+        drill_sources = tuple(
+            source
+            for source in context.project.source_files
+            if source.file_type is FileType.EXCELLON
+        )
+        failed_source_ids = {
+            diagnostic.source_file_id
+            for diagnostic in context.project.source_diagnostics
+            if diagnostic.level is SourceDiagnosticLevel.ERROR
+        }
+        parsed_sources = tuple(
+            source
+            for source in drill_sources
+            if source.source_file_id not in failed_source_ids
+        )
+        if parsed_sources:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=RuleCoverage.FULL,
+                summary=("At least one confirmed Excellon source parsed successfully."),
+                evaluated_object_count=len(parsed_sources),
+                applicable_object_count=len(drill_sources),
+            )
+
+        failed_evidence = tuple(
+            FindingEvidence(
+                provenance=Provenance(
+                    source_file_id=diagnostic.source_file_id,
+                    object_id=diagnostic.diagnostic_id,
+                    parser="boardgate-parser-runner",
+                    parser_version=__version__,
+                    source_span=diagnostic.source_span,
+                    metadata={"diagnostic_code": diagnostic.code},
+                ),
+                note="A confirmed drill source could not be parsed completely.",
+            )
+            for diagnostic in context.project.source_diagnostics
+            if diagnostic.source_file_id
+            in {source.source_file_id for source in drill_sources}
+            and diagnostic.level is SourceDiagnosticLevel.ERROR
+        )
+        candidate_evidence = tuple(
+            FindingEvidence(
+                provenance=Provenance(
+                    source_file_id=source.source_file_id,
+                    object_id=source.source_file_id,
+                    parser="boardgate-classifier",
+                    parser_version=__version__,
+                    metadata={"logical_path": source.logical_path},
+                ),
+                note="Unresolved file classification could represent drill data.",
+            )
+            for source in context.project.source_files
+            if source.file_type is FileType.UNKNOWN
+        )
+        uncertain_evidence = (*failed_evidence, *candidate_evidence)
+        if uncertain_evidence:
+            category = (
+                RiskMode.PARSER_LIMITATION
+                if failed_evidence
+                else RiskMode.FILE_TYPE_UNKNOWN
+            )
+            finding = make_finding(
+                context,
+                rule_id=self.rule_id,
+                category=category,
+                config_path="rules.drill_file_present",
+                title="Drill file availability requires confirmation",
+                summary=(
+                    "A potential or confirmed drill source exists, but a usable "
+                    "Excellon parse is not available."
+                ),
+                facts=(
+                    "No confirmed Excellon source completed parsing.",
+                    "At least one unresolved or failed source could contain "
+                    "drill data.",
+                ),
+                evidence=tuple(uncertain_evidence),
+                confidence=0.5,
+                suggested_action=(
+                    "Provide a valid, unambiguous Excellon drill export and rerun."
+                ),
+                requires_human_confirmation=True,
+            )
+            return RuleEvaluation(
+                outcome=RuleOutcome.FINDINGS,
+                coverage=RuleCoverage.PARTIAL,
+                findings=(finding,),
+                summary="Drill-file presence cannot be confirmed.",
+                evaluated_object_count=0,
+                applicable_object_count=len(drill_sources),
+            )
+
+        inventory = _inventory_evidence(context)
+        if not inventory:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.INPUT_UNCERTAIN,
+                summary="No classified project sources are available.",
+            )
+        finding = make_finding(
+            context,
+            rule_id=self.rule_id,
+            category=RiskMode.FILE_INCOMPLETE,
+            config_path="rules.drill_file_present",
+            title="Drill file is missing",
+            summary=(
+                "The completely classified project inventory contains no "
+                "Excellon drill source."
+            ),
+            facts=("No source is classified as Excellon drill data.",),
+            evidence=inventory,
+            confidence=1.0,
+            suggested_action="Export and include the plated/NPTH drill data.",
+        )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=RuleCoverage.FULL,
+            findings=(finding,),
+            summary="The required Excellon drill source is absent.",
+            evaluated_object_count=1,
+            applicable_object_count=1,
         )

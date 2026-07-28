@@ -16,12 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:51:35+08:00`
+- Last updated: `2026-07-28T17:54:09+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] c360738 feat(rules): establish deterministic review
-  engine`
+- HEAD: `[CONFIRMED] a734d2f feat(rule): require configured PCB layers`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -89,22 +88,23 @@
   and unknown files receive evidence-backed manifest classifications.
   Excellon round hits/routed slots and Gerber analytic primitives are
   normalized to millimetres.`
-- Implemented rules: `[CONFIRMED] required_layers_present v1.`
+- Implemented rules: `[CONFIRMED] required_layers_present and
+  drill_file_present v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (90 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (91 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 236 tests, 89.58% coverage.`
+    --cov-fail-under=85 -q passed: 241 tests, 89.61% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified required_layers_present rule slice is
-  pending commit.`
+- Working tree: `[CONFIRMED] Verified drill_file_present rule slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -153,28 +153,49 @@ the current capabilities.
 
 ## Next Action
 
-Implement `drill_file_present` v1.
+Implement `board_outline_present` v1.
 
 Start with:
 
 - `src/boardgate/rules/file_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_drill_file_present.py`
+- `tests/unit/rules/test_board_outline_present.py`
 
 Acceptance criteria:
 
-1. A successfully parsed Excellon source satisfies the rule even when it
-   contains zero hits; routed slots remain explicit but do not count as round
-   holes elsewhere.
-2. Confirmed absence after complete classification creates one stable blocker
-   Finding; unresolved drill candidates or a drill parser failure produce
-   PARTIAL confirmation instead of a false absence.
-3. Evidence and config path identify the source inventory and
-   `rules.drill_file_present`.
-4. Present, empty, missing, uncertain, parser-failure, stable-ID, and
+1. A trusted reconstructed BoardOutline satisfies the rule; an outline layer
+   alone does not.
+2. Reconstruction or mapping uncertainty produces a PARTIAL confirmation
+   Finding, while complete absence produces one stable blocker Finding.
+3. Evidence identifies outline layer/source candidates and config path
+   `rules.board_outline_present`.
+4. Present, absent, mapping/reconstruction-uncertain, stable-ID, and
    round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:54:09+08:00 — Codex — drill_file_present v1
+
+- Role: primary implementation agent
+- Task: Distinguish usable drill input from absence and parser uncertainty.
+- Actions performed:
+  - Counted a successfully parsed Excellon source as present even with zero
+    hits.
+  - Converted confirmed absence into a stable full-coverage blocker Finding.
+  - Converted unresolved classifications and parser failures into PARTIAL
+    confirmation Findings instead of false absence.
+  - Added diagnostic and inventory provenance plus the exact rule config path.
+- Files modified:
+  - `src/boardgate/rules/file_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_drill_file_present.py`
+- Tests:
+  - Focused file-rule tests: 10 passed.
+  - Full suite: 241 passed, 89.61% branch coverage.
+- Evidence: Empty/present/missing/candidate/failure/stability/round-trip tests.
+- Commit: PENDING (this drill_file_present commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `board_outline_present` v1.
 
 ### 2026-07-28T17:51:35+08:00 — Codex — required_layers_present v1
 
@@ -203,7 +224,7 @@ Acceptance criteria:
   - Rule/domain/engine focus: 23 passed.
   - Full suite: 236 passed, 89.58% branch coverage.
 - Evidence: Present/missing/ambiguous/stability/round-trip tests.
-- Commit: PENDING (this required_layers_present commit)
+- Commit: `a734d2f feat(rule): require configured PCB layers`
 - Issues created or updated: None.
 - Recommended next action: Implement `drill_file_present` v1.
 
