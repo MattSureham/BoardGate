@@ -1024,6 +1024,14 @@
           ],
           "default": null
         },
+        "coordinate_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Coordinate Evidence",
+          "type": "array"
+        },
         "layer_id": {
           "minLength": 1,
           "title": "Layer Id",

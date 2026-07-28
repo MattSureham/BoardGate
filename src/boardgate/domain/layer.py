@@ -161,6 +161,7 @@ class PCBLayer(VersionedModel):
     side: BoardSide
     mapping_confidence: float = Field(ge=0.0, le=1.0)
     mapping_candidates: tuple[LayerMappingCandidate, ...] = ()
+    coordinate_evidence: tuple[str, ...] = ()
     primitives: tuple[GraphicPrimitive, ...] = ()
     bounding_box: BoundingBox | None = None
     uncertainties: tuple[Uncertainty, ...] = ()

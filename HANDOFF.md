@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:05:40+08:00`
+- Last updated: `2026-07-28T17:08:59+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] d565c0b feat(parser): normalize Excellon drills and
-  slots`
+- HEAD: `[CONFIRMED] 02899e2 feat(parser): normalize Gerber analytic
+  primitives`
 - Phase: `[CONFIRMED] Phase 3 in progress — parsing and normalization`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -56,6 +56,8 @@
   - `[CONFIRMED] Gerbonara-backed Gerber adapter retains analytic Line, Arc,
     Flash, and Region segments, standard/macro apertures, polarity, X2
     attributes, and diagnostics.`
+  - `[CONFIRMED] Evidence-preserving X2/filename/extension layer mapping with
+    explicit conflict uncertainty and SameCoordinates evidence.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -67,15 +69,15 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (58 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (61 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 136 tests, 91.30% coverage.`
+    --cov-fail-under=85 -q passed: 155 tests, 91.37% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    layer mapping, outline reconstruction, BOM/CPL, rule execution, complete
-    diagnostics, rendering, and review orchestration remain unimplemented.`
+    outline reconstruction, BOM/CPL, rule execution, complete diagnostics,
+    rendering, and review orchestration remain unimplemented.`
   - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified Gerber adapter slice is pending commit.`
+- Working tree: `[CONFIRMED] Verified layer-mapping slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -124,27 +126,71 @@ the current capabilities.
 
 ## Next Action
 
-Implement evidence-preserving Gerber layer mapping and PCBLayer normalization.
+Reconstruct trusted board outlines and cutouts from analytic line/arc graphs.
 
 Start with:
 
-- `src/boardgate/normalization/layers.py`
-- `src/boardgate/normalization/project.py`
-- `tests/unit/normalization/test_layers.py`
+- `src/boardgate/geometry/arcs.py`
+- `src/boardgate/normalization/outline.py`
+- `tests/unit/normalization/test_outline.py`
 
 Acceptance criteria:
 
-1. X2 FileFunction, filename tokens, and extensions produce separate sorted
-   mapping candidates.
-2. Strong conflicting evidence yields role UNKNOWN plus
-   LAYER_MAPPING_UNCERTAIN; no source silently overrides another.
-3. SameCoordinates remains evidence for later alignment, not a layer role.
-4. Normalized PCBLayer contains only BoardGate primitives and stable IDs.
-5. Top/bottom copper, mask, silk, paste, outline, inner copper, and ambiguous
-   names have positive/negative/conflict tests.
-6. Round-trip and stable-mapping tests pass before a separate commit.
+1. Only trusted BOARD_OUTLINE Line/Arc primitives enter reconstruction.
+2. Endpoints snap only within configured 0.01 mm closure tolerance and preserve
+   an error bound.
+3. Analytic arcs are derived to Shapely with maximum 0.001 mm chord error.
+4. Nested closed loops become cutouts, not multiple-board findings.
+5. Open, branching, unsupported, and disjoint outer contours remain explicit
+   uncertainty rather than guessed topology.
+6. Closed/open/cutout/multiple/arc/error-bound tests pass before a separate
+   commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:08:59+08:00 — Codex — Evidence-backed layer mapping
+
+- Role: primary implementation agent
+- Task: Normalize parsed Gerber sources into trustworthy PCBLayer roles.
+- Context inspected:
+  - `HANDOFF.md`
+  - X2, filename, and extension mapping requirements in the approved plan
+- Actions performed:
+  - Added independent X2 FileFunction, filename-token, extension, and parser
+    hint mapping signals.
+  - Aggregated agreeing signals while retaining each evidence string.
+  - Kept strong conflicts and weak/absent evidence as UNKNOWN with explicit
+    LAYER_MAPPING_UNCERTAIN records.
+  - Preserved SameCoordinates separately for later alignment checks.
+  - Added stable layer IDs and copied only BoardGate parser primitives/bounds.
+  - Updated and regenerated the public PCBProject schema.
+- Files modified:
+  - `src/boardgate/normalization/`
+  - `src/boardgate/domain/layer.py`
+  - `tests/unit/normalization/`
+  - `schemas/v1/project.schema.json`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/normalization/test_layers.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Layer normalization tests: 19 passed.
+  - Full suite: 155 passed, 91.37% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - X2 and conventional filename evidence can disagree on renamed exports;
+    BoardGate now refuses to pick either role in that case.
+  - SameCoordinates is retained but intentionally does not determine role.
+- Evidence: Commands and mapping tests above.
+- Commit: PENDING (this layer-mapping commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Board outline topology is not reconstructed yet.
+- Recommended next action: Reconstruct analytic outlines and nested cutouts.
 
 ### 2026-07-28T17:05:40+08:00 — Codex — Gerber analytic adapter
 
@@ -195,7 +241,7 @@ Acceptance criteria:
   - Macro aperture bounding geometry is available, but standard-aperture DFM
     coverage must remain excluded and explicit.
 - Evidence: Commands, installed-source references, and original golden fixtures.
-- Commit: PENDING (this Gerber commit)
+- Commit: `02899e2 feat(parser): normalize Gerber analytic primitives`
 - Issues created or updated: ISSUE-001 Gerber scanner work completed.
 - Remaining uncertainty: Step-repeat object expansion can make source mapping
   partial and will be reported as such.
