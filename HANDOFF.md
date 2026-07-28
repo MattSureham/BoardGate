@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:35:04+08:00`
+- Last updated: `2026-07-28T21:36:05+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 516279f feat(reporting): compose evidence-backed review
-  report`
-- Remote sync: `[CONFIRMED] local main is two atomic commits ahead of
+- HEAD: `[CONFIRMED] 650525b feat(rendering): generate deterministic review
+  SVG`
+- Remote sync: `[CONFIRMED] local main is three atomic commits ahead of
   origin/main at 0ece4bb; the preceding GitHub Actions run 30362114646
   completed successfully.`
 - Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
@@ -99,6 +99,9 @@
   - `[CONFIRMED] The deterministic standalone SVG renderer projects analytic
     layers, board topology, drills, and spatial/non-spatial Finding markers
     without scripts or external resources.`
+  - `[CONFIRMED] Original minimal valid-board and copper-edge fixtures exercise
+    the real Gerber/Excellon adapters, project builder, and all required rules
+    without third-party sample licensing.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -125,9 +128,9 @@
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified standalone SVG renderer, tests, and this
-  HANDOFF update are pending one atomic commit; fixture and orchestration
-  slices remain separately uncommitted.`
+- Working tree: `[CONFIRMED] Verified original Phase 9 fixtures, direct-pipeline
+  integration tests, and this HANDOFF update are pending one atomic commit;
+  orchestration work remains separately uncommitted.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -222,6 +225,40 @@ Acceptance criteria:
 
 ## Recent Activity
 
+### 2026-07-28T21:36:05+08:00 — Codex — original Phase 9 PCB fixtures
+
+- Role: primary implementation agent
+- Task: Add license-safe golden projects for complete-review integration.
+- Actions performed:
+  - Added original 20 x 15 mm X2 Gerber/Excellon fixtures with shared
+    coordinates, closed profile, top/bottom copper, plated round drill, unique
+    standard pads, and eligible standard traces.
+  - Verified the valid fixture reaches `READY_FOR_REVIEW` with all required
+    rules passing and no Findings.
+  - Added an edge variant that changes only trace position and deterministically
+    produces two confirmed 0.150 mm copper-to-edge Findings.
+- Files modified:
+  - `tests/fixtures/valid_minimal_board/*`
+  - `tests/fixtures/copper_too_close_to_edge/*`
+  - `tests/integration/test_review_fixtures.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv run pytest tests/integration/test_review_fixtures.py -q`
+  - `uv run ruff format --check tests/integration/test_review_fixtures.py`
+  - `uv run ruff check tests/integration/test_review_fixtures.py`
+  - `uv run mypy src tests`
+  - `git diff --check`
+- Tests:
+  - Focused fixture integration suite: 2 passed.
+  - Shared-tree full suite: 427 passed, 91.02% branch coverage.
+- Evidence: Manifest classification, X2 mapping, SameCoordinates, outline
+  closure, plated drill, unique annular matches, supported traces, complete
+  required-rule coverage, and exact edge measurements.
+- Commit: PENDING (this original Phase 9 fixture commit)
+- Issues created or updated: The example profile keeps copper-edge severity at
+  WARNING, so confirmed edge Findings do not by themselves create a blocker.
+- Recommended next action: Wire the complete Phase 9 ReviewService and CLI.
+
 ### 2026-07-28T21:35:04+08:00 — Codex — deterministic standalone SVG
 
 - Role: primary implementation agent
@@ -252,7 +289,7 @@ Acceptance criteria:
   primitive type, round/slot drills, arc/full-circle paths, coordinate
   reflection, spatial/non-spatial Findings, mismatch rejection, XML escaping,
   and no active/external content.
-- Commit: PENDING (this deterministic standalone SVG commit)
+- Commit: `650525b feat(rendering): generate deterministic review SVG`
 - Issues created or updated: None.
 - Recommended next action: Wire the complete Phase 9 ReviewService and CLI.
 
