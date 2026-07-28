@@ -412,6 +412,11 @@
       "additionalProperties": false,
       "description": "Normalized pick-and-place record.",
       "properties": {
+        "dnp": {
+          "default": false,
+          "title": "Dnp",
+          "type": "boolean"
+        },
         "footprint": {
           "anyOf": [
             {

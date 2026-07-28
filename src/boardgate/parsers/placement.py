@@ -69,10 +69,24 @@ _ALIASES = {
     "side": frozenset({"boardside", "layer", "side", "topbottom"}),
     "value": frozenset({"comment", "componentvalue", "value"}),
     "footprint": frozenset({"footprint", "package", "pattern"}),
+    "dnp": frozenset(
+        {
+            "dnp",
+            "donotfit",
+            "donotplace",
+            "donotpopulate",
+            "fitted",
+            "populate",
+        }
+    ),
     "unit": frozenset({"coordinateunit", "units", "unit"}),
 }
 _TOP_VALUES = frozenset({"f", "front", "t", "top"})
 _BOTTOM_VALUES = frozenset({"b", "back", "bottom"})
+_TRUE_DNP = frozenset(
+    {"1", "dnp", "dnf", "do not fit", "do not place", "do not populate", "true", "yes"}
+)
+_FALSE_DNP = frozenset({"", "0", "false", "fit", "fitted", "no", "populate"})
 
 
 class PlacementParseResult(VersionedModel):
@@ -194,6 +208,31 @@ def _optional(row: tuple[str, ...], columns: dict[str, int], key: str) -> str | 
     return value or None
 
 
+def _dnp(
+    value: str,
+    *,
+    header: str,
+    logical_path: str,
+    row_number: int,
+) -> bool:
+    normalized = value.strip().casefold()
+    header_normalized = header.casefold()
+    if header_normalized in {"fitted", "populate"}:
+        if normalized in {"", "1", "true", "yes", "fitted", "populate"}:
+            return False
+        if normalized in {"0", "false", "no", "dnp", "dnf"}:
+            return True
+    if normalized in _TRUE_DNP:
+        return True
+    if normalized in _FALSE_DNP:
+        return False
+    raise ParserError(
+        "PLACEMENT_DNP_VALUE",
+        logical_path,
+        f"row {row_number} has an unrecognized DNP value",
+    )
+
+
 def parse_placement_csv(
     payload: bytes,
     *,
@@ -246,6 +285,17 @@ def parse_placement_csv(
         if unit is Unit.INCH:
             x *= 25.4
             y *= 25.4
+        dnp_index = columns.get("dnp")
+        dnp = (
+            _dnp(
+                row.values[dnp_index],
+                header=table.normalized_headers[dnp_index],
+                logical_path=logical_path,
+                row_number=row.row_number,
+            )
+            if dnp_index is not None
+            else False
+        )
         raw_signature = json.dumps(row.values, ensure_ascii=False)
         identifier = object_id(
             "placement",
@@ -271,6 +321,7 @@ def parse_placement_csv(
                 ),
                 value=_optional(row.values, columns, "value"),
                 footprint=_optional(row.values, columns, "footprint"),
+                dnp=dnp,
                 provenance=Provenance(
                     source_file_id=source_file_id,
                     object_id=identifier,

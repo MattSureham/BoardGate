@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from boardgate.config.models import RuleId, RuleProfile, profile_hash
 from boardgate.domain.enums import ReviewStatus, Severity
 from boardgate.domain.project import PCBProject
+from boardgate.rules.assembly_data import assembly_data_inventory
 from boardgate.rules.models import (
     ReviewResult,
     RuleCoverage,
@@ -86,9 +87,17 @@ def determine_review_status(
         for finding in findings
     ):
         return ReviewStatus.NOT_READY_FOR_FABRICATION
-    if any(
-        result.required and result.outcome in {RuleOutcome.FAILED, RuleOutcome.SKIPPED}
-        for result in rule_results
+    assembly_inventory = assembly_data_inventory(project)
+    assembly_input_missing = project.assembly_requirements.review_requested and not (
+        assembly_inventory.bom_usable and assembly_inventory.placement_usable
+    )
+    if (
+        any(
+            result.required
+            and result.outcome in {RuleOutcome.FAILED, RuleOutcome.SKIPPED}
+            for result in rule_results
+        )
+        or assembly_input_missing
     ):
         return ReviewStatus.INSUFFICIENT_INFORMATION
     if (

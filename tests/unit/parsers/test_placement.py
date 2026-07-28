@@ -66,6 +66,48 @@ def test_unit_column_can_supply_unit() -> None:
     assert result.source_unit is Unit.MILLIMETRE
 
 
+def test_explicit_dnp_values_are_normalized() -> None:
+    result = parse_placement_csv(
+        (
+            b"Ref,X (mm),Y (mm),Rotation,Side,DNP\n"
+            b"R1,1,2,0,top,true\n"
+            b"R2,3,4,0,top,false\n"
+        ),
+        logical_path="placement.csv",
+        source_file_id=SOURCE_ID,
+    )
+
+    assert result.placements[0].dnp is True
+    assert result.placements[1].dnp is False
+
+
+@pytest.mark.parametrize(
+    ("header", "value", "expected_dnp"),
+    [
+        ("Fitted", "yes", False),
+        ("Fitted", "no", True),
+        ("Populate", "1", False),
+        ("Populate", "0", True),
+    ],
+)
+def test_fitted_and_populate_columns_use_inverse_dnp_semantics(
+    header: str,
+    value: str,
+    expected_dnp: bool,
+) -> None:
+    payload = (
+        f"Ref,X (mm),Y (mm),Rotation,Side,{header}\nR1,1,2,0,top,{value}\n"
+    ).encode()
+
+    result = parse_placement_csv(
+        payload,
+        logical_path="placement.csv",
+        source_file_id=SOURCE_ID,
+    )
+
+    assert result.placements[0].dnp is expected_dnp
+
+
 @pytest.mark.parametrize(
     ("payload", "code"),
     [
@@ -92,6 +134,10 @@ def test_unit_column_can_supply_unit() -> None:
         (
             b"Ref,X (mm),Y (mm),Rotation,Side\n,1,2,0,top\n",
             "PLACEMENT_REFERENCE_EMPTY",
+        ),
+        (
+            b"Ref,X (mm),Y (mm),Rotation,Side,DNP\nU1,1,2,0,top,maybe\n",
+            "PLACEMENT_DNP_VALUE",
         ),
     ],
 )

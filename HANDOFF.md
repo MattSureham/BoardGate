@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:37:16+08:00`
+- Last updated: `2026-07-28T20:58:57+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 5bf2d15 feat(rule): detect silkscreen over exposed pads`
+- HEAD: `[CONFIRMED] 8210f5d feat(rule): measure solder mask dams`
 - Remote sync: `[CONFIRMED] origin/main remains at d297635; later local
   commits are pending a normal push because the configured proxy aborts the
   GitHub CONNECT request.`
@@ -67,6 +67,8 @@
     and placement records with typed column, unit, numeric, and DNP errors.`
   - `[CONFIRMED] BOM and placement records retain source row/byte spans,
     unmapped metadata, raw coordinates, and stable object provenance.`
+  - `[CONFIRMED] Placement DNP/Fitted/Populate columns normalize to an
+    explicit placement DNP flag with typed invalid-value diagnostics.`
   - `[CONFIRMED] XLSX BOM preflight rejects active content and unsafe ZIP/XML
     structure before read-only calamine parsing.`
   - `[CONFIRMED] XLSX worksheet selection is explicit when ambiguous, and
@@ -97,22 +99,23 @@
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
   minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
   minimum_drill_diameter, minimum_annular_ring, and
-  silkscreen_over_exposed_pad and minimum_solder_mask_dam v1.`
+  silkscreen_over_exposed_pad, minimum_solder_mask_dam, and
+  bom_placement_reference_match v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (106 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (109 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 331 tests, 90.17% coverage.`
+    --cov-fail-under=85 passed: 355 tests, 90.44% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_solder_mask_dam rule slice is
-  pending commit.`
+- Working tree: `[CONFIRMED] Verified bom_placement_reference_match recovery
+  slice and HANDOFF update are pending one atomic commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -182,28 +185,94 @@ the current capabilities.
 
 ## Next Action
 
-Implement `bom_placement_reference_match` v1.
+Implement `duplicate_reference_designator` v1.
 
 Start with:
 
 - `src/boardgate/rules/assembly_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_bom_placement_reference_match.py`
+- `tests/unit/rules/test_duplicate_reference_designator.py`
 
 Acceptance criteria:
 
-1. Activate assembly scope when either BOM or placement data exists; if only
-   one dataset is present, report the other as missing without hiding parsed
-   references.
-2. Normalize references case-insensitively and exclude configured ignored
-   references and DNP entries symmetrically from both BOM and CPL sets.
-3. Emit separate BOM-only and CPL-only findings with row-level provenance,
-   stable IDs, factual set membership, and no inferred design intent.
-4. Match/pass/BOM-only/CPL-only/missing-dataset/DNP/ignore/case-normalization,
-   source uncertainty, determinism, and round-trip tests pass before the
-   separate commit.
+1. Detect case-insensitive duplicate reference designators independently
+   within the BOM and within the placement dataset; never infer a duplicate
+   merely because the same reference correctly appears once in each dataset.
+2. Preserve all contributing row-level provenance, dataset identity, and
+   deterministic stable IDs without publishing duplicate Finding IDs.
+3. Apply the profile's DNP and ignored-reference policy consistently, and
+   downgrade only source-relevant uncertainty to PARTIAL confirmation.
+4. Same-dataset positive/negative, cross-dataset non-duplicate, case, DNP,
+   ignore, source uncertainty, determinism, and ReviewResult round-trip tests
+   pass before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T20:58:57+08:00 — Codex — Recovery and BOM/CPL reference match
+
+- Role: primary recovery and implementation agent
+- Task: Recover the interrupted repository state and complete
+  `bom_placement_reference_match` v1 without reimplementing committed work.
+- State labels:
+  - `[CONFIRMED] PROJECT_SPEC.md is absent from HEAD, all available refs, and
+    repository history; IMPLEMENT_PCB_AGENT.md is the tracked canonical
+    implementation specification referenced by both READMEs.`
+  - `[CONFIRMED] Actual recovery HEAD was 8210f5d with 13 committed rules and
+    an unfinished BOM/CPL working tree; HANDOFF was one commit stale.`
+- Actions performed:
+  - Read BOOTSTRAP.md, IMPLEMENT_PCB_AGENT.md, HANDOFF.md, repository
+    architecture documents, test configuration, current diffs, and recent
+    local/remote history before editing.
+  - Re-ran the interrupted working tree before repair: 330 tests passed and
+    the only failure was the stale PCBProject Schema; Ruff reported two
+    assembly-rule issues and mypy reported the same missing return type.
+  - Added explicit placement DNP/Fitted/Populate normalization and preserved
+    the default-false JSON contract.
+  - Compared case-folded populated BOM/CPL reference sets after symmetric DNP
+    and ignored-reference filtering, with explicit missing, failed, and
+    candidate dataset evidence.
+  - Aggregated directional BOM-only and placement-only facts into one
+    evidence-backed mismatch Finding. This follows the existing Finding ID
+    contract and avoids fabricating provenance when several references share
+    one BOM row.
+  - Stopped treating a classified assembly source with an ERROR diagnostic as
+    usable for readiness, while treating a successfully parsed empty dataset
+    as usable.
+  - Regenerated the PCBProject Draft 2020-12 Schema and added deterministic
+    parser, rule, status, candidate-filtering, failure, provenance, and JSON
+    round-trip tests.
+- Files modified:
+  - `schemas/v1/project.schema.json`
+  - `src/boardgate/domain/component.py`
+  - `src/boardgate/parsers/placement.py`
+  - `src/boardgate/rules/assembly_data.py`
+  - `src/boardgate/rules/assembly_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `src/boardgate/rules/engine.py`
+  - `tests/unit/domain/test_component.py`
+  - `tests/unit/parsers/test_placement.py`
+  - `tests/unit/rules/test_bom_placement_reference_match.py`
+  - `tests/unit/rules/test_engine.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run python scripts/export_schemas.py`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused recovery and assembly tests: 48 passed.
+  - Full suite: 355 passed, 90.44% branch coverage.
+- Evidence: Inactive scope, case/whitespace normalization, directional
+  mismatch provenance, multi-reference stable ID, missing BOM/CPL, explicit
+  and marker DNP, ignored references, relevant/unrelated classification
+  candidates, parser failure, readiness precedence, determinism, checked-in
+  Schema currency, and ReviewResult JSON round-trip.
+- Commit: PENDING (this recovery and bom_placement_reference_match commit)
+- Issues created or updated: ISSUE-003 retained pending a normal push.
+- Recommended next action: Implement `duplicate_reference_designator` v1.
 
 ### 2026-07-28T18:37:16+08:00 — Codex — minimum_solder_mask_dam v1
 
@@ -235,7 +304,7 @@ Acceptance criteria:
 - Evidence: Pass/violation/equality/error-band, gang-opening exclusion,
   same/opposite-side separation, clear-polarity split, mapping/polarity/macro
   and source uncertainty, direct witnesses, determinism, and JSON round-trip.
-- Commit: PENDING (this minimum_solder_mask_dam commit)
+- Commit: `8210f5d feat(rule): measure solder mask dams`
 - Issues created or updated: None.
 - Recommended next action: Implement `bom_placement_reference_match` v1.
 

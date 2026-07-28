@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from boardgate.config import load_rule_profile
 from boardgate.config.models import RuleId, RuleProfile
+from boardgate.domain.diagnostic import SourceDiagnostic, SourceDiagnosticLevel
 from boardgate.domain.enums import (
     FileType,
     ReviewStatus,
@@ -69,6 +70,53 @@ def _project(*, uncertainties: tuple[Uncertainty, ...] = ()) -> PCBProject:
         ),
         assembly_requirements=AssemblyRequirements(review_requested=False),
         uncertainties=uncertainties,
+    )
+
+
+def _assembly_project(
+    *,
+    include_placement: bool = True,
+    failed_source_id: str | None = None,
+) -> PCBProject:
+    bom_source = SourceFile(
+        source_file_id="src-1111111111111111",
+        logical_path="bom.csv",
+        sha256="1" * 64,
+        size_bytes=1,
+        file_type=FileType.BOM_CSV,
+    )
+    placement_source = SourceFile(
+        source_file_id="src-2222222222222222",
+        logical_path="placement.csv",
+        sha256="2" * 64,
+        size_bytes=1,
+        file_type=FileType.PLACEMENT_CSV,
+    )
+    sources = (bom_source, *((placement_source,) if include_placement else ()))
+    diagnostics = (
+        (
+            SourceDiagnostic(
+                diagnostic_id="diagnostic-0123456789abcdef",
+                source_file_id=failed_source_id,
+                code="PARSER_TIMEOUT",
+                level=SourceDiagnosticLevel.ERROR,
+                message="Parser timed out.",
+            ),
+        )
+        if failed_source_id is not None
+        else ()
+    )
+    return PCBProject(
+        project_id=PROJECT_ID,
+        source_files=sources,
+        manifest=ProjectManifest(project_id=PROJECT_ID, source_files=sources),
+        coordinate_system=CoordinateSystem(),
+        fabrication_requirements=FabricationRequirements(
+            profile_id="test",
+            profile_sha256=PROFILE_SHA,
+        ),
+        assembly_requirements=AssemblyRequirements(review_requested=True),
+        source_diagnostics=diagnostics,
     )
 
 
@@ -406,6 +454,37 @@ def test_overall_status_precedence() -> None:
     assert (
         determine_review_status(
             project=project,
+            rule_results=passed,
+            analysis_failed=False,
+        )
+        is ReviewStatus.READY_FOR_REVIEW
+    )
+
+
+def test_active_assembly_scope_requires_both_usable_datasets() -> None:
+    passed = (_result(RuleId.MINIMUM_TRACE_WIDTH),)
+
+    assert (
+        determine_review_status(
+            project=_assembly_project(include_placement=False),
+            rule_results=passed,
+            analysis_failed=False,
+        )
+        is ReviewStatus.INSUFFICIENT_INFORMATION
+    )
+    assert (
+        determine_review_status(
+            project=_assembly_project(
+                failed_source_id="src-1111111111111111",
+            ),
+            rule_results=passed,
+            analysis_failed=False,
+        )
+        is ReviewStatus.INSUFFICIENT_INFORMATION
+    )
+    assert (
+        determine_review_status(
+            project=_assembly_project(),
             rule_results=passed,
             analysis_failed=False,
         )

@@ -40,5 +40,6 @@ class ComponentPlacement(VersionedModel):
     side: BoardSide
     value: str | None = Field(default=None, min_length=1)
     footprint: str | None = Field(default=None, min_length=1)
+    dnp: bool = False
     provenance: Provenance
     metadata: dict[str, JsonScalar] = Field(default_factory=dict)
