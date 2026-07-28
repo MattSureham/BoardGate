@@ -1,6 +1,9 @@
 """Built-in v1 rule bindings."""
 
-from boardgate.rules.assembly_rules import BOMPlacementReferenceMatchRule
+from boardgate.rules.assembly_rules import (
+    BOMPlacementReferenceMatchRule,
+    DuplicateReferenceDesignatorRule,
+)
 from boardgate.rules.drill_rules import (
     MinimumAnnularRingRule,
     MinimumDrillDiameterRule,
@@ -42,6 +45,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         SilkscreenOverExposedPadRule(),
         MinimumSolderMaskDamRule(),
         BOMPlacementReferenceMatchRule(),
+        DuplicateReferenceDesignatorRule(),
     )
 
 

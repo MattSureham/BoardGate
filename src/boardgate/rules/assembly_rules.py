@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from boardgate import __version__
@@ -123,7 +123,7 @@ def _source_evidence(source: SourceFile) -> FindingEvidence:
                 "classified_type": source.file_type.value,
             },
         ),
-        note="Classified project inventory used for cross-file comparison.",
+        note="Classified project inventory used for assembly-data evaluation.",
     )
 
 
@@ -400,4 +400,203 @@ class BOMPlacementReferenceMatchRule:
             summary="BOM-only or placement-only references were found.",
             evaluated_object_count=applicable_count,
             applicable_object_count=applicable_count,
+        )
+
+
+def _dataset_uncertainty(
+    uncertainty_by_source: dict[str, tuple[Provenance, ...]],
+    sources: tuple[SourceFile, ...],
+) -> tuple[Provenance, ...]:
+    source_ids = sorted(source.source_file_id for source in sources)
+    return tuple(
+        provenance
+        for source_id in source_ids
+        for provenance in uncertainty_by_source.get(source_id, ())
+    )
+
+
+def _duplicate_finding(
+    context: RuleContext,
+    *,
+    dataset: str,
+    duplicate_references: tuple[str, ...],
+    records_by_reference: Mapping[
+        str,
+        tuple[BOMItem | ComponentPlacement, ...],
+    ],
+    uncertainty: tuple[Provenance, ...],
+) -> Finding:
+    records: tuple[BOMItem | ComponentPlacement, ...] = tuple(
+        record
+        for reference in duplicate_references
+        for record in records_by_reference[reference]
+    )
+    evidence = _unique_evidence(
+        (
+            *_record_evidence(
+                records,
+                note=f"Row-level evidence for a duplicate {dataset} reference.",
+            ),
+            *(
+                FindingEvidence(
+                    provenance=provenance,
+                    note=f"Project uncertainty witness affecting the {dataset}.",
+                )
+                for provenance in uncertainty
+            ),
+        )
+    )
+    display = ", ".join(reference.upper() for reference in duplicate_references)
+    requires_confirmation = bool(uncertainty)
+    return make_finding(
+        context,
+        rule_id=RuleId.DUPLICATE_REFERENCE_DESIGNATOR,
+        category=RiskMode.CROSS_FILE_INCONSISTENCY,
+        config_path="rules.duplicate_reference_designator",
+        title=f"{dataset} contains duplicate reference designators",
+        summary=(
+            f"The normalized, populated {dataset} contains reference "
+            "designators more than once."
+        ),
+        facts=(
+            f"Dataset: {dataset}.",
+            f"Duplicate normalized references: {display}.",
+            (
+                "DNP and configured ignored references were excluded before "
+                "same-dataset duplicate detection."
+            ),
+        ),
+        evidence=evidence,
+        confidence=(0.5 if requires_confirmation else 1.0),
+        suggested_action=(
+            f"Remove or reconcile duplicate reference rows within the {dataset}."
+        ),
+        requires_human_confirmation=requires_confirmation,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateReferenceDesignatorRule:
+    """Detect duplicates independently within BOM and placement data."""
+
+    rule_id: RuleId = RuleId.DUPLICATE_REFERENCE_DESIGNATOR
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = ()
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Report same-dataset duplicates without comparing BOM against CPL."""
+        if not context.project.assembly_requirements.review_requested:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="Assembly review scope is not active.",
+            )
+
+        project = context.project
+        inventory = assembly_data_inventory(project)
+        usable_dataset_count = sum((inventory.bom_usable, inventory.placement_usable))
+        if not usable_dataset_count:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.INPUT_UNCERTAIN,
+                summary="No usable assembly dataset is available for duplicate checks.",
+            )
+
+        bom = _bom_references(context) if inventory.bom_usable else {}
+        placement = _placement_references(context) if inventory.placement_usable else {}
+        bom_duplicates = tuple(
+            sorted(reference for reference, records in bom.items() if len(records) > 1)
+        )
+        placement_duplicates = tuple(
+            sorted(
+                reference
+                for reference, records in placement.items()
+                if len(records) > 1
+            )
+        )
+        uncertainty_by_source = project_uncertainty_evidence(context)
+        bom_uncertainty = _dataset_uncertainty(
+            uncertainty_by_source,
+            inventory.bom_sources,
+        )
+        placement_uncertainty = _dataset_uncertainty(
+            uncertainty_by_source,
+            inventory.placement_sources,
+        )
+        assembly_source_ids = {
+            source.source_file_id
+            for source in (*inventory.bom_sources, *inventory.placement_sources)
+        }
+        unresolved_candidates = (
+            *inventory.candidate_sources(
+                project,
+                file_types=bom_file_types(),
+            ),
+            *inventory.candidate_sources(
+                project,
+                file_types=placement_file_types(),
+            ),
+        )
+        coverage_partial = bool(
+            bom_uncertainty
+            or placement_uncertainty
+            or unresolved_candidates
+            or inventory.failed_source_ids.intersection(assembly_source_ids)
+        )
+        findings = (
+            *(
+                (
+                    _duplicate_finding(
+                        context,
+                        dataset="BOM",
+                        duplicate_references=bom_duplicates,
+                        records_by_reference=bom,
+                        uncertainty=bom_uncertainty,
+                    ),
+                )
+                if bom_duplicates
+                else ()
+            ),
+            *(
+                (
+                    _duplicate_finding(
+                        context,
+                        dataset="placement",
+                        duplicate_references=placement_duplicates,
+                        records_by_reference=placement,
+                        uncertainty=placement_uncertainty,
+                    ),
+                )
+                if placement_duplicates
+                else ()
+            ),
+        )
+        evaluated_count = len(bom) + len(placement)
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=(
+                    RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL
+                ),
+                summary=(
+                    "No duplicates were found in evaluated assembly data, but "
+                    "source uncertainty prevents a complete pass claim."
+                    if coverage_partial
+                    else (
+                        "No duplicate reference designators were found within "
+                        "the evaluated BOM or placement datasets."
+                    )
+                ),
+                evaluated_object_count=evaluated_count,
+                applicable_object_count=evaluated_count,
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
+            findings=findings,
+            summary="Duplicate references were found within assembly datasets.",
+            evaluated_object_count=evaluated_count,
+            applicable_object_count=evaluated_count,
         )
