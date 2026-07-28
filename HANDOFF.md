@@ -16,11 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:17:30+08:00`
+- Last updated: `2026-07-28T18:20:59+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 93bcf99 feat(rule): measure composite copper spacing`
+- HEAD: `[CONFIRMED] 4cd2a11 feat(rule): measure copper to board edges`
+- Remote sync: `[CONFIRMED] origin/main remains at d297635; later local
+  commits are pending a normal push because the configured proxy aborts the
+  GitHub CONNECT request.`
 - Phase: `[CONFIRMED] Phase 6–8 in progress — deterministic rule
   implementation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
@@ -92,21 +95,22 @@
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
-  minimum_trace_width, minimum_copper_spacing, and minimum_copper_to_edge v1.`
+  minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
+  minimum_drill_diameter v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (100 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (102 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 285 tests, 89.40% coverage.`
+    --cov-fail-under=85 passed: 294 tests, 89.53% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_copper_to_edge rule slice is
+- Working tree: `[CONFIRMED] Verified minimum_drill_diameter rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -154,28 +158,83 @@ the current capabilities.
 - Relevant files: `src/boardgate/parsers/excellon.py`
 - Blocking: No.
 
+### ISSUE-003 — GitHub HTTPS push is temporarily blocked by proxy
+
+- Status: OPEN
+- Severity: medium
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: Local atomic commits after `d297635` must be published to
+  `origin/main`.
+- Evidence: Repeated normal `git push origin main` attempts return
+  `Proxy CONNECT aborted`; the local remote-tracking ref remains `d297635`.
+- Suspected cause: The execution environment's configured HTTPS proxy is
+  intermittently refusing the GitHub tunnel.
+- Attempted approaches: Retried normal non-force pushes after separate rule
+  commits.
+- Current resolution state: Preserve the linear local history and retry a
+  normal push after subsequent verified commits; do not force, rebase, or
+  rewrite either history.
+- Remaining work: Push local `main`, then verify remote HEAD and Actions.
+- Relevant files: `.git/config`
+- Blocking: No for local implementation; yes for remote synchronization.
+
 ## Next Action
 
-Implement `minimum_drill_diameter` v1.
+Implement `minimum_annular_ring` v1.
 
 Start with:
 
 - `src/boardgate/rules/drill_rules.py`
+- `src/boardgate/rules/derived_geometry.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_drill_diameter.py`
+- `tests/unit/rules/test_minimum_annular_ring.py`
 
 Acceptance criteria:
 
-1. Measure only parsed circular drill hits with known tool diameters; routed
-   slots must remain explicitly outside the v1 diameter rule scope.
-2. Equality passes, and source/tool uncertainty must never be converted into a
-   confirmed diameter violation.
-3. Emit direct hit/tool provenance, the configured threshold path, factual
-   measurements, stable IDs, and no plating claim.
-4. Pass/violation/equality/slot-exclusion/uncertainty/stability and round-trip
-   tests pass before the rule's separate commit.
+1. Evaluate only confirmed plated round hits with one uniquely matched,
+   standard circular pad flash on a trusted copper layer.
+2. Calculate the minimum radial ring from pad/drill diameters and measured
+   center offset; equality passes and geometry error bands require
+   confirmation.
+3. Do not treat NPTH, unknown plating, routed slots, macro pads, ambiguous
+   duplicate pads, or unmatched drills as proven annular-ring violations.
+4. Pass/violation/equality/eccentricity/plating/match-ambiguity/error-band,
+   evidence, stability, and round-trip tests pass before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:20:59+08:00 — Codex — minimum_drill_diameter v1
+
+- Role: primary implementation agent
+- Task: Measure known circular drill hits without misclassifying routed slots.
+- Actions performed:
+  - Added a drill-rule module and registered round-hit diameter evaluation.
+  - Applied equality-safe minimum/error-band decisions using the configured
+    geometry epsilon.
+  - Excluded routed slots explicitly and made source limitations downgrade
+    violations or passing scope to human-confirmed PARTIAL coverage.
+  - Preserved hit/tool and uncertainty provenance while stating that plating
+    is outside this rule's decision.
+- Files modified:
+  - `src/boardgate/rules/drill_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_drill_diameter.py`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused drill-diameter tests: 9 passed.
+  - Full suite: 294 passed, 89.53% branch coverage.
+- Evidence: Pass/violation/equality/error-band/source-uncertainty/tool-code,
+  slot exclusion, stability, and JSON round-trip tests.
+- Commit: PENDING (this minimum_drill_diameter commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_annular_ring` v1.
 
 ### 2026-07-28T18:17:30+08:00 — Codex — minimum_copper_to_edge v1
 
@@ -206,7 +265,7 @@ Acceptance criteria:
   - Full suite: 285 passed, 89.40% branch coverage.
 - Evidence: Outer/cutout/pass/equality/touch-policy/outside/error-band,
   evidence, determinism, and JSON round-trip tests.
-- Commit: PENDING (this minimum_copper_to_edge commit)
+- Commit: `4cd2a11 feat(rule): measure copper to board edges`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_drill_diameter` v1.
 
