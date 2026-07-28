@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:35:02+08:00`
+- Last updated: `2026-07-28T21:35:04+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] bb282f4 feat(review): define complete artifact
-  contract`
-- Remote sync: `[CONFIRMED] local main is one atomic commit ahead of
+- HEAD: `[CONFIRMED] 516279f feat(reporting): compose evidence-backed review
+  report`
+- Remote sync: `[CONFIRMED] local main is two atomic commits ahead of
   origin/main at 0ece4bb; the preceding GitHub Actions run 30362114646
   completed successfully.`
 - Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
@@ -96,6 +96,9 @@
   - `[CONFIRMED] The deterministic Markdown composer projects structured
     project/review evidence into the normative report sections with safe
     partial-coverage wording and escaped untrusted text.`
+  - `[CONFIRMED] The deterministic standalone SVG renderer projects analytic
+    layers, board topology, drills, and spatial/non-spatial Finding markers
+    without scripts or external resources.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -122,8 +125,8 @@
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified deterministic Markdown composer, tests,
-  and this HANDOFF update are pending one atomic commit; SVG and fixture
+- Working tree: `[CONFIRMED] Verified standalone SVG renderer, tests, and this
+  HANDOFF update are pending one atomic commit; fixture and orchestration
   slices remain separately uncommitted.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -194,27 +197,64 @@ the current capabilities.
 
 ## Next Action
 
-Commit the deterministic standalone SVG renderer as the next Phase 9
-presentation slice.
+Wire the complete Phase 9 `ReviewService` through atomic artifact
+publication.
 
 Start with:
 
-- `src/boardgate/rendering/__init__.py`
-- `src/boardgate/rendering/svg.py`
-- `tests/unit/rendering/test_svg.py`
+- `src/boardgate/application/review_service.py`
+- `src/boardgate/cli.py`
+- `tests/unit/application/test_review_service.py`
+- `tests/integration/test_inspect_review.py`
 
 Acceptance criteria:
 
-1. Render a safe, script-free standalone SVG with automatic viewBox and the
-   internal Y-up to screen-coordinate transform.
-2. Group board outline/cutouts, normalized primitives, drills/slots, and
-   finding markers by stable layer and artifact identifiers.
-3. Include every Finding ID as escaped `data-finding-id` evidence, including a
-   deterministic non-spatial legend when geometry is unavailable.
-4. Keep output byte-stable and pass focused renderer, Ruff, mypy, and full
-   repository tests before the separate commit.
+1. Keep staged input files alive through parsing and connect ingestion,
+   project construction, all 16 rules, report composition, SVG rendering,
+   bundle validation, and recoverable output replacement.
+2. Publish exactly the six contracted artifacts after safe ingestion and use
+   a schema-valid `ANALYSIS_FAILED` fallback without fabricated rule results.
+3. Apply CLI exit precedence `4 > 2 > 3 > 1 > 0`, including `--fail-on
+   blocker`, while preserving prior output on failed replacement.
+4. Verify deterministic bytes for the first five artifacts, structured
+   run-varying logs, success/blocker/failure paths, and both original fixture
+   projects before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T21:35:04+08:00 — Codex — deterministic standalone SVG
+
+- Role: primary implementation agent
+- Task: Render Phase 9 PCB and Finding evidence as a safe static SVG.
+- Actions performed:
+  - Rendered board outer contours/cutouts, Line/Arc/Flash/Region primitives,
+    round drills, and routed slots in stable groups.
+  - Applied an automatic viewBox and explicit X-right/Y-up to SVG screen
+    transform while retaining analytic arcs.
+  - Added spatial Finding markers and a deterministic non-spatial legend, each
+    carrying the exact `data-finding-id`.
+  - Escaped XML text/attributes and emitted no scripts, event handlers, DTD,
+    external URL, or external style.
+- Files modified:
+  - `src/boardgate/rendering/__init__.py`
+  - `src/boardgate/rendering/svg.py`
+  - `tests/unit/rendering/test_svg.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv run pytest tests/unit/rendering/test_svg.py -q`
+  - `uv run ruff check src/boardgate/rendering tests/unit/rendering`
+  - `uv run mypy src tests`
+  - `git diff --check`
+- Tests:
+  - Focused SVG suite: 8 passed with 87% renderer branch coverage.
+  - Shared-tree full suite: 427 passed, 91.02% branch coverage.
+- Evidence: Stable rendering, automatic viewBox, board/cutout groups, every
+  primitive type, round/slot drills, arc/full-circle paths, coordinate
+  reflection, spatial/non-spatial Findings, mismatch rejection, XML escaping,
+  and no active/external content.
+- Commit: PENDING (this deterministic standalone SVG commit)
+- Issues created or updated: None.
+- Recommended next action: Wire the complete Phase 9 ReviewService and CLI.
 
 ### 2026-07-28T21:35:02+08:00 — Codex — deterministic Markdown report
 
@@ -248,7 +288,7 @@ Acceptance criteria:
 - Evidence: Exact section coverage, deterministic bytes, severity grouping,
   escaped Markdown, partial-pass wording, missing inputs, parser and analysis
   diagnostics, unresolved evidence, line/byte spans, and project-ID mismatch.
-- Commit: PENDING (this deterministic Markdown report commit)
+- Commit: `516279f feat(reporting): compose evidence-backed review report`
 - Issues created or updated: None.
 - Recommended next action: Commit the deterministic standalone SVG renderer.
 
