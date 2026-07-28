@@ -677,10 +677,11 @@
       "type": "object"
     },
     "Unit": {
-      "description": "Supported source length units.",
+      "description": "Supported dimensional units.",
       "enum": [
         "mm",
-        "inch"
+        "inch",
+        "mm2"
       ],
       "title": "Unit",
       "type": "string"

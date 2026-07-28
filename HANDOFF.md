@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:26:35+08:00`
+- Last updated: `2026-07-28T18:33:33+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] e62c94d feat(rule): enforce minimum drill diameter`
+- HEAD: `[CONFIRMED] ed56bdd feat(rule): measure supported annular rings`
 - Remote sync: `[CONFIRMED] origin/main remains at d297635; later local
   commits are pending a normal push because the configured proxy aborts the
   GitHub CONNECT request.`
@@ -96,21 +96,22 @@
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
   minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
-  minimum_drill_diameter and minimum_annular_ring v1.`
+  minimum_drill_diameter, minimum_annular_ring, and
+  silkscreen_over_exposed_pad v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (103 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (105 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 309 tests, 89.70% coverage.`
+    --cov-fail-under=85 passed: 320 tests, 90.06% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_annular_ring rule slice is
+- Working tree: `[CONFIRMED] Verified silkscreen_over_exposed_pad rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -181,29 +182,72 @@ the current capabilities.
 
 ## Next Action
 
-Implement `silkscreen_over_exposed_pad` v1.
+Implement `minimum_solder_mask_dam` v1.
 
 Start with:
 
 - `src/boardgate/rules/surface_rules.py`
 - `src/boardgate/rules/derived_geometry.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_silkscreen_over_exposed_pad.py`
+- `tests/unit/rules/test_minimum_solder_mask_dam.py`
 
 Acceptance criteria:
 
-1. Pair trusted copper, solder-mask, and silkscreen layers strictly by board
-   side; never compare top geometry with bottom geometry.
-2. Derive exposed copper from final copper and same-side mask-opening
-   geometry, then detect real silkscreen overlap using propagated geometry
-   error rather than bounding-box overlap.
-3. Run only when layer mapping and polarity composition are trustworthy;
-   missing optional layers are NOT_APPLICABLE and unsupported/uncertain
-   geometry cannot become a confirmed violation.
-4. Same-side/opposite-side/no-overlap/confirmed-overlap/error-band/polarity,
-   evidence, stability, and round-trip tests pass before the separate commit.
+1. On each trusted solder-mask layer, measure true distances only between
+   distinct final opening components; never compare top openings to bottom.
+2. Treat one connected/gang opening as one component so it is not reported as
+   a fabricated zero-width dam.
+3. Equality passes; compositing and approximation error distinguish confirmed
+   violations from PARTIAL confirmations, while uncertain polarity or
+   unsupported geometry cannot become a numeric claim.
+4. Pass/violation/equality/error-band/gang-opening/polarity/same-side,
+   evidence, STRtree equivalence, stability, and round-trip tests pass before
+   the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:33:33+08:00 — Codex — silkscreen_over_exposed_pad v1
+
+- Role: primary implementation agent
+- Task: Detect same-side silkscreen over copper exposed by mask openings.
+- Actions performed:
+  - Paired trusted copper, solder-mask, and silkscreen layers strictly by side
+    and rejected weak, duplicated, mis-sided, or unknown-polarity mappings.
+  - Intersected polarity-composited copper and mask-opening geometry, then
+    measured real silkscreen overlap rather than bounding-box overlap.
+  - Used eroded robust-overlap witnesses to distinguish confirmed overlap from
+    approximation-band confirmation.
+  - Added square-millimetre measurements and regenerated all affected Draft
+    2020-12 public schemas.
+- Files modified:
+  - `src/boardgate/domain/geometry.py`
+  - `src/boardgate/rules/common.py`
+  - `src/boardgate/rules/derived_geometry.py`
+  - `src/boardgate/rules/drill_rules.py`
+  - `src/boardgate/rules/surface_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `schemas/v1/finding.schema.json`
+  - `schemas/v1/findings.schema.json`
+  - `schemas/v1/project.schema.json`
+  - `tests/unit/domain/test_geometry.py`
+  - `tests/unit/rules/test_silkscreen_over_exposed_pad.py`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused surface/schema/geometry tests: 28 passed.
+  - Full suite: 320 passed, 90.06% branch coverage.
+- Evidence: Same/opposite-side, no-overlap/equality, robust/error-band overlap,
+  missing optional input, mapping/polarity/macro/source uncertainty, bottom
+  side, three-layer provenance, determinism, and JSON round-trip tests.
+- Commit: PENDING (this silkscreen_over_exposed_pad commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_solder_mask_dam` v1.
 
 ### 2026-07-28T18:26:35+08:00 — Codex — minimum_annular_ring v1
 
@@ -235,7 +279,7 @@ Acceptance criteria:
 - Evidence: Pass/violation/equality/negative-ring/eccentricity/error-band,
   plating exclusions, unmatched/ambiguous/clear-polarity evidence, unique IDs,
   source uncertainty, determinism, and JSON round-trip tests.
-- Commit: PENDING (this minimum_annular_ring commit)
+- Commit: `ed56bdd feat(rule): measure supported annular rings`
 - Issues created or updated: None.
 - Recommended next action: Implement `silkscreen_over_exposed_pad` v1.
 

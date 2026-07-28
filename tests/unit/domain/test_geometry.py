@@ -34,9 +34,10 @@ def test_point_rejects_non_finite_coordinates(value: float) -> None:
         Point(x=value, y=0.0)
 
 
-def test_point_rejects_non_normalized_units() -> None:
+@pytest.mark.parametrize("unit", [Unit.INCH, Unit.SQUARE_MILLIMETRE])
+def test_point_rejects_non_normalized_units(unit: Unit) -> None:
     with pytest.raises(ValidationError, match="normalized to millimetres"):
-        Point(x=1.0, y=2.0, unit=Unit.INCH)
+        Point(x=1.0, y=2.0, unit=unit)
 
 
 def test_bounding_box_exposes_ordered_extent() -> None:

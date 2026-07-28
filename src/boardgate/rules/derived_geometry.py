@@ -308,6 +308,8 @@ def geometry_components(geometry: BaseGeometry) -> tuple[BaseGeometry, ...]:
         return ()
     if geometry.geom_type == "Polygon":
         return (geometry,)
+    if not hasattr(geometry, "geoms"):
+        return ()
     components = tuple(
         child for child in geometry.geoms if not child.is_empty and child.area > 0.0
     )

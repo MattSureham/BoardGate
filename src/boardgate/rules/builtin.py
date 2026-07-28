@@ -18,6 +18,7 @@ from boardgate.rules.geometry_rules import (
     MinimumTraceWidthRule,
 )
 from boardgate.rules.registry import Rule, RuleRegistry
+from boardgate.rules.surface_rules import SilkscreenOverExposedPadRule
 
 
 def builtin_rules() -> tuple[Rule, ...]:
@@ -34,6 +35,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         MinimumCopperToEdgeRule(),
         MinimumDrillDiameterRule(),
         MinimumAnnularRingRule(),
+        SilkscreenOverExposedPadRule(),
     )
 
 

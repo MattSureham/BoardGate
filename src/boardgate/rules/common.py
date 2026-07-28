@@ -7,6 +7,7 @@ from boardgate.domain.enums import RiskMode, Severity
 from boardgate.domain.finding import Finding, FindingEvidence, Measurement
 from boardgate.domain.geometry import Point
 from boardgate.domain.identifiers import finding_id
+from boardgate.domain.provenance import Provenance
 from boardgate.rules.engine import RuleContext
 
 _SEVERITY = {
@@ -15,6 +16,20 @@ _SEVERITY = {
     RuleSeverity.WARNING: Severity.WARNING,
     RuleSeverity.INFO: Severity.INFO,
 }
+
+
+def project_uncertainty_evidence(
+    context: RuleContext,
+) -> dict[str, tuple[Provenance, ...]]:
+    """Group explicit project-uncertainty witnesses by source."""
+    grouped: dict[str, list[Provenance]] = {}
+    for uncertainty in context.project.uncertainties:
+        for provenance in uncertainty.evidence:
+            grouped.setdefault(provenance.source_file_id, []).append(provenance)
+    return {
+        source_file_id: tuple(provenance)
+        for source_file_id, provenance in grouped.items()
+    }
 
 
 def configured_severity(context: RuleContext, rule_id: RuleId) -> Severity:

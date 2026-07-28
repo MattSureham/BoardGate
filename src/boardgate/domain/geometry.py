@@ -11,10 +11,11 @@ SERIALIZED_DECIMAL_PLACES = 6
 
 
 class Unit(StrEnum):
-    """Supported source length units."""
+    """Supported dimensional units."""
 
     MILLIMETRE = "mm"
     INCH = "inch"
+    SQUARE_MILLIMETRE = "mm2"
 
 
 class AxisDirection(StrEnum):

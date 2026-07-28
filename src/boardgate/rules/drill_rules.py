@@ -19,7 +19,7 @@ from boardgate.domain.finding import FindingEvidence, Measurement
 from boardgate.domain.geometry import BoundingBox, Point, Unit
 from boardgate.domain.layer import FlashPrimitive, PCBLayer
 from boardgate.domain.provenance import Provenance
-from boardgate.rules.common import make_finding
+from boardgate.rules.common import make_finding, project_uncertainty_evidence
 from boardgate.rules.derived_geometry import derive_primitive
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
@@ -36,20 +36,6 @@ _COPPER_ROLES = {
     LayerRole.BOTTOM_COPPER,
     LayerRole.INNER_COPPER,
 }
-
-
-def _uncertainty_evidence(
-    context: RuleContext,
-) -> dict[str, tuple[Provenance, ...]]:
-    """Group explicit project-uncertainty witnesses by source."""
-    grouped: dict[str, list[Provenance]] = {}
-    for uncertainty in context.project.uncertainties:
-        for provenance in uncertainty.evidence:
-            grouped.setdefault(provenance.source_file_id, []).append(provenance)
-    return {
-        source_file_id: tuple(provenance)
-        for source_file_id, provenance in grouped.items()
-    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +65,7 @@ class MinimumDrillDiameterRule:
 
         required = context.profile.fabrication.min_drill_diameter
         error = context.profile.tolerances.geometry_epsilon
-        source_uncertainties = _uncertainty_evidence(context)
+        source_uncertainties = project_uncertainty_evidence(context)
         findings = []
         coverage_partial = False
         for drill in drills:
@@ -349,7 +335,7 @@ class MinimumAnnularRingRule:
 
         required = context.profile.fabrication.min_annular_ring
         epsilon = context.profile.tolerances.geometry_epsilon
-        source_uncertainties = _uncertainty_evidence(context)
+        source_uncertainties = project_uncertainty_evidence(context)
         findings = []
         evaluated_count = 0
         applicable_count = len(drills) * len(layers)
