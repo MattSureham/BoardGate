@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:20:59+08:00`
+- Last updated: `2026-07-28T18:26:35+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 4cd2a11 feat(rule): measure copper to board edges`
+- HEAD: `[CONFIRMED] e62c94d feat(rule): enforce minimum drill diameter`
 - Remote sync: `[CONFIRMED] origin/main remains at d297635; later local
   commits are pending a normal push because the configured proxy aborts the
   GitHub CONNECT request.`
@@ -96,21 +96,21 @@
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
   minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
-  minimum_drill_diameter v1.`
+  minimum_drill_diameter and minimum_annular_ring v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (102 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (103 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 294 tests, 89.53% coverage.`
+    --cov-fail-under=85 passed: 309 tests, 89.70% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_drill_diameter rule slice is
+- Working tree: `[CONFIRMED] Verified minimum_annular_ring rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -181,28 +181,63 @@ the current capabilities.
 
 ## Next Action
 
-Implement `minimum_annular_ring` v1.
+Implement `silkscreen_over_exposed_pad` v1.
 
 Start with:
 
-- `src/boardgate/rules/drill_rules.py`
+- `src/boardgate/rules/surface_rules.py`
 - `src/boardgate/rules/derived_geometry.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_annular_ring.py`
+- `tests/unit/rules/test_silkscreen_over_exposed_pad.py`
 
 Acceptance criteria:
 
-1. Evaluate only confirmed plated round hits with one uniquely matched,
-   standard circular pad flash on a trusted copper layer.
-2. Calculate the minimum radial ring from pad/drill diameters and measured
-   center offset; equality passes and geometry error bands require
-   confirmation.
-3. Do not treat NPTH, unknown plating, routed slots, macro pads, ambiguous
-   duplicate pads, or unmatched drills as proven annular-ring violations.
-4. Pass/violation/equality/eccentricity/plating/match-ambiguity/error-band,
+1. Pair trusted copper, solder-mask, and silkscreen layers strictly by board
+   side; never compare top geometry with bottom geometry.
+2. Derive exposed copper from final copper and same-side mask-opening
+   geometry, then detect real silkscreen overlap using propagated geometry
+   error rather than bounding-box overlap.
+3. Run only when layer mapping and polarity composition are trustworthy;
+   missing optional layers are NOT_APPLICABLE and unsupported/uncertain
+   geometry cannot become a confirmed violation.
+4. Same-side/opposite-side/no-overlap/confirmed-overlap/error-band/polarity,
    evidence, stability, and round-trip tests pass before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:26:35+08:00 — Codex — minimum_annular_ring v1
+
+- Role: primary implementation agent
+- Task: Measure only provable plated-drill/standard-pad annular rings.
+- Actions performed:
+  - Matched confirmed plated round hits to exactly one same-location standard
+    circular pad flash on each trusted copper layer.
+  - Calculated minimum radial ring from pad diameter, drill diameter, and
+    measured center eccentricity with equality-safe error-band semantics.
+  - Excluded NPTH, unknown plating, slots, macro/non-round pads, and prevented
+    clear/unknown-polarity interference from becoming numeric claims.
+  - Emitted evidence-backed confirmation findings for unmatched or ambiguous
+    pad intent and stable per-layer IDs.
+- Files modified:
+  - `src/boardgate/rules/drill_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_annular_ring.py`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused annular-ring tests: 15 passed.
+  - Full suite: 309 passed, 89.70% branch coverage.
+- Evidence: Pass/violation/equality/negative-ring/eccentricity/error-band,
+  plating exclusions, unmatched/ambiguous/clear-polarity evidence, unique IDs,
+  source uncertainty, determinism, and JSON round-trip tests.
+- Commit: PENDING (this minimum_annular_ring commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `silkscreen_over_exposed_pad` v1.
 
 ### 2026-07-28T18:20:59+08:00 — Codex — minimum_drill_diameter v1
 
@@ -232,7 +267,7 @@ Acceptance criteria:
   - Full suite: 294 passed, 89.53% branch coverage.
 - Evidence: Pass/violation/equality/error-band/source-uncertainty/tool-code,
   slot exclusion, stability, and JSON round-trip tests.
-- Commit: PENDING (this minimum_drill_diameter commit)
+- Commit: `e62c94d feat(rule): enforce minimum drill diameter`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_annular_ring` v1.
 

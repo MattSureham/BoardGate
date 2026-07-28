@@ -1,6 +1,9 @@
 """Built-in v1 rule bindings."""
 
-from boardgate.rules.drill_rules import MinimumDrillDiameterRule
+from boardgate.rules.drill_rules import (
+    MinimumAnnularRingRule,
+    MinimumDrillDiameterRule,
+)
 from boardgate.rules.file_rules import (
     BoardOutlineClosedRule,
     BoardOutlinePresentRule,
@@ -30,6 +33,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         MinimumCopperSpacingRule(),
         MinimumCopperToEdgeRule(),
         MinimumDrillDiameterRule(),
+        MinimumAnnularRingRule(),
     )
 
 
