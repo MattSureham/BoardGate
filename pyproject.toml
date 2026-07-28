@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "boardgate"
+version = "0.1.0"
+description = "Evidence-first, deterministic PCB manufacturing review agent"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Matt Sureham" }]
+dependencies = [
+  "click>=8.4,<9",
+  "gerbonara>=1.6,<2",
+  "pydantic>=2.13,<3",
+  "python-calamine>=0.8,<0.9",
+  "PyYAML>=6.0.3,<7",
+  "shapely>=2.1,<3",
+]
+
+[project.scripts]
+pcb-review = "boardgate.cli:main"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.163,<7",
+  "jsonschema>=4.26,<5",
+  "mypy>=2.3,<3",
+  "pytest>=9.1,<10",
+  "pytest-cov>=7.1,<8",
+  "ruff>=0.16,<0.17",
+  "types-PyYAML>=6.0.12.20250915",
+]
+
+[tool.uv]
+required-version = ">=0.11,<0.12"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/boardgate"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ANN",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PERF",
+  "PIE",
+  "PL",
+  "PTH",
+  "RUF",
+  "S",
+  "SIM",
+  "T20",
+  "UP",
+  "W",
+]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["gerbonara.*", "python_calamine.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["boardgate"]
+omit = ["src/boardgate/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
