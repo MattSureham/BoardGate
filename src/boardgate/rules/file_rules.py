@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from boardgate import __version__
 from boardgate.config.models import RuleId
 from boardgate.domain.diagnostic import SourceDiagnosticLevel
 from boardgate.domain.enums import FileType, LayerRole, RiskMode
-from boardgate.domain.finding import FindingEvidence
+from boardgate.domain.finding import FindingEvidence, Measurement
+from boardgate.domain.geometry import Unit
 from boardgate.domain.provenance import Provenance
 from boardgate.rules.common import make_finding
 from boardgate.rules.engine import RuleContext
@@ -17,6 +19,8 @@ from boardgate.rules.models import (
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
+    ThresholdDisposition,
+    evaluate_maximum_threshold,
 )
 
 _STRONG_MAPPING_CONFIDENCE = 0.75
@@ -448,4 +452,146 @@ class BoardOutlinePresentRule:
             summary="The required board outline is absent.",
             evaluated_object_count=1,
             applicable_object_count=1,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BoardOutlineClosedRule:
+    """Verify outline closure without converting reconstruction uncertainty."""
+
+    rule_id: RuleId = RuleId.BOARD_OUTLINE_CLOSED
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (RuleId.BOARD_OUTLINE_PRESENT,)
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Check every contour against the configured closure/error boundary."""
+        outline = context.project.board_outline
+        if outline is None:
+            candidates = _outline_candidate_evidence(context)
+            if not candidates:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.NOT_APPLICABLE,
+                    summary="No board outline exists to evaluate for closure.",
+                )
+            finding = make_finding(
+                context,
+                rule_id=self.rule_id,
+                category=RiskMode.OUTLINE_UNCERTAIN,
+                config_path="tolerances.outline_closure",
+                title="Outline closure cannot be evaluated",
+                summary=(
+                    "Outline source evidence exists, but supported closed "
+                    "topology was not reconstructed."
+                ),
+                facts=("No normalized BoardOutline is available.",),
+                evidence=candidates,
+                confidence=0.5,
+                suggested_action=(
+                    "Repair open, branching, touching, or unsupported profile "
+                    "geometry and export it again."
+                ),
+                requires_human_confirmation=True,
+            )
+            return RuleEvaluation(
+                outcome=RuleOutcome.FINDINGS,
+                coverage=RuleCoverage.PARTIAL,
+                findings=(finding,),
+                summary="Outline closure remains uncertain.",
+                applicable_object_count=1,
+            )
+
+        evidence = tuple(
+            FindingEvidence(
+                provenance=provenance,
+                witness_bounds=outline.bounding_box,
+                note="Analytic outline segment provenance.",
+            )
+            for provenance in outline.provenance
+        )
+        findings = []
+        partial = False
+        for contour in outline.contours:
+            gap = math.dist(
+                (contour.points[0].x, contour.points[0].y),
+                (contour.points[-1].x, contour.points[-1].y),
+            )
+            disposition = evaluate_maximum_threshold(
+                actual=gap,
+                required=context.profile.tolerances.outline_closure,
+                error_bound=outline.measurement_error_mm,
+            )
+            if not contour.closed and disposition is ThresholdDisposition.SATISFIED:
+                disposition = ThresholdDisposition.REQUIRES_CONFIRMATION
+            if disposition is ThresholdDisposition.SATISFIED:
+                continue
+            confirmation = disposition is ThresholdDisposition.REQUIRES_CONFIRMATION
+            partial = partial or confirmation
+            measurement = Measurement(
+                actual=gap,
+                required=context.profile.tolerances.outline_closure,
+                operator="<=",
+                unit=Unit.MILLIMETRE,
+                error_bound=outline.measurement_error_mm,
+                config_path="tolerances.outline_closure",
+            )
+            findings.append(
+                make_finding(
+                    context,
+                    rule_id=self.rule_id,
+                    category=(
+                        RiskMode.OUTLINE_UNCERTAIN
+                        if confirmation
+                        else RiskMode.GEOMETRY_VIOLATION
+                    ),
+                    config_path="tolerances.outline_closure",
+                    title=(
+                        "Outline closure requires confirmation"
+                        if confirmation
+                        else "Board outline is open"
+                    ),
+                    summary=(
+                        "The contour closure gap/error band overlaps the "
+                        "configured tolerance."
+                        if confirmation
+                        else (
+                            "The contour closure gap remains above the "
+                            "configured tolerance after error."
+                        )
+                    ),
+                    facts=(
+                        f"Contour {contour.contour_id} closure flag is "
+                        f"{contour.closed}.",
+                        f"Endpoint gap is {gap:.6f} mm.",
+                    ),
+                    evidence=evidence,
+                    confidence=(0.5 if confirmation else 1.0),
+                    location=contour.points[-1],
+                    measurement=measurement,
+                    suggested_action="Close and reconnect the board profile.",
+                    requires_human_confirmation=confirmation,
+                )
+            )
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=RuleCoverage.FULL,
+                summary=(
+                    "Every reconstructed outline contour is closed within the "
+                    "configured tolerance and error bound."
+                ),
+                evaluated_object_count=len(outline.contours),
+                applicable_object_count=len(outline.contours),
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if partial else RuleCoverage.FULL),
+            findings=tuple(findings),
+            summary="One or more board-outline contours are not proven closed.",
+            evaluated_object_count=(
+                len(outline.contours)
+                - sum(finding.requires_human_confirmation for finding in findings)
+            ),
+            applicable_object_count=len(outline.contours),
         )

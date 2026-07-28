@@ -1,6 +1,7 @@
 """Built-in v1 rule bindings."""
 
 from boardgate.rules.file_rules import (
+    BoardOutlineClosedRule,
     BoardOutlinePresentRule,
     DrillFilePresentRule,
     RequiredLayersPresentRule,
@@ -14,6 +15,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         RequiredLayersPresentRule(),
         DrillFilePresentRule(),
         BoardOutlinePresentRule(),
+        BoardOutlineClosedRule(),
     )
 
 

@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:56:37+08:00`
+- Last updated: `2026-07-28T17:59:22+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 27bce17 feat(rule): require parsed drill input`
+- HEAD: `[CONFIRMED] 7f93695 feat(rule): require reconstructed board outline`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -89,21 +89,21 @@
   Excellon round hits/routed slots and Gerber analytic primitives are
   normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] required_layers_present and
-  drill_file_present, and board_outline_present v1.`
+  drill_file_present, board_outline_present, and board_outline_closed v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (92 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (93 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 246 tests, 89.60% coverage.`
+    --cov-fail-under=85 -q passed: 252 tests, 89.66% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified board_outline_present rule slice is
+- Working tree: `[CONFIRMED] Verified board_outline_closed rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -153,26 +153,48 @@ the current capabilities.
 
 ## Next Action
 
-Implement `board_outline_closed` v1.
+Implement `multiple_outline_regions` v1.
 
 Start with:
 
 - `src/boardgate/rules/file_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_board_outline_closed.py`
+- `tests/unit/rules/test_multiple_outline_regions.py`
 
 Acceptance criteria:
 
-1. A reconstructed outline passes only when every contour and analytic segment
-   is closed within the configured closure/error bound.
-2. Open/branching/unsupported reconstruction evidence produces one blocker or
-   confirmation Finding without pretending an absent outline is open.
-3. The rule depends on board_outline_present and records
-   `tolerances.outline_closure`.
-4. Closed, exact-boundary, open, uncertain, dependency, stable-ID, and
-   round-trip tests pass before the rule's separate commit.
+1. Nested cutouts never count as a second outer board region.
+2. Exactly one outer contour passes; more than one creates a stable Finding
+   with each outer contour as geometric evidence.
+3. Missing/uncertain outline topology is NOT_APPLICABLE or PARTIAL through the
+   outline dependencies, never a fabricated multi-region result.
+4. One outer, nested cutout, two outer, stable-ID, dependency, and round-trip
+   tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:59:22+08:00 — Codex — board_outline_closed v1
+
+- Role: primary implementation agent
+- Task: Evaluate analytic contour closure and reconstruction error.
+- Actions performed:
+  - Added equality-safe maximum-threshold/error-band semantics.
+  - Verified contour flags, endpoint gaps, and propagated outline measurement
+    error against `tolerances.outline_closure`.
+  - Emitted confirmed geometry blockers versus PARTIAL outline confirmations.
+  - Kept absent outlines NOT_APPLICABLE and depended on outline presence.
+- Files modified:
+  - `src/boardgate/rules/models.py`
+  - `src/boardgate/rules/file_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_board_outline_closed.py`
+- Tests:
+  - Focused closure tests: 6 passed.
+  - Full suite: 252 passed, 89.66% branch coverage.
+- Evidence: Closed/equality/open/error-band/absence/dependency tests.
+- Commit: PENDING (this board_outline_closed commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `multiple_outline_regions` v1.
 
 ### 2026-07-28T17:56:37+08:00 — Codex — board_outline_present v1
 
@@ -192,7 +214,7 @@ Acceptance criteria:
   - Focused outline-presence tests: 5 passed.
   - Full suite: 246 passed, 89.60% branch coverage.
 - Evidence: Reconstructed/candidate/missing/stability/round-trip tests.
-- Commit: PENDING (this board_outline_present commit)
+- Commit: `7f93695 feat(rule): require reconstructed board outline`
 - Issues created or updated: None.
 - Recommended next action: Implement `board_outline_closed` v1.
 

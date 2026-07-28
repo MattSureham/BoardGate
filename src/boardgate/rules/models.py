@@ -190,3 +190,36 @@ def evaluate_minimum_threshold(
     if lower_is_less:
         return ThresholdDisposition.REQUIRES_CONFIRMATION
     return ThresholdDisposition.SATISFIED
+
+
+def evaluate_maximum_threshold(
+    *,
+    actual: float,
+    required: float,
+    error_bound: float,
+) -> ThresholdDisposition:
+    """Apply the v1 conservative maximum/error-band boundary semantics."""
+    if not all(
+        math.isfinite(value) and value >= 0.0
+        for value in (actual, required, error_bound)
+    ):
+        raise ValueError("threshold inputs must be finite and non-negative")
+    upper_bound = actual + error_bound
+    lower_bound = actual - error_bound
+    upper_exceeds = upper_bound > required and not math.isclose(
+        upper_bound,
+        required,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    )
+    lower_exceeds = lower_bound > required and not math.isclose(
+        lower_bound,
+        required,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    )
+    if lower_exceeds:
+        return ThresholdDisposition.CONFIRMED_VIOLATION
+    if upper_exceeds:
+        return ThresholdDisposition.REQUIRES_CONFIRMATION
+    return ThresholdDisposition.SATISFIED
