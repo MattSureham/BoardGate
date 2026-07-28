@@ -16,14 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:51:15+08:00`
+- Last updated: `2026-07-28T16:58:22+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] d2198d3 feat(ingestion): classify files and build
-  manifests`
-- Phase: `[CONFIRMED] Phase 2 in progress — safe ingestion and manifest`
-- Entry point: `[CONFIRMED] uv run pcb-review --version`
+- HEAD: `[CONFIRMED] 1494432 feat(cli): emit validated project manifests`
+- Phase: `[CONFIRMED] Phase 3 in progress — parsing and normalization`
+- Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
+  rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
   - `[CONFIRMED] Locked Python 3.12 development environment and CI gates.`
@@ -48,23 +48,29 @@
     classification, explicit conflicts, and byte-stable manifest generation.`
   - `[CONFIRMED] Public inspect CLI contract and validated, recoverable
     manifest output transaction.`
+  - `[CONFIRMED] Gerbonara-backed Excellon adapter for metric/inch hits,
+    linear/arc slots, plating hints, units, formats, and diagnostics.`
+  - `[CONFIRMED] Lightweight source-command scanner provides line/byte spans
+    and raw-coordinate provenance without duplicating geometry parsing.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
-  and unknown files receive evidence-backed manifest classifications.`
+  and unknown files receive evidence-backed manifest classifications.
+  Excellon round hits and routed slots are normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (45 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (53 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 111 tests, 90.85% coverage.`
+    --cov-fail-under=85 -q passed: 124 tests, 91.04% coverage.`
 - Known limitations:
-  - `[CONFIRMED] The current CLI slice emits only manifest.json; parsers, rule
-    execution, complete diagnostics, rendering, and review orchestration
-    remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified CLI manifest slice is pending commit.`
+  - `[CONFIRMED] The current CLI slice still emits only manifest.json; Gerber,
+    BOM/CPL, rule execution, complete diagnostics, rendering, and review
+    orchestration remain unimplemented.`
+  - `[CONFIRMED] Parser timeout isolation is not connected yet.`
+- Working tree: `[CONFIRMED] Verified Excellon adapter slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -72,47 +78,116 @@ the current capabilities.
 
 ## Active Issues
 
-### ISSUE-001 — Gerbonara provenance granularity is unverified
+### ISSUE-001 — Gerbonara provenance granularity
 
-- Status: OPEN
+- Status: RESOLVED
 - Severity: medium
 - Owner: unassigned
 - State label: `[CONFIRMED]`
-- Context: The selected parser exposes graphical objects but source line/byte
-  spans must be verified before they can be attached to findings.
-- Evidence: Gerbonara adapter probe has not yet been implemented.
-- Suspected cause: The third-party object API may not retain source spans.
-- Attempted approaches: None.
-- Current resolution state: Track source file and stable object IDs first;
-  later add a lightweight command-span scanner without duplicating geometry
-  parsing.
-- Remaining work: Add frozen fixtures and verify span mapping.
-- Relevant files: `IMPLEMENT_PCB_AGENT.md`
-- Blocking: No; missing spans must remain explicit `null`.
+- Context: Gerbonara graphical objects do not retain source line/byte spans.
+- Evidence: Local 1.6.3 API probe and Excellon golden fixtures.
+- Suspected cause: Parser output intentionally represents geometry, not syntax
+  locations.
+- Attempted approaches: Inspected object fields and parser warning behavior.
+- Current resolution state: A lightweight command scanner aligns
+  object-producing commands by order and retains raw command, coordinates,
+  tool, line, and byte span. Count mismatch is an explicit limitation and
+  leaves unmatched spans `null`.
+- Remaining work: Reuse and specialize the scanner for Gerber.
+- Relevant files: `src/boardgate/parsers/scanner.py`,
+  `tests/unit/parsers/test_scanner.py`
+- Blocking: No.
+
+### ISSUE-002 — Gerbonara Excellon plating argument is ignored
+
+- Status: OPEN
+- Severity: low
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: Gerbonara 1.6.3 exposes `plated=` on `ExcellonFile.open` and
+  `from_string`, but `from_string` does not apply it to undefined tool plating.
+- Evidence: Local source inspection and plated-hint adapter test.
+- Suspected cause: The parameter is accepted but unused in the implementation.
+- Attempted approaches: Passed a confirmed plated hint through the documented
+  API and inspected resulting object plating.
+- Current resolution state: BoardGate applies a confirmed caller hint only
+  when parser object plating remains `None`; explicit file plating wins.
+- Remaining work: Re-evaluate on dependency upgrades.
+- Relevant files: `src/boardgate/parsers/excellon.py`
+- Blocking: No.
 
 ## Next Action
 
-Implement the Excellon parser adapter and lightweight command-span scanner.
+Implement the Gerber adapter for analytic primitives and polarity.
 
 Start with:
 
-- `src/boardgate/parsers/excellon.py`
-- `src/boardgate/parsers/scanner.py`
-- `tests/fixtures/parser/excellon/`
-- `tests/unit/parsers/test_excellon.py`
+- `src/boardgate/parsers/gerber.py`
+- `src/boardgate/parsers/gerber_scanner.py`
+- `tests/fixtures/parser/gerber/`
+- `tests/unit/parsers/test_gerber.py`
 
 Acceptance criteria:
 
 1. Gerbonara remains behind the adapter and no third-party object escapes.
-2. Metric/inch, zero suppression, tool definitions, absolute round hits, and
-   routed slots normalize to millimetres with provenance.
-3. Slots remain separate from round-hole checks.
-4. Parser warnings and unsupported commands become typed limitations.
-5. Lightweight byte/line spans attach to commands without duplicating geometry
-   parsing.
-6. Golden, malformed-input, and round-trip tests pass before a separate commit.
+2. Line, Arc, Flash, and Region plus apertures, units, and polarity normalize
+   to BoardGate analytic primitives.
+3. X2 FileFunction/SameCoordinates values remain source evidence and are not
+   treated as an unquestionable final layer mapping.
+4. Macro and unsupported geometry emit explicit limitations.
+5. Command spans align where provable and remain `null` otherwise.
+6. Golden polarity, macro-limitation, malformed-input, and round-trip tests
+   pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:58:22+08:00 — Codex — Excellon adapter
+
+- Role: primary implementation agent
+- Task: Implement the first Phase 3 parser adapter and provenance scanner.
+- Context inspected:
+  - `HANDOFF.md`
+  - Gerbonara 1.6.3 installed source and runtime object behavior
+  - Excellon scope in the approved plan
+- Actions performed:
+  - Added strict parser diagnostics and source-safe parser errors.
+  - Added Gerbonara-backed metric/inch normalization for round drill hits.
+  - Added separate analytic linear and arc routed-slot models.
+  - Preserved coordinate format, zero suppression, notation, generator hints,
+    raw commands, raw coordinates, tool codes, and source spans.
+  - Converted ignored CAM commands and incremental notation to explicit
+    limitations; classified unknown commands separately from malformed data.
+  - Updated and regenerated the public PCBProject schema.
+- Files modified:
+  - `src/boardgate/parsers/`
+  - `src/boardgate/domain/drill.py`
+  - `tests/fixtures/parser/excellon/`
+  - `tests/unit/parsers/`
+  - `tests/unit/domain/test_drill.py`
+  - `schemas/v1/project.schema.json`
+- Commands run:
+  - Local Gerbonara API and fixture behavior probes.
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/parsers tests/unit/domain/test_drill.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused parser/domain tests: 13 passed.
+  - Full suite: 124 passed, 91.04% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - Gerbonara objects do not expose source spans; scanner alignment is explicit.
+  - Gerbonara 1.6.3 accepts but does not apply the documented Excellon
+    `plated=` hint; the adapter handles confirmed hints conservatively.
+- Evidence: Commands, installed-source references, and original golden fixtures.
+- Commit: PENDING (this Excellon commit)
+- Issues created or updated: ISSUE-001 resolved; ISSUE-002 created.
+- Remaining uncertainty: Parser execution is not timeout-isolated.
+- Recommended next action: Add the Gerber analytic-primitive adapter.
 
 ### 2026-07-28T16:51:15+08:00 — Codex — Atomic manifest CLI slice
 
@@ -154,7 +229,7 @@ Acceptance criteria:
   - Failed staged validation never moves the existing output.
   - A failure after backup creation restores the prior output directory.
 - Evidence: Commands and results above.
-- Commit: PENDING (this CLI commit)
+- Commit: `1494432 feat(cli): emit validated project manifests`
 - Issues created or updated: None.
 - Remaining uncertainty: Only `manifest.json` is emitted until parsing and the
   complete review pipeline are connected.

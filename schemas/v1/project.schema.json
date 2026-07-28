@@ -551,8 +551,40 @@
       "additionalProperties": false,
       "description": "One routed drill slot retained for explicit partial coverage.",
       "properties": {
+        "center": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "clockwise": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Clockwise"
+        },
         "end": {
           "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "default": "line",
+          "enum": [
+            "line",
+            "arc"
+          ],
+          "title": "Kind",
+          "type": "string"
         },
         "plating": {
           "$ref": "#/$defs/Plating",
