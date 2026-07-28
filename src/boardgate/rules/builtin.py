@@ -3,6 +3,7 @@
 from boardgate.rules.assembly_rules import (
     BOMPlacementReferenceMatchRule,
     DuplicateReferenceDesignatorRule,
+    PlacementOutsideBoardOutlineRule,
 )
 from boardgate.rules.drill_rules import (
     MinimumAnnularRingRule,
@@ -46,6 +47,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         MinimumSolderMaskDamRule(),
         BOMPlacementReferenceMatchRule(),
         DuplicateReferenceDesignatorRule(),
+        PlacementOutsideBoardOutlineRule(),
     )
 
 

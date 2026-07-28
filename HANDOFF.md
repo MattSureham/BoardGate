@@ -16,16 +16,16 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:06:55+08:00`
+- Last updated: `2026-07-28T21:15:02+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] c1b2407 feat(rule): reconcile BOM and placement
-  references`
-- Remote sync: `[CONFIRMED] origin/main and remote HEAD are c1b2407; GitHub
-  Actions run 30361559605 completed successfully for that commit.`
-- Phase: `[CONFIRMED] Phase 6–8 in progress — deterministic rule
-  implementation`
+- HEAD: `[CONFIRMED] 1640bcb feat(rule): detect duplicate reference
+  designators`
+- Remote sync: `[CONFIRMED] origin/main and remote HEAD are 1640bcb; GitHub
+  Actions run 30362114646 completed successfully for that commit.`
+- Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
+  Phase 9 complete-review artifacts are next.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -100,21 +100,22 @@
   minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
   minimum_drill_diameter, minimum_annular_ring, and
   silkscreen_over_exposed_pad, minimum_solder_mask_dam, and
-  bom_placement_reference_match and duplicate_reference_designator v1.`
+  bom_placement_reference_match, duplicate_reference_designator, and
+  placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (110 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (111 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 363 tests, 90.48% coverage.`
+    --cov-fail-under=85 passed: 374 tests, 90.56% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified duplicate_reference_designator rule
+- Working tree: `[CONFIRMED] Verified placement_outside_board_outline rule
   slice and HANDOFF update are pending one atomic commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -185,30 +186,71 @@ the current capabilities.
 
 ## Next Action
 
-Implement `placement_outside_board_outline` v1.
+Define the complete-review artifact and failure contract for Phase 9.
 
 Start with:
 
-- `src/boardgate/rules/assembly_rules.py`
-- `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_placement_outside_board_outline.py`
+- `docs/adr/0002-review-artifacts-and-failures.md`
+- `src/boardgate/application/artifacts.py`
+- `src/boardgate/rules/models.py`
+- `tests/unit/application/test_artifacts.py`
 
 Acceptance criteria:
 
-1. Evaluate only CPL anchor points against a trusted closed board outline;
-   never infer component-body size, courtyard, rotation clearance, or
-   overhang.
-2. Treat the outer contour and nested cutouts according to the normalized
-   BoardOutline topology, retain point/outline row provenance, and keep exact
-   boundary behavior explicit in tests.
-3. SKIP or downgrade when placement input, outline topology, mapping, or
-   source geometry is unavailable or uncertain; definite outside anchors
-   retain stable evidence-backed Findings.
-4. Inside/outside/external-boundary/cutout/cutout-boundary, mixed sides,
-   DNP/ignore policy, source uncertainty, determinism, and ReviewResult
-   round-trip tests pass before the separate commit.
+1. Record deterministic versus run-varying artifact bytes, sanitized
+   pipeline diagnostic categories, post-ingestion fallback behavior, and CLI
+   exit-code precedence in ADR 0002.
+2. Define strict versioned run-diagnostic and complete artifact-bundle
+   contracts without fabricating normal rule Findings after catastrophic
+   project construction failure.
+3. Validate the exact six-file inventory, JSON model/Schema round trips,
+   cross-artifact project/profile/Finding IDs, safe standalone SVG, and
+   structured JSONL logs before publication.
+4. Regenerate affected Draft 2020-12 Schemas and pass success/failure,
+   missing/extra artifact, mismatch, unsafe SVG, invalid JSONL, determinism,
+   and round-trip tests before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T21:15:02+08:00 — Codex — placement anchor containment
+
+- Role: primary implementation agent
+- Task: Complete Phase 8 with `placement_outside_board_outline` v1.
+- Actions performed:
+  - Evaluated populated, non-ignored CPL anchor points against derived board
+    material while explicitly excluding body/courtyard/rotation inference.
+  - Used outer contours minus nested cutouts and treated exact external and
+    cutout boundaries as not outside, with PARTIAL coverage inside the
+    propagated outline/geometry error band.
+  - Distinguished missing, empty, failed, and DNP/ignored placement inputs and
+    rejected missing/open/invalid outline topology.
+  - Attached placement row, location, distance measurement, outline witness,
+    and source-relevant uncertainty to stable Findings.
+  - Registered the sixteenth and final Phase 8 built-in rule.
+- Files modified:
+  - `src/boardgate/rules/assembly_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_placement_outside_board_outline.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused placement-outline tests: 11 passed.
+  - Full suite: 374 passed, 90.56% branch coverage.
+- Evidence: Inactive/missing/empty/failed inputs, missing/open outline,
+  inside/outside anchors, exact outer/cutout boundary behavior, cutout
+  interior, top/bottom anchor parity, DNP/marker/ignore filtering, relevant
+  uncertainty, row and outline witnesses, stable IDs, and ReviewResult JSON
+  round-trip.
+- Commit: PENDING (this placement_outside_board_outline commit)
+- Issues created or updated: None.
+- Recommended next action: Define the Phase 9 review artifact/failure
+  contract and validation boundary.
 
 ### 2026-07-28T21:06:55+08:00 — Codex — duplicate reference designators
 
@@ -244,7 +286,7 @@ Acceptance criteria:
   cross-dataset non-duplicate, DNP/marker/ignore filtering, multi-reference
   evidence aggregation, relevant and unrelated uncertainty, deterministic
   IDs, and ReviewResult JSON round-trip.
-- Commit: PENDING (this duplicate_reference_designator commit)
+- Commit: `1640bcb feat(rule): detect duplicate reference designators`
 - Issues created or updated: ISSUE-003 resolved after c1b2407 was pushed and
   its GitHub Actions run completed successfully.
 - Recommended next action: Implement `placement_outside_board_outline` v1.

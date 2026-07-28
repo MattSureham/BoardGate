@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+
+from shapely.geometry import Point as ShapelyPoint
 
 from boardgate import __version__
 from boardgate.config.models import RuleId
 from boardgate.domain.component import BOMItem, ComponentPlacement
 from boardgate.domain.diagnostic import SourceDiagnosticLevel
 from boardgate.domain.enums import RiskMode
-from boardgate.domain.finding import Finding, FindingEvidence
+from boardgate.domain.finding import Finding, FindingEvidence, Measurement
+from boardgate.domain.geometry import Unit
 from boardgate.domain.provenance import JsonScalar, Provenance
 from boardgate.domain.source import SourceFile
 from boardgate.rules.assembly_data import (
@@ -23,6 +27,7 @@ from boardgate.rules.common import (
     make_finding,
     project_uncertainty_evidence,
 )
+from boardgate.rules.derived_geometry import board_material_geometry
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
     RuleCoverage,
@@ -96,19 +101,24 @@ def _bom_references(
 def _placement_references(
     context: RuleContext,
 ) -> dict[str, tuple[ComponentPlacement, ...]]:
+    grouped: dict[str, list[ComponentPlacement]] = {}
+    for placement in _active_placements(context):
+        reference = _reference(placement.reference)
+        grouped.setdefault(reference, []).append(placement)
+    return {reference: tuple(placements) for reference, placements in grouped.items()}
+
+
+def _active_placements(context: RuleContext) -> tuple[ComponentPlacement, ...]:
     ignored = {_reference(value) for value in context.profile.policy.ignored_references}
     markers = frozenset(
         value.strip().casefold() for value in context.profile.policy.dnp_markers
     )
-    grouped: dict[str, list[ComponentPlacement]] = {}
-    for placement in context.project.components:
-        if _is_placement_dnp(placement, markers):
-            continue
-        reference = _reference(placement.reference)
-        if reference in ignored:
-            continue
-        grouped.setdefault(reference, []).append(placement)
-    return {reference: tuple(placements) for reference, placements in grouped.items()}
+    return tuple(
+        placement
+        for placement in context.project.components
+        if not _is_placement_dnp(placement, markers)
+        and _reference(placement.reference) not in ignored
+    )
 
 
 def _source_evidence(source: SourceFile) -> FindingEvidence:
@@ -597,6 +607,233 @@ class DuplicateReferenceDesignatorRule:
             coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
             findings=findings,
             summary="Duplicate references were found within assembly datasets.",
+            evaluated_object_count=evaluated_count,
+            applicable_object_count=evaluated_count,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementOutsideBoardOutlineRule:
+    """Classify placement anchor points against normalized board material."""
+
+    rule_id: RuleId = RuleId.PLACEMENT_OUTSIDE_BOARD_OUTLINE
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (RuleId.BOARD_OUTLINE_CLOSED,)
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Check only CPL anchors, never inferred component extents."""
+        if not context.project.assembly_requirements.review_requested:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="Assembly review scope is not active.",
+            )
+
+        project = context.project
+        inventory = assembly_data_inventory(project)
+        placement_candidates = inventory.candidate_sources(
+            project,
+            file_types=placement_file_types(),
+        )
+        placements = _active_placements(context)
+        if not inventory.placement_usable or not placements:
+            uncertain_input = bool(
+                not inventory.placement_usable
+                and (inventory.placement_sources or placement_candidates)
+            )
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=(
+                    RuleReason.INPUT_UNCERTAIN
+                    if uncertain_input
+                    else RuleReason.NOT_APPLICABLE
+                ),
+                summary=(
+                    "Placement input exists but did not produce a usable dataset."
+                    if uncertain_input
+                    else ("No populated, non-ignored placement anchor is applicable.")
+                ),
+            )
+
+        outline = project.board_outline
+        if outline is None or not all(contour.closed for contour in outline.contours):
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.INPUT_UNCERTAIN,
+                summary="A trusted closed board outline is required.",
+            )
+        material = board_material_geometry(outline)
+        if material.is_empty or not material.is_valid:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.UNSUPPORTED_GEOMETRY,
+                summary="Normalized board material geometry is empty or invalid.",
+            )
+
+        uncertainty_by_source = project_uncertainty_evidence(context)
+        outline_source_ids = {
+            provenance.source_file_id for provenance in outline.provenance
+        }
+        placement_source_ids = {
+            *(source.source_file_id for source in inventory.placement_sources),
+            *(placement.provenance.source_file_id for placement in placements),
+        }
+        relevant_source_ids = outline_source_ids | placement_source_ids
+        relevant_uncertainty = tuple(
+            provenance
+            for source_id in sorted(relevant_source_ids)
+            for provenance in uncertainty_by_source.get(source_id, ())
+        )
+        failed_placement_sources = inventory.failed_source_ids.intersection(
+            placement_source_ids
+        )
+        coverage_partial = bool(
+            relevant_uncertainty or failed_placement_sources or placement_candidates
+        )
+        error_bound = (
+            outline.measurement_error_mm + context.profile.tolerances.geometry_epsilon
+        )
+        findings: list[Finding] = []
+        boundary = material.boundary
+        for placement in placements:
+            anchor = ShapelyPoint(placement.position.x, placement.position.y)
+            if material.covers(anchor):
+                boundary_distance = anchor.distance(boundary)
+                if boundary_distance <= error_bound or math.isclose(
+                    boundary_distance,
+                    error_bound,
+                    rel_tol=1e-12,
+                    abs_tol=1e-12,
+                ):
+                    coverage_partial = True
+                continue
+
+            separation = anchor.distance(material)
+            error_confirmation = separation <= error_bound or math.isclose(
+                separation,
+                error_bound,
+                rel_tol=1e-12,
+                abs_tol=1e-12,
+            )
+            placement_uncertainty = uncertainty_by_source.get(
+                placement.provenance.source_file_id,
+                (),
+            )
+            outline_uncertainty = tuple(
+                provenance
+                for source_id in sorted(outline_source_ids)
+                for provenance in uncertainty_by_source.get(source_id, ())
+            )
+            finding_uncertainty = (
+                *placement_uncertainty,
+                *outline_uncertainty,
+            )
+            confirmation = bool(error_confirmation or finding_uncertainty)
+            evidence = _unique_evidence(
+                (
+                    FindingEvidence(
+                        provenance=placement.provenance,
+                        note="CPL anchor-point row evidence.",
+                    ),
+                    *(
+                        FindingEvidence(
+                            provenance=provenance,
+                            witness_bounds=outline.bounding_box,
+                            note="Outer/cutout board material boundary witness.",
+                        )
+                        for provenance in outline.provenance
+                    ),
+                    *(
+                        FindingEvidence(
+                            provenance=provenance,
+                            note=(
+                                "Project uncertainty witness affecting this "
+                                "anchor classification."
+                            ),
+                        )
+                        for provenance in finding_uncertainty
+                    ),
+                )
+            )
+            measurement = Measurement(
+                actual=separation,
+                required=0.0,
+                operator="<=",
+                unit=Unit.MILLIMETRE,
+                error_bound=error_bound,
+                config_path="rules.placement_outside_board_outline",
+            )
+            findings.append(
+                make_finding(
+                    context,
+                    rule_id=self.rule_id,
+                    category=(
+                        RiskMode.OUTLINE_UNCERTAIN
+                        if error_confirmation
+                        else RiskMode.GEOMETRY_VIOLATION
+                    ),
+                    config_path="rules.placement_outside_board_outline",
+                    title=(
+                        "Placement anchor containment requires confirmation"
+                        if confirmation
+                        else "Placement anchor is outside board material"
+                    ),
+                    summary=(
+                        "The CPL anchor is outside the normalized outer/cutout "
+                        "board material; no component-body extent was inferred."
+                    ),
+                    facts=(
+                        f"Reference is {placement.reference}.",
+                        (
+                            "Anchor position is "
+                            f"({placement.position.x:.6f}, "
+                            f"{placement.position.y:.6f}) mm."
+                        ),
+                        f"Distance to board material is {separation:.6f} mm.",
+                        (
+                            "Only the placement anchor was evaluated; body, "
+                            "courtyard, and rotation clearance were not inferred."
+                        ),
+                    ),
+                    evidence=evidence,
+                    confidence=(0.5 if confirmation else 1.0),
+                    location=placement.position,
+                    measurement=measurement,
+                    suggested_action=(
+                        "Confirm the intended origin or move the placement "
+                        "anchor onto board material."
+                    ),
+                    requires_human_confirmation=confirmation,
+                )
+            )
+            coverage_partial = coverage_partial or confirmation
+
+        evaluated_count = len(placements)
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=(
+                    RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL
+                ),
+                summary=(
+                    "No evaluated placement anchor is outside board material, "
+                    "but boundary or source uncertainty prevents a complete "
+                    "pass claim."
+                    if coverage_partial
+                    else "Every evaluated placement anchor is on board material."
+                ),
+                evaluated_object_count=evaluated_count,
+                applicable_object_count=evaluated_count,
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
+            findings=tuple(findings),
+            summary="One or more placement anchors are outside board material.",
             evaluated_object_count=evaluated_count,
             applicable_object_count=evaluated_count,
         )
