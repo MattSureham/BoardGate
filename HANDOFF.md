@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:32:11+08:00`
+- Last updated: `2026-07-28T17:40:58+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] f697b22 feat(assembly): parse BOM and placement CSV`
-- Phase: `[CONFIRMED] Phase 5 in progress — assembly-data parsing`
+- HEAD: `[CONFIRMED] bce8a24 feat(assembly): safely parse BOM workbooks`
+- Phase: `[CONFIRMED] Phase 5 complete — normalized PCBProject assembly`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -68,6 +68,14 @@
   - `[CONFIRMED] XLSX worksheet selection is explicit when ambiguous, and
     normalized BOM provenance records exact worksheet, row, and column map
     while keeping unavailable text spans null.`
+  - `[CONFIRMED] Each confirmed source type runs in a fresh spawn-isolated
+    parser process with a 30-second default timeout and bounded cleanup.`
+  - `[CONFIRMED] Parser failures, warnings, and limitations become stable
+    source diagnostics and explicit project uncertainty without discarding
+    successful sibling sources.`
+  - `[CONFIRMED] Deterministic project assembly produces normalized layers,
+    outline topology, drills, BOM/CPL records, profile requirements, and
+    strict PCBProject JSON with no third-party objects.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -79,15 +87,15 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (75 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (81 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 207 tests, 89.89% coverage.`
+    --cov-fail-under=85 -q passed: 216 tests, 89.30% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    full project assembly, rule execution, complete diagnostics,
-    rendering, and review orchestration remain unimplemented.`
-  - `[CONFIRMED] Parser timeout isolation is not connected yet.`
-- Working tree: `[CONFIRMED] Verified restricted XLSX BOM adapter slice is
+    the project-assembly service is not yet invoked there, and rule execution,
+    complete artifact diagnostics, rendering, and review orchestration remain
+    unimplemented.`
+- Working tree: `[CONFIRMED] Verified isolated parser/project-builder slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -137,32 +145,94 @@ the current capabilities.
 
 ## Next Action
 
-Assemble imported and normalized sources into one strict PCBProject while
-isolating each third-party parser behind its configured timeout.
+Implement the deterministic rule-engine registry and orthogonal RuleResult
+contract before adding individual rules.
 
 Start with:
 
-- `src/boardgate/application/project_builder.py`
-- `src/boardgate/application/parser_runner.py`
-- `tests/unit/application/test_project_builder.py`
-- `tests/unit/application/test_parser_runner.py`
+- `src/boardgate/rules/models.py`
+- `src/boardgate/rules/engine.py`
+- `src/boardgate/rules/registry.py`
+- `tests/unit/rules/test_engine.py`
 
 Acceptance criteria:
 
-1. Manifest-selected sources dispatch only to type-compatible adapters; weak
-   or conflicting candidates remain uncertainty instead of being guessed.
-2. Per-file parser work runs in an isolated process with a 30-second default
-   timeout, deterministic result ordering, typed timeout/crash diagnostics,
-   and reliable worker cleanup.
-3. Parsed Gerber/Excellon/CSV/XLSX outputs normalize into PCBLayer,
-   BoardOutline, drills, components, BOM items, requirements, and
-   uncertainties without third-party objects.
-4. Project and every object ID remain byte-stable for identical source and
-   profile inputs.
-5. Positive, ambiguity, parser failure/timeout, round-trip, and repeatability
-   tests pass before a separate commit.
+1. RuleResult exposes only orthogonal `outcome` and `coverage`, with typed
+   skip/failure reasons and immutable Findings.
+2. Registry enforces all 16 unique RuleId/version bindings and deterministic
+   dependency order.
+3. Disabled rules, missing dependencies, no-applicable-object cases, and
+   per-rule exceptions produce explicit results without publishing partial
+   Findings.
+4. Equal thresholds are satisfying; only `actual + error < required` is
+   confirmed, while overlap with the error band requires confirmation and
+   PARTIAL coverage.
+5. Stable rule/finding IDs, registry/dependency/error/round-trip tests, and
+   overall-status precedence tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:40:58+08:00 — Codex — Isolated parser and PCBProject assembly
+
+- Role: primary implementation agent
+- Task: Turn safely staged sources into the complete parser-independent IR.
+- Context inspected:
+  - `HANDOFF.md`
+  - Existing ingestion, manifest, parser, layer, outline, profile, and project
+    boundaries
+  - Parser timeout and deterministic assembly requirements in the approved
+    plan
+- Actions performed:
+  - Added strict parser jobs for only confirmed Gerber, Excellon, BOM
+    CSV/XLSX, and placement CSV types.
+  - Added fresh spawn-process execution, source-safe failure envelopes,
+    bounded worker messages, timeout/terminate/kill cleanup, and strict
+    parent-side model revalidation.
+  - Rechecked every staged payload size and SHA-256 against the manifest
+    immediately before dispatch.
+  - Added stable source diagnostics for warnings, limitations, timeouts, and
+    failures, with parser limitations copied into project uncertainty.
+  - Assembled layers, outline, holes/slots, BOM, CPL, requirements, coordinate
+    system, diagnostics, and uncertainties in manifest order.
+  - Added repeatability, partial parser failure, staging mutation, timeout,
+    strict-invariant, and full project round-trip tests.
+  - Regenerated the public PCBProject schema with source diagnostics.
+- Files modified:
+  - `src/boardgate/application/parser_runner.py`
+  - `src/boardgate/application/project_builder.py`
+  - `src/boardgate/domain/diagnostic.py`
+  - `src/boardgate/domain/project.py`
+  - `tests/unit/application/test_parser_runner.py`
+  - `tests/unit/application/test_project_builder.py`
+  - `tests/unit/domain/test_diagnostic.py`
+  - `schemas/v1/project.schema.json`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/application/test_parser_runner.py
+    tests/unit/application/test_project_builder.py
+    tests/unit/domain/test_diagnostic.py tests/unit/domain/test_project.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused parser/project/domain tests: 12 passed.
+  - Full suite: 216 passed, 89.30% branch coverage.
+  - Lock, sync, schema-current, Ruff, and mypy gates passed.
+- Findings:
+  - Passing the strict ParserJob through multiprocessing avoids unsafe binary
+    XLSX JSON encoding while still preventing third-party objects from crossing
+    the worker boundary.
+  - One parser failure can be represented truthfully as uncertainty while
+    preserving all independently successful normalized evidence.
+- Evidence: Commands and isolation/repeatability/error tests above.
+- Commit: PENDING (this parser/project assembly commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Rule outcomes and readiness status are not computed
+  yet.
+- Recommended next action: Establish the deterministic rule-engine contracts.
 
 ### 2026-07-28T17:32:11+08:00 — Codex — Restricted XLSX BOM adapter
 
@@ -210,7 +280,7 @@ Acceptance criteria:
   - Calamine accepts a file-like object and context-managed close, allowing
     its objects to remain wholly inside the adapter.
 - Evidence: Commands and normal/forbidden/limit/round-trip tests above.
-- Commit: PENDING (this restricted XLSX commit)
+- Commit: `bce8a24 feat(assembly): safely parse BOM workbooks`
 - Issues created or updated: None.
 - Remaining uncertainty: Parser timeout isolation is not connected yet.
 - Recommended next action: Build isolated parser dispatch and PCBProject

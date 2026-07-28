@@ -1444,6 +1444,72 @@
       "title": "RiskMode",
       "type": "string"
     },
+    "SourceDiagnostic": {
+      "additionalProperties": false,
+      "description": "A stable parser warning, limitation, or failure tied to one source.",
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]+$",
+          "title": "Code",
+          "type": "string"
+        },
+        "diagnostic_id": {
+          "pattern": "^diagnostic-[0-9a-f]{16}$",
+          "title": "Diagnostic Id",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/SourceDiagnosticLevel"
+        },
+        "message": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "source_span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "diagnostic_id",
+        "source_file_id",
+        "code",
+        "level",
+        "message"
+      ],
+      "title": "SourceDiagnostic",
+      "type": "object"
+    },
+    "SourceDiagnosticLevel": {
+      "description": "Effect of a source parser diagnostic.",
+      "enum": [
+        "WARNING",
+        "LIMITATION",
+        "ERROR"
+      ],
+      "title": "SourceDiagnosticLevel",
+      "type": "string"
+    },
     "SourceFile": {
       "additionalProperties": false,
       "description": "Immutable metadata for one safely ingested source file.",
@@ -1709,6 +1775,14 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "source_diagnostics": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceDiagnostic"
+      },
+      "title": "Source Diagnostics",
+      "type": "array"
     },
     "source_files": {
       "items": {

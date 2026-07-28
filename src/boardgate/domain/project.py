@@ -6,6 +6,7 @@ from pydantic import Field, model_validator
 
 from boardgate.domain.base import VersionedModel
 from boardgate.domain.component import BOMItem, ComponentPlacement
+from boardgate.domain.diagnostic import SourceDiagnostic
 from boardgate.domain.drill import DrillHit, DrillSlot
 from boardgate.domain.geometry import CoordinateSystem
 from boardgate.domain.layer import BoardOutline, PCBLayer
@@ -47,6 +48,7 @@ class PCBProject(VersionedModel):
     drill_slots: tuple[DrillSlot, ...] = ()
     components: tuple[ComponentPlacement, ...] = ()
     bom_items: tuple[BOMItem, ...] = ()
+    source_diagnostics: tuple[SourceDiagnostic, ...] = ()
     fabrication_requirements: FabricationRequirements
     assembly_requirements: AssemblyRequirements
     metadata: dict[str, JsonScalar] = Field(default_factory=dict)
@@ -67,6 +69,9 @@ class PCBProject(VersionedModel):
             "layer_id": [layer.layer_id for layer in self.layers],
             "drill_id": [drill.drill_id for drill in self.drills],
             "slot_id": [slot.slot_id for slot in self.drill_slots],
+            "diagnostic_id": [
+                diagnostic.diagnostic_id for diagnostic in self.source_diagnostics
+            ],
         }
         for label, values in collections.items():
             if len(values) != len(set(values)):

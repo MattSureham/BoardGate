@@ -1,5 +1,6 @@
 """Versioned BoardGate domain models."""
 
+from boardgate.domain.diagnostic import SourceDiagnostic, SourceDiagnosticLevel
 from boardgate.domain.geometry import (
     AxisDirection,
     BoundingBox,
@@ -19,6 +20,8 @@ __all__ = [
     "Point",
     "ProjectManifest",
     "Provenance",
+    "SourceDiagnostic",
+    "SourceDiagnosticLevel",
     "SourceFile",
     "SourceSpan",
     "Uncertainty",
