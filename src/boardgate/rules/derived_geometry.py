@@ -16,6 +16,7 @@ from boardgate.domain.enums import ApertureShape, Polarity
 from boardgate.domain.geometry import BoundingBox, Point
 from boardgate.domain.layer import (
     ArcPrimitive,
+    BoardOutline,
     FlashPrimitive,
     GraphicPrimitive,
     LinePrimitive,
@@ -344,3 +345,22 @@ def component_pairs_within(
             ):
                 pairs.append((first_index, second_index, distance))
     return tuple(sorted(pairs))
+
+
+def board_material_geometry(outline: BoardOutline) -> BaseGeometry:
+    """Derive board material as outer regions minus every nested cutout."""
+    outer = unary_union(
+        [
+            Polygon((point.x, point.y) for point in contour.points)
+            for contour in outline.contours
+            if contour.kind == "outer"
+        ]
+    )
+    cutouts = unary_union(
+        [
+            Polygon((point.x, point.y) for point in contour.points)
+            for contour in outline.contours
+            if contour.kind == "cutout"
+        ]
+    )
+    return outer.difference(cutouts) if not cutouts.is_empty else outer

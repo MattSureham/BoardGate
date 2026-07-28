@@ -16,12 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:11:36+08:00`
+- Last updated: `2026-07-28T18:17:30+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 7565483 feat(rule): measure eligible trace widths`
-- Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
+- HEAD: `[CONFIRMED] 93bcf99 feat(rule): measure composite copper spacing`
+- Phase: `[CONFIRMED] Phase 6–8 in progress — deterministic rule
+  implementation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -91,21 +92,21 @@
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
-  minimum_trace_width and minimum_copper_spacing v1.`
+  minimum_trace_width, minimum_copper_spacing, and minimum_copper_to_edge v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (99 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (100 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 277 tests, 89.21% coverage.`
+    --cov-fail-under=85 passed: 285 tests, 89.40% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified minimum_copper_spacing rule slice is
+- Working tree: `[CONFIRMED] Verified minimum_copper_to_edge rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -155,26 +156,59 @@ the current capabilities.
 
 ## Next Action
 
-Implement `minimum_copper_to_edge` v1.
+Implement `minimum_drill_diameter` v1.
 
 Start with:
 
-- `src/boardgate/rules/geometry_rules.py`
+- `src/boardgate/rules/drill_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_copper_to_edge.py`
+- `tests/unit/rules/test_minimum_drill_diameter.py`
 
 Acceptance criteria:
 
-1. Measure final composite copper to both outer boundary and cutout boundaries
-   of the trusted BoardOutline.
-2. Copper outside board material is a confirmed blocker; copper touching an
-   edge follows profile `confirm|strict` policy exactly.
-3. Equality passes; derived geometry and outline error propagate into
-   confirmed versus PARTIAL confirmation decisions.
-4. Outer/cutout/pass/equality/touch-policy/outside/error-band/stable-ID and
-   round-trip tests pass before the rule's separate commit.
+1. Measure only parsed circular drill hits with known tool diameters; routed
+   slots must remain explicitly outside the v1 diameter rule scope.
+2. Equality passes, and source/tool uncertainty must never be converted into a
+   confirmed diameter violation.
+3. Emit direct hit/tool provenance, the configured threshold path, factual
+   measurements, stable IDs, and no plating claim.
+4. Pass/violation/equality/slot-exclusion/uncertainty/stability and round-trip
+   tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:17:30+08:00 — Codex — minimum_copper_to_edge v1
+
+- Role: primary implementation agent
+- Task: Measure final copper containment and clearance to every board edge.
+- Actions performed:
+  - Derived board material from all outer contours minus nested cutouts.
+  - Measured polarity-composited copper components against outer and cutout
+    boundaries without exposing Shapely objects in public contracts.
+  - Used signed clearance for out-of-material copper and propagated copper,
+    outline, and geometry-epsilon error bounds.
+  - Applied profile `confirm|strict` edge-touch policy and kept uncertainty
+    orthogonal to configured severity.
+- Files modified:
+  - `src/boardgate/rules/derived_geometry.py`
+  - `src/boardgate/rules/geometry_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_copper_to_edge.py`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused copper-edge tests: 8 passed.
+  - Full suite: 285 passed, 89.40% branch coverage.
+- Evidence: Outer/cutout/pass/equality/touch-policy/outside/error-band,
+  evidence, determinism, and JSON round-trip tests.
+- Commit: PENDING (this minimum_copper_to_edge commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_drill_diameter` v1.
 
 ### 2026-07-28T18:11:36+08:00 — Codex — minimum_copper_spacing v1
 
@@ -195,7 +229,7 @@ Acceptance criteria:
   - Focused spacing tests: 8 passed.
   - Full suite: 277 passed, 89.21% branch coverage.
 - Evidence: Component/polarity/layer/STRtree/equality/error-band tests.
-- Commit: PENDING (this minimum_copper_spacing commit)
+- Commit: `93bcf99 feat(rule): measure composite copper spacing`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_copper_to_edge` v1.
 

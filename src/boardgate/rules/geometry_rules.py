@@ -18,6 +18,7 @@ from boardgate.rules.common import make_finding
 from boardgate.rules.derived_geometry import (
     DerivedGeometry,
     LayerComposite,
+    board_material_geometry,
     component_pairs_within,
     composite_layer,
     geometry_components,
@@ -602,4 +603,177 @@ class MinimumCopperSpacingRule:
             ),
             evaluated_object_count=applicable_pairs,
             applicable_object_count=applicable_pairs,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MinimumCopperToEdgeRule:
+    """Measure final copper to outer and cutout board boundaries."""
+
+    rule_id: RuleId = RuleId.MINIMUM_COPPER_TO_EDGE
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (
+        RuleId.REQUIRED_LAYERS_PRESENT,
+        RuleId.BOARD_OUTLINE_CLOSED,
+    )
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Apply containment, edge-touch policy, and propagated geometry error."""
+        outline = context.project.board_outline
+        trusted_layers = tuple(
+            layer
+            for layer in context.project.layers
+            if layer.role in _COPPER_ROLES and not layer.uncertainties
+        )
+        if outline is None or not trusted_layers:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="A trusted outline and copper layer are required.",
+            )
+        material = board_material_geometry(outline)
+        boundary = material.boundary
+        required = context.profile.fabrication.min_copper_to_edge
+        epsilon = context.profile.tolerances.geometry_epsilon
+        findings = []
+        component_count = 0
+        coverage_partial = False
+        for layer in trusted_layers:
+            composite = composite_layer(
+                layer,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+            )
+            coverage_partial = coverage_partial or not composite.coverage_complete
+            error = composite.error_bound_mm + outline.measurement_error_mm + epsilon
+            for component in geometry_components(composite.geometry):
+                component_count += 1
+                contained = material.covers(component)
+                contained_with_error = material.buffer(error).covers(component)
+                distance = component.distance(boundary)
+                clearance = distance if contained else -component.distance(material)
+                touching = math.isclose(
+                    distance,
+                    0.0,
+                    rel_tol=0.0,
+                    abs_tol=1e-12,
+                )
+                if contained and not touching:
+                    disposition = evaluate_minimum_threshold(
+                        actual=distance,
+                        required=required,
+                        error_bound=error,
+                    )
+                    if disposition is ThresholdDisposition.SATISFIED:
+                        continue
+                    confirmation = (
+                        disposition is ThresholdDisposition.REQUIRES_CONFIRMATION
+                    )
+                    title = (
+                        "Copper-to-edge clearance requires confirmation"
+                        if confirmation
+                        else "Copper is too close to a board edge"
+                    )
+                elif not contained:
+                    confirmation = contained_with_error
+                    title = (
+                        "Copper containment requires confirmation"
+                        if confirmation
+                        else "Copper extends outside board material"
+                    )
+                else:
+                    confirmation = context.profile.policy.copper_edge_touch == "confirm"
+                    title = (
+                        "Copper touching board edge requires confirmation"
+                        if confirmation
+                        else "Copper touches a board edge"
+                    )
+                coverage_partial = coverage_partial or confirmation
+                nearest_copper, nearest_edge = nearest_points(component, boundary)
+                location = Point(
+                    x=(nearest_copper.x + nearest_edge.x) / 2.0,
+                    y=(nearest_copper.y + nearest_edge.y) / 2.0,
+                )
+                evidence = (
+                    *_component_evidence(
+                        layer.layer_id,
+                        composite,
+                        component,
+                        geometry_epsilon_mm=epsilon,
+                    ),
+                    *(
+                        FindingEvidence(
+                            provenance=provenance,
+                            witness_bounds=outline.bounding_box,
+                            note="Outer/cutout board boundary witness.",
+                        )
+                        for provenance in outline.provenance
+                    ),
+                )
+                measurement = Measurement(
+                    actual=clearance,
+                    required=required,
+                    operator=">=",
+                    unit=Unit.MILLIMETRE,
+                    error_bound=error,
+                    config_path="fabrication.min_copper_to_edge",
+                )
+                findings.append(
+                    make_finding(
+                        context,
+                        rule_id=self.rule_id,
+                        category=RiskMode.GEOMETRY_VIOLATION,
+                        config_path="fabrication.min_copper_to_edge",
+                        title=title,
+                        summary=(
+                            "Final copper containment or clearance does not "
+                            "clearly satisfy the configured edge policy."
+                        ),
+                        facts=(
+                            f"Signed copper edge clearance is {clearance:.6f} mm.",
+                            f"Copper contained by board material: {contained}.",
+                            (
+                                "Edge-touch policy is "
+                                f"{context.profile.policy.copper_edge_touch}."
+                            ),
+                        ),
+                        evidence=tuple(evidence),
+                        confidence=(0.5 if confirmation else 1.0),
+                        location=location,
+                        measurement=measurement,
+                        suggested_action=(
+                            f"Move copper at least {required:.6f} mm from all "
+                            "outer and cutout boundaries."
+                        ),
+                        requires_human_confirmation=confirmation,
+                    )
+                )
+        if component_count == 0:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="No final copper component exists to measure.",
+            )
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=(
+                    RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL
+                ),
+                summary=(
+                    "All supported final copper components meet outer and "
+                    "cutout edge clearance."
+                ),
+                evaluated_object_count=component_count,
+                applicable_object_count=component_count,
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
+            findings=tuple(findings),
+            summary="Copper containment or edge clearance needs attention.",
+            evaluated_object_count=component_count,
+            applicable_object_count=component_count,
         )
