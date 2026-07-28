@@ -40,6 +40,7 @@ class Finding(VersionedModel):
     severity: Severity
     confidence: float = Field(ge=0.0, le=1.0)
     status: FindingStatus = FindingStatus.OPEN
+    config_path: str = Field(min_length=1)
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     facts: tuple[str, ...] = Field(min_length=1)

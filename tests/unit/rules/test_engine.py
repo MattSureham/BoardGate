@@ -99,6 +99,7 @@ def _finding(
         category=RiskMode.GEOMETRY_VIOLATION,
         severity=severity,
         confidence=1.0,
+        config_path="test.rule",
         title="Deterministic test finding",
         summary="A test witness violates the configured requirement.",
         facts=("The witness was evaluated deterministically.",),

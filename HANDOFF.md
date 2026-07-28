@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:47:40+08:00`
+- Last updated: `2026-07-28T17:51:35+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] d297635 feat(project): isolate parsers and assemble PCB
-  IR`
+- HEAD: `[CONFIRMED] c360738 feat(rules): establish deterministic review
+  engine`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -89,22 +89,22 @@
   and unknown files receive evidence-backed manifest classifications.
   Excellon round hits/routed slots and Gerber analytic primitives are
   normalized to millimetres.`
-- Implemented rules: `[CONFIRMED] None yet.`
+- Implemented rules: `[CONFIRMED] required_layers_present v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (86 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (90 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 231 tests, 89.54% coverage.`
+    --cov-fail-under=85 -q passed: 236 tests, 89.58% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified rule-engine foundation slice is pending
-  commit.`
+- Working tree: `[CONFIRMED] Verified required_layers_present rule slice is
+  pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -153,27 +153,59 @@ the current capabilities.
 
 ## Next Action
 
-Implement `required_layers_present` v1 as the first registered deterministic
-rule.
+Implement `drill_file_present` v1.
 
 Start with:
 
 - `src/boardgate/rules/file_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_required_layers_present.py`
+- `tests/unit/rules/test_drill_file_present.py`
 
 Acceptance criteria:
 
-1. Only strongly mapped layers can satisfy a required role.
-2. A confirmed absent role after complete classification creates one stable
-   blocker Finding per role; uncertain candidates produce confirmation
-   Findings with PARTIAL coverage rather than a false absence.
-3. Evidence points to candidate layer/source mapping provenance and the
-   requirement path `required_layers`.
-4. Present, missing, uncertain, threshold-independent, stable-ID, error, and
+1. A successfully parsed Excellon source satisfies the rule even when it
+   contains zero hits; routed slots remain explicit but do not count as round
+   holes elsewhere.
+2. Confirmed absence after complete classification creates one stable blocker
+   Finding; unresolved drill candidates or a drill parser failure produce
+   PARTIAL confirmation instead of a false absence.
+3. Evidence and config path identify the source inventory and
+   `rules.drill_file_present`.
+4. Present, empty, missing, uncertain, parser-failure, stable-ID, and
    round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:51:35+08:00 — Codex — required_layers_present v1
+
+- Role: primary implementation agent
+- Task: Implement the first evidence-backed file/layer rule.
+- Actions performed:
+  - Required only strong, uncertainty-free mappings to satisfy profile roles.
+  - Distinguished confirmed inventory absence from unresolved file or layer
+    candidates.
+  - Emitted stable blocker Findings for confirmed absence and confirmation
+    Findings with PARTIAL coverage for ambiguity.
+  - Added direct Finding config paths and shared profile-bound Finding ID,
+    severity, and evidence helpers.
+  - Registered the rule in the incremental built-in registry.
+- Files modified:
+  - `src/boardgate/rules/common.py`
+  - `src/boardgate/rules/file_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `src/boardgate/domain/finding.py`
+  - `tests/unit/rules/test_required_layers_present.py`
+  - public Finding/findings schemas
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - full lock, sync, Ruff, mypy, and pytest coverage gate
+- Tests:
+  - Rule/domain/engine focus: 23 passed.
+  - Full suite: 236 passed, 89.58% branch coverage.
+- Evidence: Present/missing/ambiguous/stability/round-trip tests.
+- Commit: PENDING (this required_layers_present commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `drill_file_present` v1.
 
 ### 2026-07-28T17:47:40+08:00 — Codex — Rule-engine contracts and registry
 
@@ -223,7 +255,7 @@ Acceptance criteria:
   - IEEE-754 addition around exact decimal thresholds requires an equality
     guard so `0.09 + 0.01` cannot become a false confirmed violation.
 - Evidence: Commands and registry/error-band/status tests above.
-- Commit: PENDING (this rule-engine foundation commit)
+- Commit: `c360738 feat(rules): establish deterministic review engine`
 - Issues created or updated: None.
 - Remaining uncertainty: The registry contract exists, but built-in rules are
   not yet registered.

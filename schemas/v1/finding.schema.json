@@ -383,6 +383,11 @@
       "title": "Confidence",
       "type": "number"
     },
+    "config_path": {
+      "minLength": 1,
+      "title": "Config Path",
+      "type": "string"
+    },
     "evidence": {
       "items": {
         "$ref": "#/$defs/FindingEvidence"
@@ -514,6 +519,7 @@
     "category",
     "severity",
     "confidence",
+    "config_path",
     "title",
     "summary",
     "facts",
