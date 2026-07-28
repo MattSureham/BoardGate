@@ -1,0 +1,750 @@
+{
+  "$defs": {
+    "BoundingBox": {
+      "additionalProperties": false,
+      "description": "Axis-aligned bounding box in canonical coordinates.",
+      "properties": {
+        "maximum": {
+          "$ref": "#/$defs/Point"
+        },
+        "minimum": {
+          "$ref": "#/$defs/Point"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "description": "Structured review result that keeps facts separate from interpretation.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/RiskMode"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FindingEvidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Facts",
+          "type": "array"
+        },
+        "finding_id": {
+          "pattern": "^fnd-[0-9a-f]{16}$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "inference": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inference"
+        },
+        "layer_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Layer Ids",
+          "type": "array"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measurement": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measurement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "related_findings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Related Findings",
+          "type": "array"
+        },
+        "requires_human_confirmation": {
+          "default": false,
+          "title": "Requires Human Confirmation",
+          "type": "boolean"
+        },
+        "rule_id": {
+          "minLength": 1,
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rule_version": {
+          "minLength": 1,
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "status": {
+          "$ref": "#/$defs/FindingStatus",
+          "default": "OPEN"
+        },
+        "suggested_action": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Action"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "rule_id",
+        "rule_version",
+        "category",
+        "severity",
+        "confidence",
+        "title",
+        "summary",
+        "facts",
+        "evidence"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingEvidence": {
+      "additionalProperties": false,
+      "description": "Source and geometric witness for a finding.",
+      "properties": {
+        "layer_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layer Id"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "witness_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundingBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "provenance"
+      ],
+      "title": "FindingEvidence",
+      "type": "object"
+    },
+    "FindingStatus": {
+      "description": "Finding lifecycle state.",
+      "enum": [
+        "OPEN",
+        "CONFIRMED",
+        "DISMISSED",
+        "RESOLVED"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "JsonScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "description": "A fact measured by deterministic code against a configured requirement.",
+      "properties": {
+        "actual": {
+          "title": "Actual",
+          "type": "number"
+        },
+        "config_path": {
+          "minLength": 1,
+          "title": "Config Path",
+          "type": "string"
+        },
+        "error_bound": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Error Bound",
+          "type": "number"
+        },
+        "operator": {
+          "enum": [
+            ">=",
+            "<=",
+            "=="
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/$defs/Unit"
+        }
+      },
+      "required": [
+        "actual",
+        "required",
+        "operator",
+        "unit",
+        "config_path"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A point in BoardGate's canonical millimetre coordinate space.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/$defs/Unit",
+          "default": "mm"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Trace a domain object back to parser and source evidence.",
+      "properties": {
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "parser": {
+          "minLength": 1,
+          "title": "Parser",
+          "type": "string"
+        },
+        "parser_version": {
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "raw_coordinates": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Raw Coordinates",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "minLength": 1,
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "source_span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source_file_id",
+        "parser",
+        "parser_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "ReviewStatus": {
+      "description": "Overall deterministic review result.",
+      "enum": [
+        "READY_FOR_REVIEW",
+        "NOT_READY_FOR_FABRICATION",
+        "READY_WITH_CONFIRMATIONS",
+        "INSUFFICIENT_INFORMATION",
+        "ANALYSIS_FAILED"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    },
+    "RiskMode": {
+      "description": "Explicit risk modes understood by orchestration and reporting.",
+      "enum": [
+        "FILE_INCOMPLETE",
+        "FILE_TYPE_UNKNOWN",
+        "UNIT_AMBIGUITY",
+        "COORDINATE_MISMATCH",
+        "LAYER_MAPPING_UNCERTAIN",
+        "OUTLINE_UNCERTAIN",
+        "GEOMETRY_VIOLATION",
+        "CROSS_FILE_INCONSISTENCY",
+        "DESIGN_INTENT_UNKNOWN",
+        "MANUFACTURER_RULE_MISMATCH",
+        "PARSER_LIMITATION"
+      ],
+      "title": "RiskMode",
+      "type": "string"
+    },
+    "RuleCoverage": {
+      "description": "How much of the intended rule scope was evaluated.",
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "NONE"
+      ],
+      "title": "RuleCoverage",
+      "type": "string"
+    },
+    "RuleId": {
+      "description": "Rule identifiers supported by the v1 deterministic engine.",
+      "enum": [
+        "required_layers_present",
+        "drill_file_present",
+        "board_outline_present",
+        "board_outline_closed",
+        "multiple_outline_regions",
+        "gerber_drill_coordinate_alignment",
+        "minimum_trace_width",
+        "minimum_copper_spacing",
+        "minimum_copper_to_edge",
+        "minimum_drill_diameter",
+        "minimum_annular_ring",
+        "silkscreen_over_exposed_pad",
+        "minimum_solder_mask_dam",
+        "bom_placement_reference_match",
+        "duplicate_reference_designator",
+        "placement_outside_board_outline"
+      ],
+      "title": "RuleId",
+      "type": "string"
+    },
+    "RuleOutcome": {
+      "description": "What a rule concluded independently of how much it covered.",
+      "enum": [
+        "PASS",
+        "FINDINGS",
+        "SKIPPED",
+        "FAILED"
+      ],
+      "title": "RuleOutcome",
+      "type": "string"
+    },
+    "RuleReason": {
+      "description": "Typed reason for a non-evaluated or failed rule.",
+      "enum": [
+        "DISABLED",
+        "NOT_APPLICABLE",
+        "DEPENDENCY_UNAVAILABLE",
+        "INPUT_UNCERTAIN",
+        "UNSUPPORTED_GEOMETRY",
+        "RULE_EXCEPTION"
+      ],
+      "title": "RuleReason",
+      "type": "string"
+    },
+    "RuleResult": {
+      "additionalProperties": false,
+      "description": "Persisted result for one configured deterministic rule.",
+      "properties": {
+        "affects_readiness": {
+          "title": "Affects Readiness",
+          "type": "boolean"
+        },
+        "applicable_object_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applicable Object Count"
+        },
+        "coverage": {
+          "$ref": "#/$defs/RuleCoverage"
+        },
+        "evaluated_object_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Evaluated Object Count",
+          "type": "integer"
+        },
+        "findings": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RuleOutcome"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuleReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "rule_id": {
+          "$ref": "#/$defs/RuleId"
+        },
+        "rule_version": {
+          "pattern": "^[0-9]+\\.[0-9]+$",
+          "title": "Rule Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "rule_version",
+        "outcome",
+        "coverage",
+        "required",
+        "affects_readiness",
+        "summary"
+      ],
+      "title": "RuleResult",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Finding severity.",
+      "enum": [
+        "BLOCKER",
+        "HIGH",
+        "WARNING",
+        "INFO"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "description": "Optional, evidence-backed location in a source file.",
+      "properties": {
+        "end_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Byte"
+        },
+        "end_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Line"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Byte"
+        },
+        "start_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Line"
+        }
+      },
+      "title": "SourceSpan",
+      "type": "object"
+    },
+    "Unit": {
+      "description": "Supported source length units.",
+      "enum": [
+        "mm",
+        "inch"
+      ],
+      "title": "Unit",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Complete findings.json root contract.",
+  "properties": {
+    "disclaimer": {
+      "minLength": 1,
+      "title": "Disclaimer",
+      "type": "string"
+    },
+    "findings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "overall_status": {
+      "$ref": "#/$defs/ReviewStatus"
+    },
+    "profile_id": {
+      "minLength": 1,
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "profile_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Profile Sha256",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^prj-[0-9a-f]{16}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "risk_modes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RiskMode"
+      },
+      "title": "Risk Modes",
+      "type": "array"
+    },
+    "rule_results": {
+      "items": {
+        "$ref": "#/$defs/RuleResult"
+      },
+      "title": "Rule Results",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "profile_id",
+    "profile_sha256",
+    "overall_status",
+    "rule_results",
+    "disclaimer"
+  ],
+  "title": "ReviewResult",
+  "type": "object"
+}

@@ -16,12 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:40:58+08:00`
+- Last updated: `2026-07-28T17:47:40+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] bce8a24 feat(assembly): safely parse BOM workbooks`
-- Phase: `[CONFIRMED] Phase 5 complete — normalized PCBProject assembly`
+- HEAD: `[CONFIRMED] d297635 feat(project): isolate parsers and assemble PCB
+  IR`
+- Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -38,7 +39,7 @@
     helpers.`
   - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
     required layers, fabrication thresholds, tolerances, and review policy.`
-  - `[CONFIRMED] Restricted YAML/JSON loader and four checked-in Draft
+  - `[CONFIRMED] Restricted YAML/JSON loader and five checked-in Draft
     2020-12 public JSON Schemas.`
   - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
     archives, and explicit regular files.`
@@ -76,6 +77,13 @@
   - `[CONFIRMED] Deterministic project assembly produces normalized layers,
     outline topology, drills, BOM/CPL records, profile requirements, and
     strict PCBProject JSON with no third-party objects.`
+  - `[CONFIRMED] Orthogonal RuleResult outcome/coverage contracts, complete
+    v1 registry validation, deterministic dependency ordering, per-rule
+    exception containment, threshold error-band semantics, and overall status
+    precedence are implemented.`
+  - `[CONFIRMED] Strict findings.json root model aggregates ordered
+    RuleResults, unique Findings, risk modes, profile identity, review status,
+    and the non-guarantee disclaimer.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -87,16 +95,16 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (81 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (86 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 216 tests, 89.30% coverage.`
+    --cov-fail-under=85 -q passed: 231 tests, 89.54% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified isolated parser/project-builder slice is
-  pending commit.`
+- Working tree: `[CONFIRMED] Verified rule-engine foundation slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -145,32 +153,81 @@ the current capabilities.
 
 ## Next Action
 
-Implement the deterministic rule-engine registry and orthogonal RuleResult
-contract before adding individual rules.
+Implement `required_layers_present` v1 as the first registered deterministic
+rule.
 
 Start with:
 
-- `src/boardgate/rules/models.py`
-- `src/boardgate/rules/engine.py`
-- `src/boardgate/rules/registry.py`
-- `tests/unit/rules/test_engine.py`
+- `src/boardgate/rules/file_rules.py`
+- `src/boardgate/rules/builtin.py`
+- `tests/unit/rules/test_required_layers_present.py`
 
 Acceptance criteria:
 
-1. RuleResult exposes only orthogonal `outcome` and `coverage`, with typed
-   skip/failure reasons and immutable Findings.
-2. Registry enforces all 16 unique RuleId/version bindings and deterministic
-   dependency order.
-3. Disabled rules, missing dependencies, no-applicable-object cases, and
-   per-rule exceptions produce explicit results without publishing partial
-   Findings.
-4. Equal thresholds are satisfying; only `actual + error < required` is
-   confirmed, while overlap with the error band requires confirmation and
-   PARTIAL coverage.
-5. Stable rule/finding IDs, registry/dependency/error/round-trip tests, and
-   overall-status precedence tests pass before a separate commit.
+1. Only strongly mapped layers can satisfy a required role.
+2. A confirmed absent role after complete classification creates one stable
+   blocker Finding per role; uncertain candidates produce confirmation
+   Findings with PARTIAL coverage rather than a false absence.
+3. Evidence points to candidate layer/source mapping provenance and the
+   requirement path `required_layers`.
+4. Present, missing, uncertain, threshold-independent, stable-ID, error, and
+   round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T17:47:40+08:00 — Codex — Rule-engine contracts and registry
+
+- Role: primary implementation agent
+- Task: Establish the semantic boundary required by all 16 deterministic
+  rules.
+- Context inspected:
+  - `HANDOFF.md`
+  - Existing Finding, identifier, Rule Profile, PCBProject, and status models
+  - Rule outcome/coverage, threshold, dependency, and overall-status
+    requirements in the approved plan
+- Actions performed:
+  - Added orthogonal PASS/FINDINGS/SKIPPED/FAILED and FULL/PARTIAL/NONE
+    contracts with typed skip/failure reasons.
+  - Added atomic evaluator returns that forbid Findings on any non-FINDINGS
+    outcome and forbid partial Findings leaking from exceptions.
+  - Added a complete v1 registry invariant, unique binding/version checks,
+    dependency existence/self/cycle checks, and stable topological ordering.
+  - Added disabled/dependency/exception containment while allowing independent
+    later rules to continue.
+  - Added conservative minimum-threshold comparison with equality-safe
+    floating semantics and explicit error-band confirmation disposition.
+  - Added normative overall-status precedence and strict findings.json root
+    aggregation with a fabrication non-guarantee disclaimer.
+  - Exported and validated the fifth public Draft 2020-12 JSON Schema.
+- Files modified:
+  - `src/boardgate/rules/`
+  - `tests/unit/rules/test_engine.py`
+  - `src/boardgate/schemas.py`
+  - `schemas/v1/findings.schema.json`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/rules/test_engine.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused engine/registry/status tests: 14 passed.
+  - Full suite: 231 passed, 89.54% branch coverage.
+  - Lock, sync, five schema-current checks, Ruff, and mypy gates passed.
+- Findings:
+  - Binary pass/fail cannot represent a rule that checked only a trustworthy
+    subset; outcome and coverage are now independently constrained.
+  - IEEE-754 addition around exact decimal thresholds requires an equality
+    guard so `0.09 + 0.01` cannot become a false confirmed violation.
+- Evidence: Commands and registry/error-band/status tests above.
+- Commit: PENDING (this rule-engine foundation commit)
+- Issues created or updated: None.
+- Remaining uncertainty: The registry contract exists, but built-in rules are
+  not yet registered.
+- Recommended next action: Implement `required_layers_present` v1.
 
 ### 2026-07-28T17:40:58+08:00 — Codex — Isolated parser and PCBProject assembly
 
@@ -228,7 +285,7 @@ Acceptance criteria:
   - One parser failure can be represented truthfully as uncertainty while
     preserving all independently successful normalized evidence.
 - Evidence: Commands and isolation/repeatability/error tests above.
-- Commit: PENDING (this parser/project assembly commit)
+- Commit: `d297635 feat(project): isolate parsers and assemble PCB IR`
 - Issues created or updated: None.
 - Remaining uncertainty: Rule outcomes and readiness status are not computed
   yet.
