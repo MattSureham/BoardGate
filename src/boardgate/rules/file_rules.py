@@ -336,3 +336,116 @@ class DrillFilePresentRule:
             evaluated_object_count=1,
             applicable_object_count=1,
         )
+
+
+def _outline_candidate_evidence(
+    context: RuleContext,
+) -> tuple[FindingEvidence, ...]:
+    evidence: list[FindingEvidence] = []
+    for layer in context.project.layers:
+        is_candidate = layer.role is LayerRole.BOARD_OUTLINE or any(
+            candidate.role is LayerRole.BOARD_OUTLINE
+            for candidate in layer.mapping_candidates
+        )
+        if not is_candidate:
+            continue
+        evidence.append(
+            FindingEvidence(
+                provenance=Provenance(
+                    source_file_id=layer.source_file_id,
+                    object_id=layer.layer_id,
+                    parser="boardgate-outline-reconstructor",
+                    parser_version=__version__,
+                    metadata={"mapped_role": layer.role.value},
+                ),
+                layer_id=layer.layer_id,
+                note=(
+                    "Layer is an outline candidate, but no trustworthy board "
+                    "outline was reconstructed."
+                ),
+            )
+        )
+    evidence.extend(_unknown_source_evidence(context))
+    return tuple(evidence)
+
+
+@dataclass(frozen=True, slots=True)
+class BoardOutlinePresentRule:
+    """Require a trustworthy reconstructed board-material boundary."""
+
+    rule_id: RuleId = RuleId.BOARD_OUTLINE_PRESENT
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = ()
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Separate confirmed absence from candidate/reconstruction ambiguity."""
+        if context.project.board_outline is not None:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=RuleCoverage.FULL,
+                summary="A trustworthy board outline was reconstructed.",
+                evaluated_object_count=1,
+                applicable_object_count=1,
+            )
+        candidates = _outline_candidate_evidence(context)
+        if candidates:
+            finding = make_finding(
+                context,
+                rule_id=self.rule_id,
+                category=RiskMode.OUTLINE_UNCERTAIN,
+                config_path="rules.board_outline_present",
+                title="Board outline requires confirmation",
+                summary=(
+                    "Outline-related source evidence exists, but BoardGate "
+                    "could not reconstruct a trustworthy board boundary."
+                ),
+                facts=(
+                    "No BoardOutline is available in the normalized project.",
+                    "At least one source remains an outline candidate.",
+                ),
+                evidence=candidates,
+                confidence=0.5,
+                suggested_action=(
+                    "Provide one unambiguous, supported, closed profile layer."
+                ),
+                requires_human_confirmation=True,
+            )
+            return RuleEvaluation(
+                outcome=RuleOutcome.FINDINGS,
+                coverage=RuleCoverage.PARTIAL,
+                findings=(finding,),
+                summary="Board-outline presence cannot be confirmed.",
+                evaluated_object_count=0,
+                applicable_object_count=1,
+            )
+        inventory = _inventory_evidence(context)
+        if not inventory:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.INPUT_UNCERTAIN,
+                summary="No classified project sources are available.",
+            )
+        finding = make_finding(
+            context,
+            rule_id=self.rule_id,
+            category=RiskMode.FILE_INCOMPLETE,
+            config_path="rules.board_outline_present",
+            title="Board outline is missing",
+            summary=(
+                "No reconstructed outline or unresolved outline candidate is "
+                "present in the completely classified project."
+            ),
+            facts=("The normalized project has no BoardOutline.",),
+            evidence=inventory,
+            confidence=1.0,
+            suggested_action="Export and include one board profile/outline layer.",
+        )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=RuleCoverage.FULL,
+            findings=(finding,),
+            summary="The required board outline is absent.",
+            evaluated_object_count=1,
+            applicable_object_count=1,
+        )

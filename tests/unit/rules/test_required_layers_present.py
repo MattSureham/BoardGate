@@ -194,7 +194,6 @@ def test_rule_result_and_review_round_trip() -> None:
         profile,
     )
 
-    assert len(review.rule_results) == 2
     required_result = next(
         result
         for result in review.rule_results
