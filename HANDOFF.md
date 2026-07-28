@@ -16,18 +16,21 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:24:03+08:00`
+- Last updated: `2026-07-28T16:26:58+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[UNKNOWN] This baseline commit is pending; resolve it with
-  git rev-parse HEAD after commit.`
-- Phase: `[CONFIRMED] Phase 0 complete — repository and quality baseline`
+- HEAD: `[CONFIRMED] e5b9c63 docs: establish PCB agent implementation baseline`
+- Phase: `[CONFIRMED] Phase 1 in progress — domain model and configuration`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
   - `[CONFIRMED] Locked Python 3.12 development environment and CI gates.`
   - `[CONFIRMED] Repository collaboration protocol and architecture boundary.`
+  - `[CONFIRMED] Strict, versioned Unit, Point, BoundingBox,
+    CoordinateSystem, SourceSpan, and Provenance models.`
+  - `[CONFIRMED] Canonical JSON serialization with six-decimal persisted
+    coordinates.`
 - Supported inputs: `[CONFIRMED] None yet.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
@@ -35,13 +38,14 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed (12 files).`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (4 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (11 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 1 test, 100% coverage.`
+    --cov-fail-under=85 -q passed: 23 tests, 100% coverage.`
 - Known limitations:
-  - `[CONFIRMED] Domain, ingestion, parsers, rules, rendering, and review
-    orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Initial verified baseline is pending commit.`
+  - `[CONFIRMED] PCBProject, Finding, ingestion, parsers, rules, rendering,
+    and review orchestration remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified geometry/provenance slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -69,25 +73,60 @@ the current capabilities.
 
 ## Next Action
 
-Implement versioned `Unit`, `Point`, `BoundingBox`, `CoordinateSystem`, and
-`Provenance` models with strict JSON round-trip tests.
+Implement versioned `PCBProject`, layer/drill/component models, `Finding`,
+`RiskMode`, and deterministic identifier helpers.
 
 Start with:
 
-- `src/boardgate/domain/geometry.py`
-- `src/boardgate/domain/provenance.py`
+- `src/boardgate/domain/project.py`
+- `src/boardgate/domain/finding.py`
 - `tests/unit/domain/`
 
 Acceptance criteria:
 
-1. Every public root model carries `schema_version: "1.0"`.
-2. Unknown source locations are represented by `None`, never magic values.
-3. NaN and infinity are rejected.
-4. Coordinates serialize deterministically in millimeters.
-5. `uv run pytest tests/unit/domain -q` passes.
-6. Commit separately before adding `PCBProject` and `Finding`.
+1. Models are parser-independent and strictly serializable.
+2. Unknown and uncertain values remain explicit.
+3. Stable project, source-object, and finding IDs are reproducible.
+4. Finding facts, requirements, suggestions, and human confirmation are
+   separate fields.
+5. JSON round-trip and identifier stability tests pass.
+6. Commit separately before adding the manufacturing Rule Profile.
 
 ## Recent Activity
+
+### 2026-07-28T16:26:58+08:00 — Codex — Geometry and provenance models
+
+- Role: primary implementation agent
+- Task: Implement the first Phase 1 domain-model slice.
+- Context inspected:
+  - `HANDOFF.md`
+  - Phase 1 requirements in `IMPLEMENT_PCB_AGENT.md`
+- Actions performed:
+  - Added strict/frozen Pydantic base models and schema version `1.0`.
+  - Added canonical millimetre geometry and coordinate-system models.
+  - Added optional, range-validated source spans and provenance.
+  - Added deterministic canonical JSON serialization.
+- Files modified:
+  - `src/boardgate/domain/`
+  - `tests/unit/domain/`
+- Commands run:
+  - `uv run ruff format .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/domain -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Domain tests: 22 passed.
+  - Full suite: 23 passed, 100% branch coverage.
+  - Ruff and mypy passed.
+- Findings:
+  - Persisted coordinates round to six decimals while in-memory calculations
+    retain their original double precision.
+- Evidence: Commands and results above.
+- Commit: PENDING (this domain commit)
+- Issues created or updated: None.
+- Remaining uncertainty: PCB project and finding IDs are not implemented yet.
+- Recommended next action: Add PCBProject, Finding, RiskMode, and stable IDs.
 
 ### 2026-07-28T16:24:03+08:00 — Codex — Initial repository baseline
 
@@ -129,7 +168,7 @@ Acceptance criteria:
   - Remote URL is `https://github.com/MattSureham/BoardGate`.
   - Python runtime is CPython 3.12.13.
   - `uv.lock` resolves 50 packages.
-- Commit: PENDING (this baseline commit)
+- Commit: `e5b9c63 docs: establish PCB agent implementation baseline`
 - Issues created or updated: ISSUE-001
 - Remaining uncertainty: Gerbonara source-span behavior remains unverified.
 - Recommended next action: Implement strict geometry and provenance models.
