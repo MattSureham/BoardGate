@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:01:21+08:00`
+- Last updated: `2026-07-28T18:03:57+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 13c390d feat(rule): verify board outline closure`
+- HEAD: `[CONFIRMED] 99b4b1f feat(rule): detect multiple outer board regions`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -90,21 +90,21 @@
   normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
-  multiple_outline_regions v1.`
+  multiple_outline_regions, and gerber_drill_coordinate_alignment v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (94 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (96 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 256 tests, 89.68% coverage.`
+    --cov-fail-under=85 -q passed: 262 tests, 89.63% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified multiple_outline_regions rule slice is
+- Working tree: `[CONFIRMED] Verified gross coordinate-alignment rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -154,25 +154,51 @@ the current capabilities.
 
 ## Next Action
 
-Implement `gerber_drill_coordinate_alignment` v1.
+Implement `minimum_trace_width` v1.
 
 Start with:
 
 - `src/boardgate/rules/geometry_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_coordinate_alignment.py`
+- `tests/unit/rules/test_minimum_trace_width.py`
 
 Acceptance criteria:
 
-1. v1 compares only the aggregate round-drill/slot bbox to the trusted board
-   material bbox and detects complete disjointness beyond gross tolerance.
-2. It never claims pad-to-drill registration or exact alignment.
-3. Missing holes/outline, unknown coordinates, and tolerance overlap are
-   SKIPPED/PARTIAL with truthful evidence.
-4. Overlap, exact gross tolerance, disjoint mismatch, partial/error-band,
+1. Only dark Line/Arc draws with standard circular apertures on trusted copper
+   layers are eligible.
+2. A trace is measured only where final composite copper does not widen it;
+   unsupported/macro/clear geometry downgrades coverage explicitly.
+3. Equality passes, confirmed narrow widths use `actual + error < required`,
+   and error-band overlap creates a confirmation Finding.
+4. Positive, negative, equality, widening exclusion, limitation, error-band,
    stable-ID, and round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:03:57+08:00 — Codex — gross coordinate alignment v1
+
+- Role: primary implementation agent
+- Task: Detect only aggregate Gerber/drill coordinate disjointness.
+- Actions performed:
+  - Built conservative physical bounds for round holes, line slots, and full
+    arc-slot circles.
+  - Compared aggregate drill and trusted board bboxes using gross tolerance
+    plus propagated outline error.
+  - Distinguished exact-boundary pass, confirmed disjointness, and PARTIAL
+    error-band overlap.
+  - Stated explicitly in PASS and Finding facts that pad registration is not
+    evaluated.
+- Files modified:
+  - `src/boardgate/rules/geometry_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_coordinate_alignment.py`
+- Tests:
+  - Focused alignment tests: 6 passed.
+  - Full suite: 262 passed, 89.63% branch coverage.
+- Evidence: Overlap/equality/disjoint/error-band/no-feature/round-trip tests.
+- Commit: PENDING (this coordinate-alignment commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_trace_width` v1.
 
 ### 2026-07-28T18:01:21+08:00 — Codex — multiple_outline_regions v1
 
@@ -193,7 +219,7 @@ Acceptance criteria:
   - Focused topology tests: 4 passed.
   - Full suite: 256 passed, 89.68% branch coverage.
 - Evidence: Single/cutout/multiple/dependency/stability/round-trip tests.
-- Commit: PENDING (this multiple_outline_regions commit)
+- Commit: `99b4b1f feat(rule): detect multiple outer board regions`
 - Issues created or updated: None.
 - Recommended next action: Implement gross Gerber/drill coordinate alignment.
 

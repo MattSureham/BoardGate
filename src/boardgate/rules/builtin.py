@@ -7,6 +7,7 @@ from boardgate.rules.file_rules import (
     MultipleOutlineRegionsRule,
     RequiredLayersPresentRule,
 )
+from boardgate.rules.geometry_rules import GerberDrillCoordinateAlignmentRule
 from boardgate.rules.registry import Rule, RuleRegistry
 
 
@@ -18,6 +19,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         BoardOutlinePresentRule(),
         BoardOutlineClosedRule(),
         MultipleOutlineRegionsRule(),
+        GerberDrillCoordinateAlignmentRule(),
     )
 
 
