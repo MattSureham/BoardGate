@@ -10,6 +10,10 @@ from pydantic import Field, model_validator
 
 from boardgate.config.models import RuleId
 from boardgate.domain.base import StrictModel, VersionedModel
+from boardgate.domain.diagnostic import (
+    AnalysisDiagnostic,
+    ordered_analysis_diagnostics,
+)
 from boardgate.domain.enums import ReviewStatus, RiskMode
 from boardgate.domain.finding import Finding
 
@@ -134,6 +138,7 @@ class ReviewResult(VersionedModel):
     rule_results: tuple[RuleResult, ...]
     findings: tuple[Finding, ...] = ()
     risk_modes: tuple[RiskMode, ...] = ()
+    analysis_diagnostics: tuple[AnalysisDiagnostic, ...] = ()
     disclaimer: str = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -155,6 +160,11 @@ class ReviewResult(VersionedModel):
             raise ValueError(msg)
         if self.risk_modes != tuple(sorted(set(self.risk_modes), key=str)):
             msg = "risk modes must be unique and sorted"
+            raise ValueError(msg)
+        if self.analysis_diagnostics != ordered_analysis_diagnostics(
+            self.analysis_diagnostics
+        ):
+            msg = "analysis diagnostics must be unique and sorted"
             raise ValueError(msg)
         return self
 

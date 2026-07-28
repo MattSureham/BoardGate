@@ -16,14 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:15:02+08:00`
+- Last updated: `2026-07-28T21:32:21+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 1640bcb feat(rule): detect duplicate reference
-  designators`
-- Remote sync: `[CONFIRMED] origin/main and remote HEAD are 1640bcb; GitHub
-  Actions run 30362114646 completed successfully for that commit.`
+- HEAD: `[CONFIRMED] 0ece4bb feat(rule): validate placement anchor
+  containment`
+- Remote sync: `[CONFIRMED] origin/main and remote HEAD are 0ece4bb; the
+  preceding GitHub Actions run 30362114646 completed successfully.`
 - Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
   Phase 9 complete-review artifacts are next.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
@@ -88,7 +88,10 @@
     precedence are implemented.`
   - `[CONFIRMED] Strict findings.json root model aggregates ordered
     RuleResults, unique Findings, risk modes, profile identity, review status,
-    and the non-guarantee disclaimer.`
+    analysis diagnostics, and the non-guarantee disclaimer.`
+  - `[CONFIRMED] Phase 9 now has an accepted six-artifact/failure contract,
+    canonical deterministic JSON, sanitized run diagnostics, structured JSONL
+    logs, and cross-artifact validation including safe SVG and Finding IDs.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -115,8 +118,9 @@
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified placement_outside_board_outline rule
-  slice and HANDOFF update are pending one atomic commit.`
+- Working tree: `[CONFIRMED] Verified complete-artifact contract, diagnostic
+  model, ADR, Schema, tests, and this HANDOFF update are pending one atomic
+  commit; report, SVG, and fixture slices remain separately uncommitted.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -186,31 +190,69 @@ the current capabilities.
 
 ## Next Action
 
-Define the complete-review artifact and failure contract for Phase 9.
+Commit the deterministic Markdown report composer as the next Phase 9
+presentation slice.
 
 Start with:
 
-- `docs/adr/0002-review-artifacts-and-failures.md`
-- `src/boardgate/application/artifacts.py`
-- `src/boardgate/rules/models.py`
-- `tests/unit/application/test_artifacts.py`
+- `src/boardgate/reporting/__init__.py`
+- `src/boardgate/reporting/markdown.py`
+- `tests/unit/reporting/test_markdown.py`
 
 Acceptance criteria:
 
-1. Record deterministic versus run-varying artifact bytes, sanitized
-   pipeline diagnostic categories, post-ingestion fallback behavior, and CLI
-   exit-code precedence in ADR 0002.
-2. Define strict versioned run-diagnostic and complete artifact-bundle
-   contracts without fabricating normal rule Findings after catastrophic
-   project construction failure.
-3. Validate the exact six-file inventory, JSON model/Schema round trips,
-   cross-artifact project/profile/Finding IDs, safe standalone SVG, and
-   structured JSONL logs before publication.
-4. Regenerate affected Draft 2020-12 Schemas and pass success/failure,
-   missing/extra artifact, mismatch, unsafe SVG, invalid JSONL, determinism,
-   and round-trip tests before the separate commit.
+1. Produce all normative report sections from `PCBProject` and
+   `ReviewResult`, including evidence confidence, missing inputs, rule
+   coverage, limitations, confirmations, recommended actions, and disclaimer.
+2. Preserve every Finding ID and resolve source digest/object/span evidence
+   without introducing facts not present in the structured models.
+3. Escape untrusted Markdown content and use the bounded “no issue found in
+   checked scope” wording for `PASS + PARTIAL`.
+4. Keep output byte-stable and pass focused report, Ruff, mypy, and full
+   repository tests before the separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T21:32:21+08:00 — Codex — complete review artifact contract
+
+- Role: primary implementation agent
+- Task: Define Phase 9 artifact completeness, diagnostics, and failure
+  semantics before wiring the review service.
+- Actions performed:
+  - Accepted ADR 0002 defining the exact six-file bundle, deterministic versus
+    run-varying bytes, post-ingestion fallback, and CLI exit precedence.
+  - Added strict sanitized `AnalysisDiagnostic` values to `ReviewResult`
+    without converting unavailable analysis into fabricated rule Findings.
+  - Added canonical JSON, structured JSONL, exact inventory, cross-model
+    identity, Finding-reference, safe SVG, and run-variance validation.
+  - Added an `ANALYSIS_FAILED` review builder and regenerated the affected
+    Draft 2020-12 findings Schema.
+- Files modified:
+  - `docs/adr/0002-review-artifacts-and-failures.md`
+  - `src/boardgate/application/artifacts.py`
+  - `src/boardgate/domain/diagnostic.py`
+  - `src/boardgate/rules/models.py`
+  - `schemas/v1/findings.schema.json`
+  - `tests/unit/application/test_artifacts.py`
+  - `tests/unit/domain/test_diagnostic.py`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv run pytest tests/unit/domain/test_diagnostic.py
+    tests/unit/application/test_artifacts.py -q`
+  - `uv run ruff check` on the changed Python files
+  - `uv run mypy` on the changed Python files
+  - `git diff --check`
+- Tests:
+  - Focused diagnostic and artifact-contract suite: 38 passed.
+  - Extended agent verification: 261 passed; Ruff format/check and mypy
+    passed over the then-current shared tree.
+- Evidence: Exact inventory rejection, deterministic-byte comparison,
+  public Schema round trips, cross-artifact ID mismatch rejection, unsafe SVG
+  rejection, monotonic single-run JSONL, summary sanitization, and
+  analysis-unavailable round trip.
+- Commit: PENDING (this complete-review artifact contract commit)
+- Issues created or updated: ADR 0002 accepted; no blocking issue created.
+- Recommended next action: Commit the deterministic Markdown report composer.
 
 ### 2026-07-28T21:15:02+08:00 — Codex — placement anchor containment
 
@@ -247,7 +289,7 @@ Acceptance criteria:
   interior, top/bottom anchor parity, DNP/marker/ignore filtering, relevant
   uncertainty, row and outline witnesses, stable IDs, and ReviewResult JSON
   round-trip.
-- Commit: PENDING (this placement_outside_board_outline commit)
+- Commit: `0ece4bb feat(rule): validate placement anchor containment`
 - Issues created or updated: None.
 - Recommended next action: Define the Phase 9 review artifact/failure
   contract and validation boundary.

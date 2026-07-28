@@ -1,5 +1,74 @@
 {
   "$defs": {
+    "AnalysisDiagnostic": {
+      "additionalProperties": false,
+      "description": "Sanitized run-level explanation retained in ``findings.json``.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/AnalysisDiagnosticCategory"
+        },
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]+$",
+          "title": "Code",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stage": {
+          "$ref": "#/$defs/AnalysisStage"
+        },
+        "summary": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "stage",
+        "code",
+        "summary"
+      ],
+      "title": "AnalysisDiagnostic",
+      "type": "object"
+    },
+    "AnalysisDiagnosticCategory": {
+      "description": "Stable fault taxonomy independent of exception implementation details.",
+      "enum": [
+        "INPUT",
+        "CONFIGURATION",
+        "SECURITY",
+        "PARSER",
+        "ANALYSIS",
+        "OUTPUT",
+        "INTERNAL"
+      ],
+      "title": "AnalysisDiagnosticCategory",
+      "type": "string"
+    },
+    "AnalysisStage": {
+      "description": "Stable pipeline stage associated with an analysis diagnostic.",
+      "enum": [
+        "DISCOVERY",
+        "CONFIGURATION",
+        "INGESTION",
+        "PARSING",
+        "NORMALIZATION",
+        "PROJECT_CONSTRUCTION",
+        "RULE_EXECUTION",
+        "REPORT_COMPOSITION",
+        "SVG_RENDERING",
+        "ARTIFACT_VALIDATION",
+        "PUBLICATION"
+      ],
+      "title": "AnalysisStage",
+      "type": "string"
+    },
     "BoundingBox": {
       "additionalProperties": false,
       "description": "Axis-aligned bounding box in canonical coordinates.",
@@ -691,6 +760,14 @@
   "additionalProperties": false,
   "description": "Complete findings.json root contract.",
   "properties": {
+    "analysis_diagnostics": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnalysisDiagnostic"
+      },
+      "title": "Analysis Diagnostics",
+      "type": "array"
+    },
     "disclaimer": {
       "minLength": 1,
       "title": "Disclaimer",
