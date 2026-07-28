@@ -4,6 +4,7 @@ from boardgate.rules.file_rules import (
     BoardOutlineClosedRule,
     BoardOutlinePresentRule,
     DrillFilePresentRule,
+    MultipleOutlineRegionsRule,
     RequiredLayersPresentRule,
 )
 from boardgate.rules.registry import Rule, RuleRegistry
@@ -16,6 +17,7 @@ def builtin_rules() -> tuple[Rule, ...]:
         DrillFilePresentRule(),
         BoardOutlinePresentRule(),
         BoardOutlineClosedRule(),
+        MultipleOutlineRegionsRule(),
     )
 
 

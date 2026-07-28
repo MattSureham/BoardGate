@@ -10,7 +10,7 @@ from boardgate.config.models import RuleId
 from boardgate.domain.diagnostic import SourceDiagnosticLevel
 from boardgate.domain.enums import FileType, LayerRole, RiskMode
 from boardgate.domain.finding import FindingEvidence, Measurement
-from boardgate.domain.geometry import Unit
+from boardgate.domain.geometry import BoundingBox, Point, Unit
 from boardgate.domain.provenance import Provenance
 from boardgate.rules.common import make_finding
 from boardgate.rules.engine import RuleContext
@@ -593,5 +593,104 @@ class BoardOutlineClosedRule:
                 len(outline.contours)
                 - sum(finding.requires_human_confirmation for finding in findings)
             ),
+            applicable_object_count=len(outline.contours),
+        )
+
+
+def _contour_bounds(points: tuple[Point, ...]) -> BoundingBox:
+    return BoundingBox(
+        minimum=Point(
+            x=min(point.x for point in points),
+            y=min(point.y for point in points),
+        ),
+        maximum=Point(
+            x=max(point.x for point in points),
+            y=max(point.y for point in points),
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class MultipleOutlineRegionsRule:
+    """Flag multiple disjoint outer boards while excluding nested cutouts."""
+
+    rule_id: RuleId = RuleId.MULTIPLE_OUTLINE_REGIONS
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (RuleId.BOARD_OUTLINE_CLOSED,)
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+        """Count only outer contours from reconstructed material topology."""
+        outline = context.project.board_outline
+        if outline is None:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary="No closed board outline exists to count regions.",
+            )
+        if outline.outer_contour_count == 1:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=RuleCoverage.FULL,
+                summary=(
+                    "The outline contains exactly one outer board region; "
+                    "nested cutouts are excluded."
+                ),
+                evaluated_object_count=len(outline.contours),
+                applicable_object_count=len(outline.contours),
+            )
+        provenance_by_id = {
+            provenance.object_id: provenance
+            for provenance in outline.provenance
+            if provenance.object_id is not None
+        }
+        evidence: list[FindingEvidence] = []
+        for contour in outline.contours:
+            if contour.kind != "outer":
+                continue
+            matching = tuple(
+                provenance_by_id[identifier]
+                for identifier in contour.source_primitive_ids
+                if identifier in provenance_by_id
+            )
+            contour_provenance = matching or (outline.provenance[0],)
+            evidence.extend(
+                FindingEvidence(
+                    provenance=provenance,
+                    witness_bounds=_contour_bounds(contour.points),
+                    note=f"Outer contour {contour.contour_id}.",
+                )
+                for provenance in contour_provenance
+            )
+        finding = make_finding(
+            context,
+            rule_id=self.rule_id,
+            category=RiskMode.DESIGN_INTENT_UNKNOWN,
+            config_path="rules.multiple_outline_regions",
+            title="Multiple outer board regions detected",
+            summary=(
+                "The reconstructed board topology contains more than one "
+                "disjoint outer material region."
+            ),
+            facts=(
+                f"Outer contour count is {outline.outer_contour_count}.",
+                (
+                    "Nested cutout count is "
+                    f"{sum(contour.kind == 'cutout' for contour in outline.contours)}."
+                ),
+            ),
+            evidence=tuple(evidence),
+            confidence=1.0,
+            suggested_action=(
+                "Confirm panelization/design intent or supply a single-board profile."
+            ),
+            requires_human_confirmation=True,
+        )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=RuleCoverage.FULL,
+            findings=(finding,),
+            summary="Multiple disjoint outer board regions require confirmation.",
+            evaluated_object_count=len(outline.contours),
             applicable_object_count=len(outline.contours),
         )

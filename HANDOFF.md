@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T17:59:22+08:00`
+- Last updated: `2026-07-28T18:01:21+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 7f93695 feat(rule): require reconstructed board outline`
+- HEAD: `[CONFIRMED] 13c390d feat(rule): verify board outline closure`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -89,21 +89,22 @@
   Excellon round hits/routed slots and Gerber analytic primitives are
   normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] required_layers_present and
-  drill_file_present, board_outline_present, and board_outline_closed v1.`
+  drill_file_present, board_outline_present, board_outline_closed, and
+  multiple_outline_regions v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (93 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (94 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 252 tests, 89.66% coverage.`
+    --cov-fail-under=85 -q passed: 256 tests, 89.68% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified board_outline_closed rule slice is
+- Working tree: `[CONFIRMED] Verified multiple_outline_regions rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -153,25 +154,48 @@ the current capabilities.
 
 ## Next Action
 
-Implement `multiple_outline_regions` v1.
+Implement `gerber_drill_coordinate_alignment` v1.
 
 Start with:
 
-- `src/boardgate/rules/file_rules.py`
+- `src/boardgate/rules/geometry_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_multiple_outline_regions.py`
+- `tests/unit/rules/test_coordinate_alignment.py`
 
 Acceptance criteria:
 
-1. Nested cutouts never count as a second outer board region.
-2. Exactly one outer contour passes; more than one creates a stable Finding
-   with each outer contour as geometric evidence.
-3. Missing/uncertain outline topology is NOT_APPLICABLE or PARTIAL through the
-   outline dependencies, never a fabricated multi-region result.
-4. One outer, nested cutout, two outer, stable-ID, dependency, and round-trip
-   tests pass before the rule's separate commit.
+1. v1 compares only the aggregate round-drill/slot bbox to the trusted board
+   material bbox and detects complete disjointness beyond gross tolerance.
+2. It never claims pad-to-drill registration or exact alignment.
+3. Missing holes/outline, unknown coordinates, and tolerance overlap are
+   SKIPPED/PARTIAL with truthful evidence.
+4. Overlap, exact gross tolerance, disjoint mismatch, partial/error-band,
+   stable-ID, and round-trip tests pass before the rule's separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:01:21+08:00 — Codex — multiple_outline_regions v1
+
+- Role: primary implementation agent
+- Task: Detect disjoint outer board regions without counting cutouts.
+- Actions performed:
+  - Counted reconstructed outer contours only and explicitly excluded cutouts.
+  - Passed one outer region even with nested cutouts.
+  - Emitted one stable design-intent confirmation with per-contour witness
+    bounds for multiple outer regions.
+  - Depended on closed outline topology and kept missing outlines
+    NOT_APPLICABLE.
+- Files modified:
+  - `src/boardgate/rules/file_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_multiple_outline_regions.py`
+- Tests:
+  - Focused topology tests: 4 passed.
+  - Full suite: 256 passed, 89.68% branch coverage.
+- Evidence: Single/cutout/multiple/dependency/stability/round-trip tests.
+- Commit: PENDING (this multiple_outline_regions commit)
+- Issues created or updated: None.
+- Recommended next action: Implement gross Gerber/drill coordinate alignment.
 
 ### 2026-07-28T17:59:22+08:00 — Codex — board_outline_closed v1
 
@@ -192,7 +216,7 @@ Acceptance criteria:
   - Focused closure tests: 6 passed.
   - Full suite: 252 passed, 89.66% branch coverage.
 - Evidence: Closed/equality/open/error-band/absence/dependency tests.
-- Commit: PENDING (this board_outline_closed commit)
+- Commit: `13c390d feat(rule): verify board outline closure`
 - Issues created or updated: None.
 - Recommended next action: Implement `multiple_outline_regions` v1.
 
