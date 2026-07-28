@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:42:19+08:00`
+- Last updated: `2026-07-28T16:47:04+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 9a9e285 feat(config): validate manufacturing rule
-  profiles`
+- HEAD: `[CONFIRMED] ab7050e feat(ingestion): safely stage PCB project
+  inputs`
 - Phase: `[CONFIRMED] Phase 2 in progress — safe ingestion and manifest`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
@@ -44,21 +44,25 @@
     archives, and explicit regular files.`
   - `[CONFIRMED] ZIP preflight, streaming expansion, shared security budgets,
     and cross-platform logical-path collision detection.`
+  - `[CONFIRMED] SHA-256 inventory, conservative content/name/extension
+    classification, explicit conflicts, and byte-stable manifest generation.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
-  regular files can be safely staged; classification is not implemented yet.`
+  regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
+  and unknown files receive evidence-backed manifest classifications.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (36 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (41 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 82 tests, 90.38% coverage.`
+    --cov-fail-under=85 -q passed: 97 tests, 90.89% coverage.`
 - Known limitations:
-  - `[CONFIRMED] File classification, manifest construction, parsers, rule
-    execution, rendering, and review orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified safe-ingestion slice is pending commit.`
+  - `[CONFIRMED] CLI inspection, parsers, rule execution, rendering, and review
+    orchestration remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified classification/manifest slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -86,28 +90,71 @@ the current capabilities.
 
 ## Next Action
 
-Implement deterministic content-aware classification and manifest generation.
+Add the minimal `pcb-review inspect` CLI slice that safely emits
+`manifest.json`.
 
 Start with:
 
-- `src/boardgate/ingestion/hashing.py`
-- `src/boardgate/ingestion/classifier.py`
-- `src/boardgate/ingestion/manifest.py`
-- `tests/unit/ingestion/`
+- `src/boardgate/cli.py`
+- `src/boardgate/application/output.py`
+- `tests/integration/test_inspect_manifest.py`
 
 Acceptance criteria:
 
-1. Every staged file receives SHA-256, stable source ID, sorted candidates,
-   confidence, and concrete evidence.
-2. X2 hints, content signatures, file names, and extensions remain separate
-   evidence; conflicts remain uncertain instead of being overwritten.
-3. Gerber, Excellon, BOM/placement CSV, XLSX, rule files, and unknown inputs
-   are classified conservatively.
-4. The project ID is stable across directory/ZIP/file input forms.
-5. Manifest JSON validates against the checked-in schema and is byte-stable.
-6. Golden and ambiguity tests pass before a separate commit.
+1. CLI shape and option choices match the approved public contract.
+2. `--rules` is always explicit and validated before project processing.
+3. A new non-empty output directory is refused unless `--overwrite` is used.
+4. The initial slice atomically writes and validates `manifest.json`.
+5. Configuration/input errors return exit code 2 with no traceback or host-path
+   disclosure.
+6. Directory, ZIP, separate-file, overwrite, and stable-output integration
+   tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:47:04+08:00 — Codex — Stable project manifest
+
+- Role: primary implementation agent
+- Task: Complete deterministic Phase 2 classification and manifest generation.
+- Context inspected:
+  - `HANDOFF.md`
+  - Manifest and classification contracts in `IMPLEMENT_PCB_AGENT.md`
+- Actions performed:
+  - Added bounded streaming SHA-256 hashing and stable source/project IDs.
+  - Added separate extension, filename, Gerber/X2, Excellon, CSV-header,
+    OOXML-container, and rule-profile signals.
+  - Preserved all candidate evidence and emitted FILE_TYPE_UNKNOWN uncertainty
+    for conflict or insufficient evidence.
+  - Added byte-stable manifest serialization and Draft 2020-12 validation.
+  - Kept `.xlsx` inputs intact rather than treating their ZIP container as a
+    project archive.
+- Files modified:
+  - `src/boardgate/domain/identifiers.py`
+  - `src/boardgate/ingestion/`
+  - `tests/unit/ingestion/`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/ingestion
+    tests/unit/domain/test_identifiers.py -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Focused tests: 46 passed.
+  - Full suite: 97 passed, 90.89% branch coverage.
+  - Lock, sync, Ruff, and mypy gates passed.
+- Findings:
+  - Strong, conflicting type signals intentionally resolve to UNKNOWN.
+  - Directory, ZIP, and reversed explicit-file inputs serialize identically.
+- Evidence: Commands and results above.
+- Commit: PENDING (this manifest commit)
+- Issues created or updated: ISSUE-003 was not required; ambiguous `.txt`
+  drill inputs are resolved only when Excellon content evidence is strong.
+- Remaining uncertainty: The public inspect command does not yet emit a
+  manifest.
+- Recommended next action: Add atomic CLI manifest output.
 
 ### 2026-07-28T16:42:19+08:00 — Codex — Safe project input staging
 
@@ -148,7 +195,7 @@ Acceptance criteria:
     compared with declared sizes.
   - Logical paths are collision-checked across every supplied input.
 - Evidence: Commands and results above.
-- Commit: PENDING (this ingestion commit)
+- Commit: `ab7050e feat(ingestion): safely stage PCB project inputs`
 - Issues created or updated: None.
 - Remaining uncertainty: Content classification has not been implemented.
 - Recommended next action: Add stable hashing, classification, and manifests.

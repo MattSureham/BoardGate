@@ -31,10 +31,8 @@ def source_file_id(logical_path: str, sha256: str) -> str:
 
 def project_id(sources: Sequence[tuple[str, str]]) -> str:
     """Build a stable project identifier independent of input ordering."""
-    normalized = [
-        {"logical_path": path, "sha256": digest} for path, digest in sorted(sources)
-    ]
-    return _digest("prj", {"schema_version": "1.0", "sources": normalized})
+    normalized = [[path, digest] for path, digest in sorted(sources)]
+    return _digest("prj", normalized)
 
 
 def object_id(

@@ -17,6 +17,7 @@ from boardgate.ingestion.limits import IngestionLimits
 from boardgate.ingestion.paths import normalize_logical_path, path_collision_key
 
 _COPY_CHUNK_BYTES = 1024 * 1024
+_OFFICE_CONTAINER_SUFFIXES = frozenset({".xlsx", ".xlsm", ".xltx", ".xltm"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +139,8 @@ def _directory_files(root: Path) -> tuple[tuple[Path, str], ...]:
 
 
 def _looks_like_zip(path: Path) -> bool:
+    if path.suffix.casefold() in _OFFICE_CONTAINER_SUFFIXES:
+        return False
     if path.suffix.casefold() == ".zip":
         return True
     try:
