@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:33:33+08:00`
+- Last updated: `2026-07-28T18:37:16+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] ed56bdd feat(rule): measure supported annular rings`
+- HEAD: `[CONFIRMED] 5bf2d15 feat(rule): detect silkscreen over exposed pads`
 - Remote sync: `[CONFIRMED] origin/main remains at d297635; later local
   commits are pending a normal push because the configured proxy aborts the
   GitHub CONNECT request.`
@@ -97,21 +97,21 @@
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
   minimum_trace_width, minimum_copper_spacing, minimum_copper_to_edge, and
   minimum_drill_diameter, minimum_annular_ring, and
-  silkscreen_over_exposed_pad v1.`
+  silkscreen_over_exposed_pad and minimum_solder_mask_dam v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (105 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (106 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 320 tests, 90.06% coverage.`
+    --cov-fail-under=85 passed: 331 tests, 90.17% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified silkscreen_over_exposed_pad rule slice is
+- Working tree: `[CONFIRMED] Verified minimum_solder_mask_dam rule slice is
   pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -182,29 +182,62 @@ the current capabilities.
 
 ## Next Action
 
-Implement `minimum_solder_mask_dam` v1.
+Implement `bom_placement_reference_match` v1.
 
 Start with:
 
-- `src/boardgate/rules/surface_rules.py`
-- `src/boardgate/rules/derived_geometry.py`
+- `src/boardgate/rules/assembly_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_solder_mask_dam.py`
+- `tests/unit/rules/test_bom_placement_reference_match.py`
 
 Acceptance criteria:
 
-1. On each trusted solder-mask layer, measure true distances only between
-   distinct final opening components; never compare top openings to bottom.
-2. Treat one connected/gang opening as one component so it is not reported as
-   a fabricated zero-width dam.
-3. Equality passes; compositing and approximation error distinguish confirmed
-   violations from PARTIAL confirmations, while uncertain polarity or
-   unsupported geometry cannot become a numeric claim.
-4. Pass/violation/equality/error-band/gang-opening/polarity/same-side,
-   evidence, STRtree equivalence, stability, and round-trip tests pass before
-   the separate commit.
+1. Activate assembly scope when either BOM or placement data exists; if only
+   one dataset is present, report the other as missing without hiding parsed
+   references.
+2. Normalize references case-insensitively and exclude configured ignored
+   references and DNP entries symmetrically from both BOM and CPL sets.
+3. Emit separate BOM-only and CPL-only findings with row-level provenance,
+   stable IDs, factual set membership, and no inferred design intent.
+4. Match/pass/BOM-only/CPL-only/missing-dataset/DNP/ignore/case-normalization,
+   source uncertainty, determinism, and round-trip tests pass before the
+   separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:37:16+08:00 — Codex — minimum_solder_mask_dam v1
+
+- Role: primary implementation agent
+- Task: Measure true solder-mask dams without inventing gang-opening defects.
+- Actions performed:
+  - Composited mask polarity per side and flattened final openings into stable
+    connected components.
+  - Used the shared STRtree distance query only within each mask layer and
+    applied equality-safe approximation/error-band decisions.
+  - Kept one connected/gang opening as one component, so it is never compared
+    with itself or reported as a zero-width dam.
+  - Rejected weak/mis-sided/unknown-polarity/macro input and downgraded
+    source-limited results to PARTIAL confirmation.
+- Files modified:
+  - `src/boardgate/rules/surface_rules.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_solder_mask_dam.py`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Focused solder-mask-dam tests: 11 passed.
+  - Full suite: 331 passed, 90.17% branch coverage.
+- Evidence: Pass/violation/equality/error-band, gang-opening exclusion,
+  same/opposite-side separation, clear-polarity split, mapping/polarity/macro
+  and source uncertainty, direct witnesses, determinism, and JSON round-trip.
+- Commit: PENDING (this minimum_solder_mask_dam commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `bom_placement_reference_match` v1.
 
 ### 2026-07-28T18:33:33+08:00 — Codex — silkscreen_over_exposed_pad v1
 
@@ -245,7 +278,7 @@ Acceptance criteria:
 - Evidence: Same/opposite-side, no-overlap/equality, robust/error-band overlap,
   missing optional input, mapping/polarity/macro/source uncertainty, bottom
   side, three-layer provenance, determinism, and JSON round-trip tests.
-- Commit: PENDING (this silkscreen_over_exposed_pad commit)
+- Commit: `5bf2d15 feat(rule): detect silkscreen over exposed pads`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_solder_mask_dam` v1.
 

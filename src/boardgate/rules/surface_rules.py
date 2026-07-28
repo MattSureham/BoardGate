@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import nearest_points
 
 from boardgate.config.models import RuleId
 from boardgate.domain.enums import BoardSide, LayerRole, Polarity, RiskMode
@@ -14,6 +15,7 @@ from boardgate.domain.layer import PCBLayer
 from boardgate.rules.common import make_finding, project_uncertainty_evidence
 from boardgate.rules.derived_geometry import (
     LayerComposite,
+    component_pairs_within,
     composite_layer,
     geometry_components,
     shapely_bounds,
@@ -24,6 +26,8 @@ from boardgate.rules.models import (
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
+    ThresholdDisposition,
+    evaluate_minimum_threshold,
 )
 
 _SIDE_ROLES = {
@@ -320,4 +324,240 @@ class SilkscreenOverExposedPadRule:
             summary="Same-side silkscreen overlap with exposed copper was found.",
             evaluated_object_count=exposed_component_count,
             applicable_object_count=exposed_component_count,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _MaskGeometry:
+    side: BoardSide
+    layer: PCBLayer
+    openings: LayerComposite
+
+
+def _derive_mask(
+    context: RuleContext,
+    side: BoardSide,
+) -> tuple[_MaskGeometry | None, RuleReason | None]:
+    role = (
+        LayerRole.TOP_SOLDER_MASK
+        if side is BoardSide.TOP
+        else LayerRole.BOTTOM_SOLDER_MASK
+    )
+    matches = tuple(layer for layer in context.project.layers if layer.role is role)
+    if not matches:
+        return None, None
+    if len(matches) > 1:
+        return None, RuleReason.INPUT_UNCERTAIN
+    layer = matches[0]
+    if (
+        layer.side is not side
+        or layer.mapping_confidence < _STRONG_MAPPING_CONFIDENCE
+        or layer.uncertainties
+        or not _known_polarity(layer)
+    ):
+        return None, RuleReason.INPUT_UNCERTAIN
+    composite = composite_layer(
+        layer,
+        arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+        geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
+    )
+    if not composite.coverage_complete:
+        return None, RuleReason.UNSUPPORTED_GEOMETRY
+    return _MaskGeometry(side=side, layer=layer, openings=composite), None
+
+
+@dataclass(frozen=True, slots=True)
+class MinimumSolderMaskDamRule:
+    """Measure gaps only between distinct final mask-opening components."""
+
+    rule_id: RuleId = RuleId.MINIMUM_SOLDER_MASK_DAM
+    version: str = "1.0"
+    dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
+
+    def evaluate(self, context: RuleContext) -> RuleEvaluation:  # noqa: PLR0912
+        """Compare mask-opening components per side using an STRtree."""
+        masks: list[_MaskGeometry] = []
+        invalid_reasons: list[RuleReason] = []
+        for side in (BoardSide.TOP, BoardSide.BOTTOM):
+            derived, reason = _derive_mask(context, side)
+            if derived is not None:
+                masks.append(derived)
+            elif reason is not None:
+                invalid_reasons.append(reason)
+        if not masks:
+            if RuleReason.UNSUPPORTED_GEOMETRY in invalid_reasons:
+                reason = RuleReason.UNSUPPORTED_GEOMETRY
+                summary = (
+                    "Solder-mask geometry is outside the exact v1 composition scope."
+                )
+            elif RuleReason.INPUT_UNCERTAIN in invalid_reasons:
+                reason = RuleReason.INPUT_UNCERTAIN
+                summary = "Solder-mask mapping, side, or polarity is uncertain."
+            else:
+                reason = RuleReason.NOT_APPLICABLE
+                summary = "No optional solder-mask layer is available."
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=reason,
+                summary=summary,
+            )
+
+        required = context.profile.fabrication.min_solder_mask_dam
+        epsilon = context.profile.tolerances.geometry_epsilon
+        uncertainty_by_source = project_uncertainty_evidence(context)
+        findings = []
+        applicable_pairs = 0
+        coverage_partial = bool(invalid_reasons)
+        for mask in masks:
+            uncertainty = uncertainty_by_source.get(
+                mask.layer.source_file_id,
+                (),
+            )
+            coverage_partial = coverage_partial or bool(uncertainty)
+            components = geometry_components(mask.openings.geometry)
+            applicable_pairs += len(components) * (len(components) - 1) // 2
+            error = 2.0 * mask.openings.error_bound_mm + epsilon
+            for first_index, second_index, distance in component_pairs_within(
+                components,
+                maximum_distance=required + error,
+            ):
+                disposition = evaluate_minimum_threshold(
+                    actual=distance,
+                    required=required,
+                    error_bound=error,
+                )
+                if disposition is ThresholdDisposition.SATISFIED:
+                    continue
+                confirmation = (
+                    bool(uncertainty)
+                    or disposition is ThresholdDisposition.REQUIRES_CONFIRMATION
+                )
+                coverage_partial = coverage_partial or confirmation
+                first = components[first_index]
+                second = components[second_index]
+                nearest_first, nearest_second = nearest_points(first, second)
+                location = Point(
+                    x=(nearest_first.x + nearest_second.x) / 2.0,
+                    y=(nearest_first.y + nearest_second.y) / 2.0,
+                )
+                evidence = (
+                    *_geometry_evidence(
+                        mask.layer,
+                        mask.openings,
+                        first,
+                        epsilon=epsilon,
+                        note="Primitive contributes to the first final opening.",
+                    ),
+                    *_geometry_evidence(
+                        mask.layer,
+                        mask.openings,
+                        second,
+                        epsilon=epsilon,
+                        note="Primitive contributes to the second final opening.",
+                    ),
+                    *(
+                        FindingEvidence(
+                            provenance=provenance,
+                            note=(
+                                "Project uncertainty witness affecting the "
+                                "solder-mask source."
+                            ),
+                        )
+                        for provenance in uncertainty
+                    ),
+                )
+                findings.append(
+                    make_finding(
+                        context,
+                        rule_id=self.rule_id,
+                        category=RiskMode.GEOMETRY_VIOLATION,
+                        config_path="fabrication.min_solder_mask_dam",
+                        title=(
+                            "Solder-mask dam requires confirmation"
+                            if confirmation
+                            else "Solder-mask dam is below the minimum"
+                        ),
+                        summary=(
+                            "Two distinct final solder-mask opening components "
+                            "do not clearly leave the configured mask dam."
+                        ),
+                        facts=(
+                            f"Board side is {mask.side.value}.",
+                            f"Opening separation is {distance:.6f} mm.",
+                            (
+                                "Connected/gang openings are represented as one "
+                                "component and are not compared with themselves."
+                            ),
+                        ),
+                        evidence=tuple(evidence),
+                        confidence=(0.5 if confirmation else 1.0),
+                        location=location,
+                        measurement=Measurement(
+                            actual=distance,
+                            required=required,
+                            operator=">=",
+                            unit=Unit.MILLIMETRE,
+                            error_bound=error,
+                            config_path="fabrication.min_solder_mask_dam",
+                        ),
+                        suggested_action=(
+                            f"Leave at least {required:.6f} mm of mask between "
+                            "distinct openings, or confirm a deliberate gang "
+                            "opening."
+                        ),
+                        requires_human_confirmation=confirmation,
+                    )
+                )
+
+        if applicable_pairs == 0:
+            if invalid_reasons:
+                reason = (
+                    RuleReason.UNSUPPORTED_GEOMETRY
+                    if RuleReason.UNSUPPORTED_GEOMETRY in invalid_reasons
+                    else RuleReason.INPUT_UNCERTAIN
+                )
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=reason,
+                    summary=(
+                        "No trusted side has two distinct openings, and another "
+                        "solder-mask side could not be evaluated reliably."
+                    ),
+                )
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.NOT_APPLICABLE,
+                summary=(
+                    "Each trusted solder-mask side has fewer than two distinct "
+                    "final openings; connected/gang openings are not dams."
+                ),
+            )
+        if not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.PASS,
+                coverage=(
+                    RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL
+                ),
+                summary=(
+                    "No undersized dam was found between distinct supported "
+                    "openings, but coverage is partial."
+                    if coverage_partial
+                    else (
+                        "All distinct supported mask-opening components meet "
+                        "the configured dam."
+                    )
+                ),
+                evaluated_object_count=applicable_pairs,
+                applicable_object_count=applicable_pairs,
+            )
+        return RuleEvaluation(
+            outcome=RuleOutcome.FINDINGS,
+            coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
+            findings=tuple(findings),
+            summary="One or more distinct mask openings leave too little dam.",
+            evaluated_object_count=applicable_pairs,
+            applicable_object_count=applicable_pairs,
         )
