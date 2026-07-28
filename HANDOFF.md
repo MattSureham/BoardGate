@@ -16,11 +16,11 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T18:03:57+08:00`
+- Last updated: `2026-07-28T18:08:20+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 99b4b1f feat(rule): detect multiple outer board regions`
+- HEAD: `[CONFIRMED] 4139215 feat(rule): detect gross drill coordinate mismatch`
 - Phase: `[CONFIRMED] Phase 6 in progress — rule-engine foundation`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
@@ -90,22 +90,23 @@
   normalized to millimetres.`
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
-  multiple_outline_regions, and gerber_drill_coordinate_alignment v1.`
+  multiple_outline_regions, gerber_drill_coordinate_alignment, and
+  minimum_trace_width v1.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (96 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (98 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 262 tests, 89.63% coverage.`
+    --cov-fail-under=85 -q passed: 269 tests, 88.71% coverage.`
 - Known limitations:
   - `[CONFIRMED] The current CLI slice still emits only manifest.json;
     the project-assembly service is not yet invoked there, and rule execution,
     complete artifact diagnostics, rendering, and review orchestration remain
     unimplemented.`
-- Working tree: `[CONFIRMED] Verified gross coordinate-alignment rule slice is
-  pending commit.`
+- Working tree: `[CONFIRMED] Verified minimum_trace_width rule slice is pending
+  commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -154,26 +155,52 @@ the current capabilities.
 
 ## Next Action
 
-Implement `minimum_trace_width` v1.
+Implement `minimum_copper_spacing` v1.
 
 Start with:
 
 - `src/boardgate/rules/geometry_rules.py`
 - `src/boardgate/rules/builtin.py`
-- `tests/unit/rules/test_minimum_trace_width.py`
+- `tests/unit/rules/test_minimum_copper_spacing.py`
 
 Acceptance criteria:
 
-1. Only dark Line/Arc draws with standard circular apertures on trusted copper
-   layers are eligible.
-2. A trace is measured only where final composite copper does not widen it;
-   unsupported/macro/clear geometry downgrades coverage explicitly.
-3. Equality passes, confirmed narrow widths use `actual + error < required`,
-   and error-band overlap creates a confirmation Finding.
-4. Positive, negative, equality, widening exclusion, limitation, error-band,
-   stable-ID, and round-trip tests pass before the rule's separate commit.
+1. Compare different connected components of final polarity-composited copper
+   on each trusted layer; never call them different nets.
+2. STRtree results match a brute-force component-pair baseline and never
+   compare a component with itself or across layers.
+3. Equality passes; confirmed/error-band findings carry both component
+   witnesses and the derived-geometry error bound.
+4. Positive, negative, equality, same-component, polarity, spatial-index,
+   error-band, stable-ID, and round-trip tests pass before the rule's separate
+   commit.
 
 ## Recent Activity
+
+### 2026-07-28T18:08:20+08:00 — Codex — minimum_trace_width v1
+
+- Role: primary implementation agent
+- Task: Measure only supported final-copper trace draws.
+- Actions performed:
+  - Added local Shapely derivation for analytic lines/arcs/flashes/regions and
+    polarity composition without serializing third-party geometry.
+  - Limited eligibility to trusted copper and dark circular-aperture draws.
+  - Excluded traces fully widened by other copper and traces altered by clear
+    polarity; unsupported aperture geometry downgraded coverage.
+  - Applied equality-safe minimum/error-band semantics with stable witnesses.
+- Files modified:
+  - `src/boardgate/rules/derived_geometry.py`
+  - `src/boardgate/rules/geometry_rules.py`
+  - `src/boardgate/rules/models.py`
+  - `src/boardgate/rules/builtin.py`
+  - `tests/unit/rules/test_minimum_trace_width.py`
+- Tests:
+  - Focused trace/engine tests: 21 passed.
+  - Full suite: 269 passed, 88.71% branch coverage.
+- Evidence: Width pass/fail/equality/widening/polarity/error-band tests.
+- Commit: PENDING (this minimum_trace_width commit)
+- Issues created or updated: None.
+- Recommended next action: Implement `minimum_copper_spacing` v1.
 
 ### 2026-07-28T18:03:57+08:00 — Codex — gross coordinate alignment v1
 
@@ -196,7 +223,7 @@ Acceptance criteria:
   - Focused alignment tests: 6 passed.
   - Full suite: 262 passed, 89.63% branch coverage.
 - Evidence: Overlap/equality/disjoint/error-band/no-feature/round-trip tests.
-- Commit: PENDING (this coordinate-alignment commit)
+- Commit: `4139215 feat(rule): detect gross drill coordinate mismatch`
 - Issues created or updated: None.
 - Recommended next action: Implement `minimum_trace_width` v1.
 

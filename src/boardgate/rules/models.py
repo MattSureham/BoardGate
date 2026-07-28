@@ -171,6 +171,8 @@ def evaluate_minimum_threshold(
         for value in (actual, required, error_bound)
     ):
         raise ValueError("threshold inputs must be finite and non-negative")
+    if math.isclose(actual, required, rel_tol=1e-12, abs_tol=1e-12):
+        return ThresholdDisposition.SATISFIED
     upper_bound = actual + error_bound
     lower_bound = actual - error_bound
     upper_is_less = upper_bound < required and not math.isclose(
@@ -204,6 +206,8 @@ def evaluate_maximum_threshold(
         for value in (actual, required, error_bound)
     ):
         raise ValueError("threshold inputs must be finite and non-negative")
+    if math.isclose(actual, required, rel_tol=1e-12, abs_tol=1e-12):
+        return ThresholdDisposition.SATISFIED
     upper_bound = actual + error_bound
     lower_bound = actual - error_bound
     upper_exceeds = upper_bound > required and not math.isclose(
