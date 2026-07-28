@@ -1,0 +1,136 @@
+schema_version: "1.0"
+
+profile:
+  id: default-prototype-2layer
+  name: Default Prototype 2-Layer
+  manufacturer: generic
+  revision: 1
+  description: Generic prototype defaults; verify against the selected fabricator.
+
+units: mm
+
+required_layers:
+  - top_copper
+  - bottom_copper
+  - board_outline
+
+fabrication:
+  min_trace_width: 0.10
+  min_copper_spacing: 0.10
+  min_copper_to_edge: 0.25
+  min_drill_diameter: 0.20
+  min_annular_ring: 0.10
+  min_solder_mask_dam: 0.10
+
+tolerances:
+  outline_closure: 0.01
+  geometry_epsilon: 0.001
+  gross_alignment: 0.5
+  arc_chord_error: 0.001
+
+policy:
+  copper_edge_touch: confirm
+  assembly_auto_scope: true
+  ignored_references: []
+  dnp_markers:
+    - dnp
+    - do not populate
+    - nopop
+
+rules:
+  required_layers_present:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  drill_file_present:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  board_outline_present:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  board_outline_closed:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  multiple_outline_regions:
+    version: "1.0"
+    enabled: true
+    severity: warning
+    affects_readiness: true
+    required: true
+  gerber_drill_coordinate_alignment:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  minimum_trace_width:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  minimum_copper_spacing:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  minimum_copper_to_edge:
+    version: "1.0"
+    enabled: true
+    severity: warning
+    affects_readiness: true
+    required: true
+  minimum_drill_diameter:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  minimum_annular_ring:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: true
+  silkscreen_over_exposed_pad:
+    version: "1.0"
+    enabled: true
+    severity: warning
+    affects_readiness: false
+    required: false
+  minimum_solder_mask_dam:
+    version: "1.0"
+    enabled: true
+    severity: warning
+    affects_readiness: false
+    required: false
+  bom_placement_reference_match:
+    version: "1.0"
+    enabled: true
+    severity: high
+    affects_readiness: true
+    required: false
+  duplicate_reference_designator:
+    version: "1.0"
+    enabled: true
+    severity: high
+    affects_readiness: true
+    required: false
+  placement_outside_board_outline:
+    version: "1.0"
+    enabled: true
+    severity: blocker
+    affects_readiness: true
+    required: false

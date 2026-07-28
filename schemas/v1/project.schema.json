@@ -1,0 +1,1563 @@
+{
+  "$defs": {
+    "Aperture": {
+      "additionalProperties": false,
+      "description": "Normalized aperture dimensions.",
+      "properties": {
+        "height_mm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height Mm"
+        },
+        "hole_diameter_mm": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hole Diameter Mm"
+        },
+        "macro_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Macro Name"
+        },
+        "rotation_degrees": {
+          "default": 0.0,
+          "title": "Rotation Degrees",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/ApertureShape"
+        },
+        "width_mm": {
+          "exclusiveMinimum": 0.0,
+          "title": "Width Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "shape",
+        "width_mm"
+      ],
+      "title": "Aperture",
+      "type": "object"
+    },
+    "ApertureShape": {
+      "description": "Normalized aperture shape.",
+      "enum": [
+        "circle",
+        "rectangle",
+        "obround",
+        "polygon",
+        "macro",
+        "unknown"
+      ],
+      "title": "ApertureShape",
+      "type": "string"
+    },
+    "ArcPrimitive": {
+      "additionalProperties": false,
+      "description": "An analytic circular Gerber draw.",
+      "properties": {
+        "aperture": {
+          "$ref": "#/$defs/Aperture"
+        },
+        "center": {
+          "$ref": "#/$defs/Point"
+        },
+        "clockwise": {
+          "title": "Clockwise",
+          "type": "boolean"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "const": "arc",
+          "default": "arc",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/Polarity"
+        },
+        "primitive_id": {
+          "minLength": 1,
+          "title": "Primitive Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "required": [
+        "primitive_id",
+        "start",
+        "end",
+        "center",
+        "clockwise",
+        "aperture",
+        "polarity",
+        "provenance"
+      ],
+      "title": "ArcPrimitive",
+      "type": "object"
+    },
+    "AssemblyRequirements": {
+      "additionalProperties": false,
+      "description": "Assembly-review scope copied from the selected profile.",
+      "properties": {
+        "dnp_markers": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Dnp Markers",
+          "type": "array"
+        },
+        "ignored_references": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Ignored References",
+          "type": "array"
+        },
+        "review_requested": {
+          "title": "Review Requested",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "review_requested"
+      ],
+      "title": "AssemblyRequirements",
+      "type": "object"
+    },
+    "AxisDirection": {
+      "description": "Axis directions used by an explicit coordinate system.",
+      "enum": [
+        "right",
+        "left",
+        "up",
+        "down"
+      ],
+      "title": "AxisDirection",
+      "type": "string"
+    },
+    "BOMItem": {
+      "additionalProperties": false,
+      "description": "Normalized bill-of-materials row.",
+      "properties": {
+        "dnp": {
+          "default": false,
+          "title": "Dnp",
+          "type": "boolean"
+        },
+        "footprint": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footprint"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "part_number": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Part Number"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "references": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "References",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "references",
+        "quantity",
+        "provenance"
+      ],
+      "title": "BOMItem",
+      "type": "object"
+    },
+    "BoardOutline": {
+      "additionalProperties": false,
+      "description": "Reconstructed board material boundary.",
+      "properties": {
+        "bounding_box": {
+          "$ref": "#/$defs/BoundingBox"
+        },
+        "contours": {
+          "items": {
+            "$ref": "#/$defs/OutlineContour"
+          },
+          "minItems": 1,
+          "title": "Contours",
+          "type": "array"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "title": "Provenance",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contours",
+        "bounding_box",
+        "provenance"
+      ],
+      "title": "BoardOutline",
+      "type": "object"
+    },
+    "BoardSide": {
+      "description": "Physical board side.",
+      "enum": [
+        "top",
+        "bottom",
+        "inner",
+        "not_applicable",
+        "unknown"
+      ],
+      "title": "BoardSide",
+      "type": "string"
+    },
+    "BoundingBox": {
+      "additionalProperties": false,
+      "description": "Axis-aligned bounding box in canonical coordinates.",
+      "properties": {
+        "maximum": {
+          "$ref": "#/$defs/Point"
+        },
+        "minimum": {
+          "$ref": "#/$defs/Point"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "ClassificationCandidate": {
+      "additionalProperties": false,
+      "description": "A deterministic file-classification candidate and its evidence.",
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "file_type": {
+          "$ref": "#/$defs/FileType"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_type",
+        "confidence"
+      ],
+      "title": "ClassificationCandidate",
+      "type": "object"
+    },
+    "ComponentPlacement": {
+      "additionalProperties": false,
+      "description": "Normalized pick-and-place record.",
+      "properties": {
+        "footprint": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Footprint"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "reference": {
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "rotation_degrees": {
+          "title": "Rotation Degrees",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/BoardSide"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "reference",
+        "position",
+        "rotation_degrees",
+        "side",
+        "provenance"
+      ],
+      "title": "ComponentPlacement",
+      "type": "object"
+    },
+    "CoordinateSystem": {
+      "additionalProperties": false,
+      "description": "Explicit canonical coordinate-system description.",
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/Point",
+          "default": {
+            "schema_version": "1.0",
+            "unit": "mm",
+            "x": 0.0,
+            "y": 0.0
+          }
+        },
+        "rotation_degrees": {
+          "default": 0.0,
+          "title": "Rotation Degrees",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/$defs/Unit",
+          "default": "mm"
+        },
+        "x_axis": {
+          "$ref": "#/$defs/AxisDirection",
+          "default": "right"
+        },
+        "y_axis": {
+          "$ref": "#/$defs/AxisDirection",
+          "default": "up"
+        }
+      },
+      "title": "CoordinateSystem",
+      "type": "object"
+    },
+    "DrillHit": {
+      "additionalProperties": false,
+      "description": "One round Excellon drill hit.",
+      "properties": {
+        "diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "title": "Diameter Mm",
+          "type": "number"
+        },
+        "drill_id": {
+          "minLength": 1,
+          "title": "Drill Id",
+          "type": "string"
+        },
+        "plating": {
+          "$ref": "#/$defs/Plating",
+          "default": "unknown"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tool_code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Code"
+        }
+      },
+      "required": [
+        "drill_id",
+        "position",
+        "diameter_mm",
+        "provenance"
+      ],
+      "title": "DrillHit",
+      "type": "object"
+    },
+    "DrillSlot": {
+      "additionalProperties": false,
+      "description": "One routed drill slot retained for explicit partial coverage.",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "plating": {
+          "$ref": "#/$defs/Plating",
+          "default": "unknown"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "slot_id": {
+          "minLength": 1,
+          "title": "Slot Id",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "tool_code": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Code"
+        },
+        "width_mm": {
+          "exclusiveMinimum": 0.0,
+          "title": "Width Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "slot_id",
+        "start",
+        "end",
+        "width_mm",
+        "provenance"
+      ],
+      "title": "DrillSlot",
+      "type": "object"
+    },
+    "FabricationRequirements": {
+      "additionalProperties": false,
+      "description": "Manufacturing thresholds copied from the selected rule profile.",
+      "properties": {
+        "min_annular_ring_mm": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Annular Ring Mm"
+        },
+        "min_copper_spacing_mm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Copper Spacing Mm"
+        },
+        "min_copper_to_edge_mm": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Copper To Edge Mm"
+        },
+        "min_drill_diameter_mm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Drill Diameter Mm"
+        },
+        "min_solder_mask_dam_mm": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Solder Mask Dam Mm"
+        },
+        "min_trace_width_mm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Trace Width Mm"
+        },
+        "profile_id": {
+          "minLength": 1,
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "profile_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Profile Sha256",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "profile_sha256"
+      ],
+      "title": "FabricationRequirements",
+      "type": "object"
+    },
+    "FileType": {
+      "description": "Supported and recognized project file types.",
+      "enum": [
+        "gerber",
+        "excellon",
+        "bom_csv",
+        "bom_xlsx",
+        "placement_csv",
+        "rules_yaml",
+        "rules_json",
+        "unknown"
+      ],
+      "title": "FileType",
+      "type": "string"
+    },
+    "FlashPrimitive": {
+      "additionalProperties": false,
+      "description": "A Gerber aperture flash.",
+      "properties": {
+        "aperture": {
+          "$ref": "#/$defs/Aperture"
+        },
+        "kind": {
+          "const": "flash",
+          "default": "flash",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/Polarity"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "primitive_id": {
+          "minLength": 1,
+          "title": "Primitive Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primitive_id",
+        "position",
+        "aperture",
+        "polarity",
+        "provenance"
+      ],
+      "title": "FlashPrimitive",
+      "type": "object"
+    },
+    "GraphicPrimitive": {
+      "discriminator": {
+        "mapping": {
+          "arc": "#/$defs/ArcPrimitive",
+          "flash": "#/$defs/FlashPrimitive",
+          "line": "#/$defs/LinePrimitive",
+          "region": "#/$defs/RegionPrimitive"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LinePrimitive"
+        },
+        {
+          "$ref": "#/$defs/ArcPrimitive"
+        },
+        {
+          "$ref": "#/$defs/FlashPrimitive"
+        },
+        {
+          "$ref": "#/$defs/RegionPrimitive"
+        }
+      ]
+    },
+    "JsonScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "LayerMappingCandidate": {
+      "additionalProperties": false,
+      "description": "One evidence-backed interpretation of a source layer.",
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "role": {
+          "$ref": "#/$defs/LayerRole"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/BoardSide"
+        }
+      },
+      "required": [
+        "role",
+        "side",
+        "confidence"
+      ],
+      "title": "LayerMappingCandidate",
+      "type": "object"
+    },
+    "LayerRole": {
+      "description": "Normalized PCB layer roles.",
+      "enum": [
+        "top_copper",
+        "bottom_copper",
+        "inner_copper",
+        "top_solder_mask",
+        "bottom_solder_mask",
+        "top_silkscreen",
+        "bottom_silkscreen",
+        "top_paste",
+        "bottom_paste",
+        "board_outline",
+        "drill_plated",
+        "drill_non_plated",
+        "unknown"
+      ],
+      "title": "LayerRole",
+      "type": "string"
+    },
+    "LinePrimitive": {
+      "additionalProperties": false,
+      "description": "A linear Gerber draw.",
+      "properties": {
+        "aperture": {
+          "$ref": "#/$defs/Aperture"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "kind": {
+          "const": "line",
+          "default": "line",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/Polarity"
+        },
+        "primitive_id": {
+          "minLength": 1,
+          "title": "Primitive Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "required": [
+        "primitive_id",
+        "start",
+        "end",
+        "aperture",
+        "polarity",
+        "provenance"
+      ],
+      "title": "LinePrimitive",
+      "type": "object"
+    },
+    "OutlineContour": {
+      "additionalProperties": false,
+      "description": "One reconstructed board outline contour.",
+      "properties": {
+        "closed": {
+          "title": "Closed",
+          "type": "boolean"
+        },
+        "contour_id": {
+          "minLength": 1,
+          "title": "Contour Id",
+          "type": "string"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/Point"
+          },
+          "minItems": 2,
+          "title": "Points",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_primitive_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Primitive Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "contour_id",
+        "points",
+        "closed"
+      ],
+      "title": "OutlineContour",
+      "type": "object"
+    },
+    "PCBLayer": {
+      "additionalProperties": false,
+      "description": "Normalized graphical content for one physical/logical layer.",
+      "properties": {
+        "bounding_box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundingBox"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "layer_id": {
+          "minLength": 1,
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "mapping_candidates": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LayerMappingCandidate"
+          },
+          "title": "Mapping Candidates",
+          "type": "array"
+        },
+        "mapping_confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mapping Confidence",
+          "type": "number"
+        },
+        "primitives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/GraphicPrimitive"
+          },
+          "title": "Primitives",
+          "type": "array"
+        },
+        "role": {
+          "$ref": "#/$defs/LayerRole"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "side": {
+          "$ref": "#/$defs/BoardSide"
+        },
+        "source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "uncertainties": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Uncertainty"
+          },
+          "title": "Uncertainties",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer_id",
+        "source_file_id",
+        "role",
+        "side",
+        "mapping_confidence"
+      ],
+      "title": "PCBLayer",
+      "type": "object"
+    },
+    "Plating": {
+      "description": "Drill plating interpretation.",
+      "enum": [
+        "plated",
+        "non_plated",
+        "unknown"
+      ],
+      "title": "Plating",
+      "type": "string"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "description": "A point in BoardGate's canonical millimetre coordinate space.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "unit": {
+          "$ref": "#/$defs/Unit",
+          "default": "mm"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "Polarity": {
+      "description": "Gerber material polarity.",
+      "enum": [
+        "dark",
+        "clear",
+        "unknown"
+      ],
+      "title": "Polarity",
+      "type": "string"
+    },
+    "ProjectManifest": {
+      "additionalProperties": false,
+      "description": "Stable inventory and classification snapshot for one project.",
+      "properties": {
+        "project_id": {
+          "pattern": "^prj-[0-9a-f]{16}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_files": {
+          "items": {
+            "$ref": "#/$defs/SourceFile"
+          },
+          "title": "Source Files",
+          "type": "array"
+        },
+        "uncertainties": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Uncertainty"
+          },
+          "title": "Uncertainties",
+          "type": "array"
+        }
+      },
+      "required": [
+        "project_id",
+        "source_files"
+      ],
+      "title": "ProjectManifest",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Trace a domain object back to parser and source evidence.",
+      "properties": {
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "parser": {
+          "minLength": 1,
+          "title": "Parser",
+          "type": "string"
+        },
+        "parser_version": {
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "raw_coordinates": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Raw Coordinates",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "minLength": 1,
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "source_span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source_file_id",
+        "parser",
+        "parser_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RegionPrimitive": {
+      "additionalProperties": false,
+      "description": "A normalized polygonal region with optional holes.",
+      "properties": {
+        "contours": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/Point"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "title": "Contours",
+          "type": "array"
+        },
+        "kind": {
+          "const": "region",
+          "default": "region",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/Polarity"
+        },
+        "primitive_id": {
+          "minLength": 1,
+          "title": "Primitive Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primitive_id",
+        "contours",
+        "polarity",
+        "provenance"
+      ],
+      "title": "RegionPrimitive",
+      "type": "object"
+    },
+    "RiskMode": {
+      "description": "Explicit risk modes understood by orchestration and reporting.",
+      "enum": [
+        "FILE_INCOMPLETE",
+        "FILE_TYPE_UNKNOWN",
+        "UNIT_AMBIGUITY",
+        "COORDINATE_MISMATCH",
+        "LAYER_MAPPING_UNCERTAIN",
+        "OUTLINE_UNCERTAIN",
+        "GEOMETRY_VIOLATION",
+        "CROSS_FILE_INCONSISTENCY",
+        "DESIGN_INTENT_UNKNOWN",
+        "MANUFACTURER_RULE_MISMATCH",
+        "PARSER_LIMITATION"
+      ],
+      "title": "RiskMode",
+      "type": "string"
+    },
+    "SourceFile": {
+      "additionalProperties": false,
+      "description": "Immutable metadata for one safely ingested source file.",
+      "properties": {
+        "candidates": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClassificationCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "file_type": {
+          "$ref": "#/$defs/FileType"
+        },
+        "logical_path": {
+          "minLength": 1,
+          "title": "Logical Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Source File Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_file_id",
+        "logical_path",
+        "sha256",
+        "size_bytes",
+        "file_type"
+      ],
+      "title": "SourceFile",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "description": "Optional, evidence-backed location in a source file.",
+      "properties": {
+        "end_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Byte"
+        },
+        "end_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Line"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Byte"
+        },
+        "start_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Line"
+        }
+      },
+      "title": "SourceSpan",
+      "type": "object"
+    },
+    "Uncertainty": {
+      "additionalProperties": false,
+      "description": "An explicit unknown or ambiguous project fact.",
+      "properties": {
+        "candidates": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "requires_human_confirmation": {
+          "default": true,
+          "title": "Requires Human Confirmation",
+          "type": "boolean"
+        },
+        "risk_mode": {
+          "$ref": "#/$defs/RiskMode"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "risk_mode",
+        "subject",
+        "summary"
+      ],
+      "title": "Uncertainty",
+      "type": "object"
+    },
+    "Unit": {
+      "description": "Supported source length units.",
+      "enum": [
+        "mm",
+        "inch"
+      ],
+      "title": "Unit",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Complete normalized project consumed by deterministic rules.",
+  "properties": {
+    "assembly_requirements": {
+      "$ref": "#/$defs/AssemblyRequirements"
+    },
+    "board_outline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BoardOutline"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bom_items": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/BOMItem"
+      },
+      "title": "Bom Items",
+      "type": "array"
+    },
+    "components": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ComponentPlacement"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "coordinate_system": {
+      "$ref": "#/$defs/CoordinateSystem"
+    },
+    "drill_slots": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DrillSlot"
+      },
+      "title": "Drill Slots",
+      "type": "array"
+    },
+    "drills": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DrillHit"
+      },
+      "title": "Drills",
+      "type": "array"
+    },
+    "fabrication_requirements": {
+      "$ref": "#/$defs/FabricationRequirements"
+    },
+    "layers": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PCBLayer"
+      },
+      "title": "Layers",
+      "type": "array"
+    },
+    "manifest": {
+      "$ref": "#/$defs/ProjectManifest"
+    },
+    "metadata": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonScalar"
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "project_id": {
+      "pattern": "^prj-[0-9a-f]{16}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/SourceFile"
+      },
+      "title": "Source Files",
+      "type": "array"
+    },
+    "uncertainties": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Uncertainty"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "source_files",
+    "manifest",
+    "coordinate_system",
+    "fabrication_requirements",
+    "assembly_requirements"
+  ],
+  "title": "PCBProject",
+  "type": "object"
+}

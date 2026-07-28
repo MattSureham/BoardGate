@@ -1,0 +1,357 @@
+{
+  "$defs": {
+    "FabricationThresholds": {
+      "additionalProperties": false,
+      "description": "All physical requirements, expressed in profile units.",
+      "properties": {
+        "min_annular_ring": {
+          "minimum": 0.0,
+          "title": "Min Annular Ring",
+          "type": "number"
+        },
+        "min_copper_spacing": {
+          "exclusiveMinimum": 0.0,
+          "title": "Min Copper Spacing",
+          "type": "number"
+        },
+        "min_copper_to_edge": {
+          "minimum": 0.0,
+          "title": "Min Copper To Edge",
+          "type": "number"
+        },
+        "min_drill_diameter": {
+          "exclusiveMinimum": 0.0,
+          "title": "Min Drill Diameter",
+          "type": "number"
+        },
+        "min_solder_mask_dam": {
+          "minimum": 0.0,
+          "title": "Min Solder Mask Dam",
+          "type": "number"
+        },
+        "min_trace_width": {
+          "exclusiveMinimum": 0.0,
+          "title": "Min Trace Width",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_trace_width",
+        "min_copper_spacing",
+        "min_copper_to_edge",
+        "min_drill_diameter",
+        "min_annular_ring",
+        "min_solder_mask_dam"
+      ],
+      "title": "FabricationThresholds",
+      "type": "object"
+    },
+    "GeometryTolerances": {
+      "additionalProperties": false,
+      "description": "Explicit numerical and reconstruction tolerances in millimetres.",
+      "properties": {
+        "arc_chord_error": {
+          "exclusiveMinimum": 0.0,
+          "title": "Arc Chord Error",
+          "type": "number"
+        },
+        "geometry_epsilon": {
+          "exclusiveMinimum": 0.0,
+          "title": "Geometry Epsilon",
+          "type": "number"
+        },
+        "gross_alignment": {
+          "exclusiveMinimum": 0.0,
+          "title": "Gross Alignment",
+          "type": "number"
+        },
+        "outline_closure": {
+          "exclusiveMinimum": 0.0,
+          "title": "Outline Closure",
+          "type": "number"
+        }
+      },
+      "required": [
+        "outline_closure",
+        "geometry_epsilon",
+        "gross_alignment",
+        "arc_chord_error"
+      ],
+      "title": "GeometryTolerances",
+      "type": "object"
+    },
+    "LayerRole": {
+      "description": "Normalized PCB layer roles.",
+      "enum": [
+        "top_copper",
+        "bottom_copper",
+        "inner_copper",
+        "top_solder_mask",
+        "bottom_solder_mask",
+        "top_silkscreen",
+        "bottom_silkscreen",
+        "top_paste",
+        "bottom_paste",
+        "board_outline",
+        "drill_plated",
+        "drill_non_plated",
+        "unknown"
+      ],
+      "title": "LayerRole",
+      "type": "string"
+    },
+    "ProfileMetadata": {
+      "additionalProperties": false,
+      "description": "Human and machine identity for a manufacturing profile.",
+      "properties": {
+        "description": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "manufacturer": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Manufacturer",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "manufacturer",
+        "revision",
+        "description"
+      ],
+      "title": "ProfileMetadata",
+      "type": "object"
+    },
+    "ReviewPolicy": {
+      "additionalProperties": false,
+      "description": "Explicit policies for ambiguity and optional assembly inputs.",
+      "properties": {
+        "assembly_auto_scope": {
+          "title": "Assembly Auto Scope",
+          "type": "boolean"
+        },
+        "copper_edge_touch": {
+          "enum": [
+            "confirm",
+            "strict"
+          ],
+          "title": "Copper Edge Touch",
+          "type": "string"
+        },
+        "dnp_markers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dnp Markers",
+          "type": "array"
+        },
+        "ignored_references": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ignored References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "copper_edge_touch",
+        "assembly_auto_scope",
+        "ignored_references",
+        "dnp_markers"
+      ],
+      "title": "ReviewPolicy",
+      "type": "object"
+    },
+    "RuleSetting": {
+      "additionalProperties": false,
+      "description": "Execution and readiness behavior for one rule.",
+      "properties": {
+        "affects_readiness": {
+          "title": "Affects Readiness",
+          "type": "boolean"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/RuleSeverity"
+        },
+        "version": {
+          "const": "1.0",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "enabled",
+        "severity",
+        "affects_readiness",
+        "required"
+      ],
+      "title": "RuleSetting",
+      "type": "object"
+    },
+    "RuleSettings": {
+      "additionalProperties": false,
+      "description": "Complete v1 rule registry with no arbitrary extension keys.",
+      "properties": {
+        "board_outline_closed": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "board_outline_present": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "bom_placement_reference_match": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "drill_file_present": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "duplicate_reference_designator": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "gerber_drill_coordinate_alignment": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_annular_ring": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_copper_spacing": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_copper_to_edge": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_drill_diameter": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_solder_mask_dam": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "minimum_trace_width": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "multiple_outline_regions": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "placement_outside_board_outline": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "required_layers_present": {
+          "$ref": "#/$defs/RuleSetting"
+        },
+        "silkscreen_over_exposed_pad": {
+          "$ref": "#/$defs/RuleSetting"
+        }
+      },
+      "required": [
+        "required_layers_present",
+        "drill_file_present",
+        "board_outline_present",
+        "board_outline_closed",
+        "multiple_outline_regions",
+        "gerber_drill_coordinate_alignment",
+        "minimum_trace_width",
+        "minimum_copper_spacing",
+        "minimum_copper_to_edge",
+        "minimum_drill_diameter",
+        "minimum_annular_ring",
+        "silkscreen_over_exposed_pad",
+        "minimum_solder_mask_dam",
+        "bom_placement_reference_match",
+        "duplicate_reference_designator",
+        "placement_outside_board_outline"
+      ],
+      "title": "RuleSettings",
+      "type": "object"
+    },
+    "RuleSeverity": {
+      "description": "Config-facing severity spellings.",
+      "enum": [
+        "blocker",
+        "high",
+        "warning",
+        "info"
+      ],
+      "title": "RuleSeverity",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Complete, immutable input to deterministic rule evaluation.",
+  "properties": {
+    "fabrication": {
+      "$ref": "#/$defs/FabricationThresholds"
+    },
+    "policy": {
+      "$ref": "#/$defs/ReviewPolicy"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileMetadata"
+    },
+    "required_layers": {
+      "items": {
+        "$ref": "#/$defs/LayerRole"
+      },
+      "minItems": 1,
+      "title": "Required Layers",
+      "type": "array"
+    },
+    "rules": {
+      "$ref": "#/$defs/RuleSettings"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "tolerances": {
+      "$ref": "#/$defs/GeometryTolerances"
+    },
+    "units": {
+      "const": "mm",
+      "title": "Units",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile",
+    "units",
+    "required_layers",
+    "fabrication",
+    "tolerances",
+    "policy",
+    "rules"
+  ],
+  "title": "RuleProfile",
+  "type": "object"
+}

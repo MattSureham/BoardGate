@@ -76,7 +76,7 @@ plugins = ["pydantic.mypy"]
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["gerbonara.*", "python_calamine.*"]
+module = ["gerbonara.*", "jsonschema.*", "python_calamine.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

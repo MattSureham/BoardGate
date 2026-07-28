@@ -16,12 +16,12 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:32:11+08:00`
+- Last updated: `2026-07-28T16:37:18+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 6e5907b feat(domain): add geometry and provenance
-  models`
+- HEAD: `[CONFIRMED] ce6bf2b feat(domain): add PCB project and finding
+  schemas`
 - Phase: `[CONFIRMED] Phase 1 in progress — domain model and configuration`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
@@ -36,6 +36,10 @@
     component, board-outline, PCBProject, Finding, and risk-mode models.`
   - `[CONFIRMED] Stable source, project, object, and finding identifier
     helpers.`
+  - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
+    required layers, fabrication thresholds, tolerances, and review policy.`
+  - `[CONFIRMED] Restricted YAML/JSON loader and four checked-in Draft
+    2020-12 public JSON Schemas.`
 - Supported inputs: `[CONFIRMED] None yet.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
@@ -43,14 +47,13 @@
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (22 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (28 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 32 tests, 90.31% coverage.`
+    --cov-fail-under=85 -q passed: 53 tests, 91.03% coverage.`
 - Known limitations:
-  - `[CONFIRMED] Rule profiles, ingestion, parsers, rules, rendering, and
-    review orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified PCBProject/Finding domain slice is
-  pending commit.`
+  - `[CONFIRMED] Ingestion, parsers, rule execution, rendering, and review
+    orchestration remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified Rule Profile slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -78,29 +81,73 @@ the current capabilities.
 
 ## Next Action
 
-Implement the versioned manufacturing Rule Profile and its restricted
-YAML/JSON loader.
+Implement bounded input discovery and safe ZIP extraction.
 
 Start with:
 
-- `src/boardgate/config/models.py`
-- `src/boardgate/config/loader.py`
-- `rules/default.yaml`
-- `schemas/v1/`
+- `src/boardgate/ingestion/limits.py`
+- `src/boardgate/ingestion/archive.py`
+- `src/boardgate/ingestion/discovery.py`
+- `tests/unit/ingestion/`
 
 Acceptance criteria:
 
-1. Schema version `1.0` expresses required layers, all rule settings,
-   manufacturing thresholds, tolerance, severity, and readiness effects.
-2. YAML is limited to 1 MiB, one document, no aliases/anchors/custom tags,
-   and no YAML 1.1 `yes/no/on/off` implicit booleans.
-3. JSON and YAML produce the same strict model and deterministic profile hash.
-4. Draft 2020-12 schemas for public boundary models are exported and validate
-   representative artifacts.
-5. Invalid configuration fails with typed, source-safe diagnostics.
-6. The complete quality gate passes before a separate commit.
+1. Directories, ZIP files, and explicit files enter one normalized discovery
+   contract.
+2. Defaults enforce 256 files, 100 MiB archive, 50 MiB per file, 250 MiB
+   expanded total, and 50:1 compression ratio.
+3. Extraction rejects traversal/absolute paths, symlinks, encryption,
+   normalized duplicate paths, and nested archive expansion.
+4. Temporary extraction is private and reliably cleaned on success or error.
+5. Errors are typed and do not expose host absolute paths.
+6. Security and property tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:37:18+08:00 — Codex — Manufacturing Rule Profile
+
+- Role: primary implementation agent
+- Task: Complete the Phase 1 manufacturing configuration boundary.
+- Context inspected:
+  - `HANDOFF.md`
+  - Rule-profile and security requirements in `IMPLEMENT_PCB_AGENT.md`
+- Actions performed:
+  - Added a strict Rule Profile 1.0 model with all 16 registered rule settings.
+  - Added generic two-layer defaults with explicit thresholds and tolerances.
+  - Added bounded, duplicate-key-safe JSON and restricted YAML loading.
+  - Rejected YAML references, tags, multiple documents, legacy implicit
+    booleans, non-finite JSON, unknown fields, and oversized profiles.
+  - Exported deterministic Draft 2020-12 schemas for RuleProfile, Manifest,
+    PCBProject, and Finding.
+- Files modified:
+  - `src/boardgate/config/`
+  - `src/boardgate/schemas.py`
+  - `rules/default.yaml`
+  - `schemas/v1/`
+  - `scripts/export_schemas.py`
+  - `tests/unit/config/`
+  - `pyproject.toml`
+- Commands run:
+  - `uv run python scripts/export_schemas.py`
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Full suite: 53 passed, 91.03% branch coverage.
+  - Lock, sync, Ruff, and mypy gates passed.
+- Findings:
+  - YAML `true`/`false` remain supported while YAML 1.1 words such as `yes`
+    remain strings and therefore fail strict boolean validation.
+  - Error messages use only the profile basename.
+- Evidence: Commands and results above; four current schemas validate as Draft
+  2020-12.
+- Commit: PENDING (this configuration commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Safe archive expansion is not implemented.
+- Recommended next action: Implement bounded discovery and ZIP extraction.
 
 ### 2026-07-28T16:32:11+08:00 — Codex — PCB project and finding contracts
 
@@ -134,7 +181,7 @@ Acceptance criteria:
     contracts.
   - Finding confirmation state is validated independently from severity.
 - Evidence: Commands and results above.
-- Commit: PENDING (this domain commit)
+- Commit: `ce6bf2b feat(domain): add PCB project and finding schemas`
 - Issues created or updated: None.
 - Remaining uncertainty: Rule Profile configuration is not yet represented.
 - Recommended next action: Add the strict Rule Profile loader and schemas.

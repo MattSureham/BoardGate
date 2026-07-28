@@ -1,0 +1,371 @@
+{
+  "$defs": {
+    "ClassificationCandidate": {
+      "additionalProperties": false,
+      "description": "A deterministic file-classification candidate and its evidence.",
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "file_type": {
+          "$ref": "#/$defs/FileType"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_type",
+        "confidence"
+      ],
+      "title": "ClassificationCandidate",
+      "type": "object"
+    },
+    "FileType": {
+      "description": "Supported and recognized project file types.",
+      "enum": [
+        "gerber",
+        "excellon",
+        "bom_csv",
+        "bom_xlsx",
+        "placement_csv",
+        "rules_yaml",
+        "rules_json",
+        "unknown"
+      ],
+      "title": "FileType",
+      "type": "string"
+    },
+    "JsonScalar": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Trace a domain object back to parser and source evidence.",
+      "properties": {
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Metadata",
+          "type": "object"
+        },
+        "object_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Id"
+        },
+        "parser": {
+          "minLength": 1,
+          "title": "Parser",
+          "type": "string"
+        },
+        "parser_version": {
+          "minLength": 1,
+          "title": "Parser Version",
+          "type": "string"
+        },
+        "raw_coordinates": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonScalar"
+          },
+          "title": "Raw Coordinates",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "minLength": 1,
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "source_span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "source_file_id",
+        "parser",
+        "parser_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RiskMode": {
+      "description": "Explicit risk modes understood by orchestration and reporting.",
+      "enum": [
+        "FILE_INCOMPLETE",
+        "FILE_TYPE_UNKNOWN",
+        "UNIT_AMBIGUITY",
+        "COORDINATE_MISMATCH",
+        "LAYER_MAPPING_UNCERTAIN",
+        "OUTLINE_UNCERTAIN",
+        "GEOMETRY_VIOLATION",
+        "CROSS_FILE_INCONSISTENCY",
+        "DESIGN_INTENT_UNKNOWN",
+        "MANUFACTURER_RULE_MISMATCH",
+        "PARSER_LIMITATION"
+      ],
+      "title": "RiskMode",
+      "type": "string"
+    },
+    "SourceFile": {
+      "additionalProperties": false,
+      "description": "Immutable metadata for one safely ingested source file.",
+      "properties": {
+        "candidates": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ClassificationCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "file_type": {
+          "$ref": "#/$defs/FileType"
+        },
+        "logical_path": {
+          "minLength": 1,
+          "title": "Logical Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Source File Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_file_id",
+        "logical_path",
+        "sha256",
+        "size_bytes",
+        "file_type"
+      ],
+      "title": "SourceFile",
+      "type": "object"
+    },
+    "SourceSpan": {
+      "additionalProperties": false,
+      "description": "Optional, evidence-backed location in a source file.",
+      "properties": {
+        "end_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Byte"
+        },
+        "end_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Line"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "start_byte": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Byte"
+        },
+        "start_line": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Line"
+        }
+      },
+      "title": "SourceSpan",
+      "type": "object"
+    },
+    "Uncertainty": {
+      "additionalProperties": false,
+      "description": "An explicit unknown or ambiguous project fact.",
+      "properties": {
+        "candidates": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "requires_human_confirmation": {
+          "default": true,
+          "title": "Requires Human Confirmation",
+          "type": "boolean"
+        },
+        "risk_mode": {
+          "$ref": "#/$defs/RiskMode"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "risk_mode",
+        "subject",
+        "summary"
+      ],
+      "title": "Uncertainty",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stable inventory and classification snapshot for one project.",
+  "properties": {
+    "project_id": {
+      "pattern": "^prj-[0-9a-f]{16}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/SourceFile"
+      },
+      "title": "Source Files",
+      "type": "array"
+    },
+    "uncertainties": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Uncertainty"
+      },
+      "title": "Uncertainties",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "source_files"
+  ],
+  "title": "ProjectManifest",
+  "type": "object"
+}
