@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T16:37:18+08:00`
+- Last updated: `2026-07-28T16:42:19+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] ce6bf2b feat(domain): add PCB project and finding
-  schemas`
-- Phase: `[CONFIRMED] Phase 1 in progress — domain model and configuration`
+- HEAD: `[CONFIRMED] 9a9e285 feat(config): validate manufacturing rule
+  profiles`
+- Phase: `[CONFIRMED] Phase 2 in progress — safe ingestion and manifest`
 - Entry point: `[CONFIRMED] uv run pcb-review --version`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
@@ -40,20 +40,25 @@
     required layers, fabrication thresholds, tolerances, and review policy.`
   - `[CONFIRMED] Restricted YAML/JSON loader and four checked-in Draft
     2020-12 public JSON Schemas.`
-- Supported inputs: `[CONFIRMED] None yet.`
+  - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
+    archives, and explicit regular files.`
+  - `[CONFIRMED] ZIP preflight, streaming expansion, shared security budgets,
+    and cross-platform logical-path collision detection.`
+- Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
+  regular files can be safely staged; classification is not implemented yet.`
 - Implemented rules: `[CONFIRMED] None yet.`
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed.`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (28 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (36 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 -q passed: 53 tests, 91.03% coverage.`
+    --cov-fail-under=85 -q passed: 82 tests, 90.38% coverage.`
 - Known limitations:
-  - `[CONFIRMED] Ingestion, parsers, rule execution, rendering, and review
-    orchestration remain unimplemented.`
-- Working tree: `[CONFIRMED] Verified Rule Profile slice is pending commit.`
+  - `[CONFIRMED] File classification, manifest construction, parsers, rule
+    execution, rendering, and review orchestration remain unimplemented.`
+- Working tree: `[CONFIRMED] Verified safe-ingestion slice is pending commit.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -81,28 +86,72 @@ the current capabilities.
 
 ## Next Action
 
-Implement bounded input discovery and safe ZIP extraction.
+Implement deterministic content-aware classification and manifest generation.
 
 Start with:
 
-- `src/boardgate/ingestion/limits.py`
-- `src/boardgate/ingestion/archive.py`
-- `src/boardgate/ingestion/discovery.py`
+- `src/boardgate/ingestion/hashing.py`
+- `src/boardgate/ingestion/classifier.py`
+- `src/boardgate/ingestion/manifest.py`
 - `tests/unit/ingestion/`
 
 Acceptance criteria:
 
-1. Directories, ZIP files, and explicit files enter one normalized discovery
-   contract.
-2. Defaults enforce 256 files, 100 MiB archive, 50 MiB per file, 250 MiB
-   expanded total, and 50:1 compression ratio.
-3. Extraction rejects traversal/absolute paths, symlinks, encryption,
-   normalized duplicate paths, and nested archive expansion.
-4. Temporary extraction is private and reliably cleaned on success or error.
-5. Errors are typed and do not expose host absolute paths.
-6. Security and property tests pass before a separate commit.
+1. Every staged file receives SHA-256, stable source ID, sorted candidates,
+   confidence, and concrete evidence.
+2. X2 hints, content signatures, file names, and extensions remain separate
+   evidence; conflicts remain uncertain instead of being overwritten.
+3. Gerber, Excellon, BOM/placement CSV, XLSX, rule files, and unknown inputs
+   are classified conservatively.
+4. The project ID is stable across directory/ZIP/file input forms.
+5. Manifest JSON validates against the checked-in schema and is byte-stable.
+6. Golden and ambiguity tests pass before a separate commit.
 
 ## Recent Activity
+
+### 2026-07-28T16:42:19+08:00 — Codex — Safe project input staging
+
+- Role: primary implementation agent
+- Task: Implement the bounded, common ingestion boundary for Phase 2.
+- Context inspected:
+  - `HANDOFF.md`
+  - ZIP and input security requirements in the approved plan
+- Actions performed:
+  - Added shared file-count, archive-size, file-size, expanded-size, and
+    compression-ratio limits.
+  - Added conservative Unicode/POSIX normalization and cross-platform
+    collision keys.
+  - Added ZIP central-directory preflight and bounded streaming extraction.
+  - Rejected traversal, absolute/drive/backslash paths, symlinks, special
+    files, encrypted entries, nested ZIPs, duplicate paths, and file/directory
+    tree conflicts.
+  - Added context-bounded staging for directories, ZIPs, and explicit files
+    with cleanup after success and failure.
+- Files modified:
+  - `src/boardgate/ingestion/`
+  - `tests/unit/ingestion/`
+  - `pyproject.toml`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest tests/unit/ingestion -q`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85 -q`
+- Tests:
+  - Ingestion tests: 29 passed.
+  - Full suite: 82 passed, 90.38% branch coverage.
+  - Lock, sync, Ruff, and mypy gates passed.
+- Findings:
+  - Metadata quotas are checked before expansion and actual streamed bytes are
+    compared with declared sizes.
+  - Logical paths are collision-checked across every supplied input.
+- Evidence: Commands and results above.
+- Commit: PENDING (this ingestion commit)
+- Issues created or updated: None.
+- Remaining uncertainty: Content classification has not been implemented.
+- Recommended next action: Add stable hashing, classification, and manifests.
 
 ### 2026-07-28T16:37:18+08:00 — Codex — Manufacturing Rule Profile
 
@@ -144,7 +193,7 @@ Acceptance criteria:
   - Error messages use only the profile basename.
 - Evidence: Commands and results above; four current schemas validate as Draft
   2020-12.
-- Commit: PENDING (this configuration commit)
+- Commit: `9a9e285 feat(config): validate manufacturing rule profiles`
 - Issues created or updated: None.
 - Remaining uncertainty: Safe archive expansion is not implemented.
 - Recommended next action: Implement bounded discovery and ZIP extraction.
