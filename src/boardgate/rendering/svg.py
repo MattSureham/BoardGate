@@ -109,6 +109,8 @@ def render_svg(project: PCBProject, review: ReviewResult) -> str:
         (
             '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" '
             f'viewBox="0 0 {_number(canvas_width)} {_number(canvas_height)}" '
+            f'data-project-id="{project.project_id}" '
+            f'data-profile-sha256="{review.profile_sha256}" '
             'role="img" aria-labelledby="boardgate-title boardgate-description">'
         ),
         (

@@ -5,26 +5,36 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterable, Mapping
-from datetime import datetime
-from enum import StrEnum
 from itertools import pairwise
 from typing import Self
 from xml.etree import ElementTree
 
-from pydantic import Field, field_validator
+import jsonschema
+from pydantic import Field
 
 from boardgate.domain.base import StrictModel, VersionedModel
 from boardgate.domain.diagnostic import (
     AnalysisDiagnostic,
-    AnalysisDiagnosticCategory,
-    AnalysisStage,
+    RunLogEvent,
+    RunLogLevel,
     ordered_analysis_diagnostics,
-    validate_safe_diagnostic_summary,
 )
 from boardgate.domain.enums import ReviewStatus
+from boardgate.domain.identifiers import (
+    evidence_identifier,
+    finding_id,
+    project_id,
+    source_file_id,
+)
 from boardgate.domain.project import PCBProject
 from boardgate.domain.source import ProjectManifest
 from boardgate.rules.models import ReviewResult
+from boardgate.schemas import schema_document
+
+__all__ = [
+    "RunLogEvent",
+    "RunLogLevel",
+]
 
 MANIFEST_PATH = "manifest.json"
 PROJECT_PATH = "project.json"
@@ -45,6 +55,14 @@ DETERMINISTIC_ARTIFACT_PATHS: tuple[str, ...] = COMPLETE_ARTIFACT_PATHS[:5]
 RUN_VARYING_ARTIFACT_PATHS: tuple[str, ...] = (RUN_LOG_PATH,)
 
 _FINDING_ID = re.compile(r"\bfnd-[0-9a-f]{16}\b")
+_REPORT_PROJECT_ID = re.compile(
+    r"^<!-- boardgate-project-id: (prj-[0-9a-f]{16}) -->$",
+    re.MULTILINE,
+)
+_REPORT_PROFILE_SHA = re.compile(
+    r"^<!-- boardgate-profile-sha256: ([0-9a-f]{64}) -->$",
+    re.MULTILINE,
+)
 _URL_SCHEME = re.compile(r"(?i)(?:https?|ftp|file|javascript|data):")
 _CSS_URL = re.compile(r"(?i)url\(\s*([^)]+?)\s*\)")
 _REVIEW_DISCLAIMER = (
@@ -60,43 +78,6 @@ class ArtifactContractError(ValueError):
         self.code = code
         self.summary = summary
         super().__init__(f"{code}: {summary}")
-
-
-class RunLogLevel(StrEnum):
-    """Structured log severity independent of a logging implementation."""
-
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    INFO = "INFO"
-    DEBUG = "DEBUG"
-
-
-class RunLogEvent(VersionedModel):
-    """One sanitized, run-varying event written to ``logs/run.jsonl``."""
-
-    run_id: str = Field(pattern=r"^run-[0-9a-f]{16}$")
-    sequence: int = Field(ge=1)
-    occurred_at: datetime
-    elapsed_ms: int = Field(ge=0)
-    level: RunLogLevel
-    category: AnalysisDiagnosticCategory
-    stage: AnalysisStage
-    code: str = Field(pattern=r"^[A-Z][A-Z0-9_]+$")
-    summary: str = Field(min_length=1, max_length=500)
-
-    @field_validator("occurred_at")
-    @classmethod
-    def require_timezone(cls, value: datetime) -> datetime:
-        """Keep timestamps unambiguous across execution environments."""
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("run-log timestamps must include a UTC offset")
-        return value
-
-    @field_validator("summary")
-    @classmethod
-    def require_sanitized_summary(cls, value: str) -> str:
-        """Apply the same safe-text contract as persisted diagnostics."""
-        return validate_safe_diagnostic_summary(value)
 
 
 class CompleteArtifactBundle(VersionedModel):
@@ -189,6 +170,11 @@ def _validate_run_events(events: tuple[RunLogEvent, ...]) -> None:
             "RUN_LOG_ID_MISMATCH",
             "All structured log events must use one run identifier.",
         )
+    if len({event.project_id for event in events}) != 1:
+        raise ArtifactContractError(
+            "RUN_LOG_PROJECT_MISMATCH",
+            "All structured log events must use one project identifier.",
+        )
     if any(
         current.sequence <= previous.sequence for previous, current in pairwise(events)
     ):
@@ -234,13 +220,16 @@ def parse_run_log(payload: str) -> tuple[RunLogEvent, ...]:
     events: list[RunLogEvent] = []
     for line in lines:
         try:
-            json.loads(
+            raw_event = json.loads(
                 line,
                 object_pairs_hook=_reject_duplicate_keys,
                 parse_constant=_reject_json_constant,
             )
+            jsonschema.Draft202012Validator(schema_document(RunLogEvent)).validate(
+                raw_event
+            )
             event = RunLogEvent.model_validate_json(line)
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, jsonschema.ValidationError) as error:
             raise ArtifactContractError(
                 "RUN_LOG_EVENT_INVALID",
                 "A structured run-log event does not satisfy its strict contract.",
@@ -293,6 +282,15 @@ def _parse_deterministic_model[ModelT: StrictModel](
             "ARTIFACT_JSON_NONDETERMINISTIC",
             "A deterministic JSON artifact is not in canonical serialized form.",
         )
+    try:
+        jsonschema.Draft202012Validator(schema_document(model)).validate(
+            json.loads(payload)
+        )
+    except (json.JSONDecodeError, jsonschema.ValidationError) as error:
+        raise ArtifactContractError(
+            code,
+            "A deterministic JSON artifact does not satisfy its public Schema.",
+        ) from error
     return parsed
 
 
@@ -375,7 +373,7 @@ def _validate_safe_svg(svg: str) -> ElementTree.Element:
     return root
 
 
-def validate_artifact_bundle(
+def validate_artifact_bundle(  # noqa: PLR0912
     bundle: CompleteArtifactBundle,
 ) -> ArtifactBundleValidation:
     """Validate models, identities, report/SVG references, and one JSONL run."""
@@ -416,7 +414,85 @@ def validate_artifact_bundle(
             "Project and findings artifacts do not use the same rule profile.",
         )
 
+    expected_project_id = project_id(
+        [(source.logical_path, source.sha256) for source in manifest.source_files]
+    )
+    if manifest.project_id != expected_project_id or any(
+        source.source_file_id != source_file_id(source.logical_path, source.sha256)
+        for source in manifest.source_files
+    ):
+        raise ArtifactContractError(
+            "ARTIFACT_STABLE_ID_MISMATCH",
+            "Manifest source or project identifiers are not evidence-derived.",
+        )
+
+    source_ids = {source.source_file_id for source in manifest.source_files}
+    layer_ids = {layer.layer_id for layer in project.layers}
+    for finding in review.findings:
+        if any(
+            evidence.provenance.source_file_id not in source_ids
+            for evidence in finding.evidence
+        ):
+            raise ArtifactContractError(
+                "FINDING_SOURCE_EVIDENCE_MISMATCH",
+                "Finding evidence references a source outside the manifest.",
+            )
+        referenced_layers = {
+            *finding.layer_ids,
+            *(
+                evidence.layer_id
+                for evidence in finding.evidence
+                if evidence.layer_id is not None
+            ),
+        }
+        if not referenced_layers.issubset(layer_ids):
+            raise ArtifactContractError(
+                "FINDING_LAYER_EVIDENCE_MISMATCH",
+                "Finding evidence references a layer outside project.json.",
+            )
+        expected_finding_id = finding_id(
+            rule_id=finding.rule_id,
+            rule_version=finding.rule_version,
+            profile_sha256=review.profile_sha256,
+            evidence_ids=(
+                f"profile-config:{finding.config_path}",
+                *(evidence_identifier(item) for item in finding.evidence),
+            ),
+            location=finding.location,
+            measurement=finding.measurement,
+        )
+        if finding.finding_id != expected_finding_id:
+            raise ArtifactContractError(
+                "FINDING_STABLE_ID_MISMATCH",
+                "A Finding identifier is not derived from its canonical evidence.",
+            )
+
+    if review.overall_status is not ReviewStatus.ANALYSIS_FAILED:
+        expected_risk_modes = tuple(
+            sorted(
+                {
+                    *(finding.category for finding in review.findings),
+                    *(uncertainty.risk_mode for uncertainty in project.uncertainties),
+                },
+                key=str,
+            )
+        )
+        if review.risk_modes != expected_risk_modes:
+            raise ArtifactContractError(
+                "REVIEW_RISK_MODE_MISMATCH",
+                "Review risk modes do not match Finding and uncertainty evidence.",
+            )
+
     expected_findings = {finding.finding_id for finding in review.findings}
+    report_project_ids = _REPORT_PROJECT_ID.findall(bundle.report_markdown)
+    report_profile_hashes = _REPORT_PROFILE_SHA.findall(bundle.report_markdown)
+    if report_project_ids != [project.project_id] or report_profile_hashes != [
+        review.profile_sha256
+    ]:
+        raise ArtifactContractError(
+            "REPORT_REVIEW_ID_MISMATCH",
+            "The report metadata does not match the project and rule profile.",
+        )
     report_findings = set(_FINDING_ID.findall(bundle.report_markdown))
     if report_findings != expected_findings:
         raise ArtifactContractError(
@@ -425,6 +501,14 @@ def validate_artifact_bundle(
         )
 
     svg_root = _validate_safe_svg(bundle.preview_svg)
+    if (
+        svg_root.attrib.get("data-project-id") != project.project_id
+        or svg_root.attrib.get("data-profile-sha256") != review.profile_sha256
+    ):
+        raise ArtifactContractError(
+            "SVG_REVIEW_ID_MISMATCH",
+            "The SVG metadata does not match the project and rule profile.",
+        )
     svg_findings = {
         value
         for element in svg_root.iter()
@@ -438,6 +522,11 @@ def validate_artifact_bundle(
         )
 
     run_ids = {event.run_id for event in run_events}
+    if {event.project_id for event in run_events} != {project.project_id}:
+        raise ArtifactContractError(
+            "RUN_LOG_PROJECT_MISMATCH",
+            "The structured run log does not match the reviewed project.",
+        )
     if any(
         run_id in payload
         for run_id in run_ids

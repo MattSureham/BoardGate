@@ -1,4 +1,4 @@
-"""Minimal end-to-end inspect CLI tests."""
+"""CLI input-discovery and atomic-output policy integration tests."""
 
 from __future__ import annotations
 
@@ -14,6 +14,14 @@ from boardgate.cli import main
 ROOT = Path(__file__).resolve().parents[2]
 RULES = ROOT / "rules" / "default.yaml"
 SCHEMA = json.loads((ROOT / "schemas" / "v1" / "manifest.schema.json").read_text())
+DETERMINISTIC_ARTIFACTS = (
+    "manifest.json",
+    "project.json",
+    "findings.json",
+    "report.md",
+    "preview.svg",
+)
+COMPLETE_ARTIFACTS = (*DETERMINISTIC_ARTIFACTS, "logs/run.jsonl")
 GERBER = b"%FSLAX46Y46*%\n%MOMM*%\n%ADD10C,0.2*%\nX0Y0D02*\nX1Y1D01*\nM02*\n"
 DRILL = b"M48\nMETRIC,TZ\nT01C0.3\n%\nT01\nX1Y1\nM30\n"
 
@@ -29,7 +37,19 @@ def invoke_inspect(*arguments: str) -> Result:
     return CliRunner().invoke(main, ["inspect", *arguments])
 
 
-def test_directory_inspect_emits_schema_valid_manifest(tmp_path: Path) -> None:
+def published_files(output: Path) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            path.relative_to(output).as_posix()
+            for path in output.rglob("*")
+            if path.is_file()
+        )
+    )
+
+
+def test_directory_inspect_emits_complete_review_with_valid_manifest(
+    tmp_path: Path,
+) -> None:
     project = make_project(tmp_path / "project")
     output = tmp_path / "output"
 
@@ -42,10 +62,10 @@ def test_directory_inspect_emits_schema_valid_manifest(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert [path.name for path in output.iterdir()] == ["manifest.json"]
+    assert published_files(output) == tuple(sorted(COMPLETE_ARTIFACTS))
     payload = json.loads((output / "manifest.json").read_text())
     jsonschema.Draft202012Validator(SCHEMA).validate(payload)
-    assert "Manifest prj-" in result.output
+    assert f"Review {payload['project_id']}:" in result.output
 
 
 def test_zip_and_separate_files_have_identical_output(tmp_path: Path) -> None:
@@ -74,8 +94,15 @@ def test_zip_and_separate_files_have_identical_output(tmp_path: Path) -> None:
     )
 
     assert zip_result.exit_code == files_result.exit_code == 0
-    assert (zip_output / "manifest.json").read_bytes() == (
-        files_output / "manifest.json"
+    assert {
+        artifact: (zip_output / artifact).read_bytes()
+        for artifact in DETERMINISTIC_ARTIFACTS
+    } == {
+        artifact: (files_output / artifact).read_bytes()
+        for artifact in DETERMINISTIC_ARTIFACTS
+    }
+    assert (zip_output / "logs/run.jsonl").read_bytes() != (
+        files_output / "logs/run.jsonl"
     ).read_bytes()
 
 
@@ -116,7 +143,7 @@ def test_overwrite_replaces_old_output(tmp_path: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert not (output / "old.txt").exists()
-    assert (output / "manifest.json").is_file()
+    assert published_files(output) == tuple(sorted(COMPLETE_ARTIFACTS))
 
 
 def test_invalid_rules_and_input_return_exit_two_without_host_path(
@@ -163,6 +190,54 @@ def test_output_inside_input_is_rejected(tmp_path: Path) -> None:
 
     assert result.exit_code == 2
     assert "OUTPUT_OVERLAPS_INPUT" in result.output
+    assert not (project / "artifacts").exists()
+
+
+def test_output_ancestor_of_input_is_rejected_and_preserves_input(
+    tmp_path: Path,
+) -> None:
+    protected_output = tmp_path / "protected"
+    protected_output.mkdir()
+    project = make_project(protected_output / "project")
+
+    result = invoke_inspect(
+        str(project),
+        "--rules",
+        str(RULES),
+        "--output",
+        str(protected_output),
+        "--overwrite",
+    )
+
+    assert result.exit_code == 2
+    assert "OUTPUT_OVERLAPS_INPUT" in result.output
+    assert (project / "board.gtl").read_bytes() == GERBER
+    assert (project / "drill.drl").read_bytes() == DRILL
+
+
+def test_output_ancestor_of_profile_is_rejected_and_preserves_profile(
+    tmp_path: Path,
+) -> None:
+    project = make_project(tmp_path / "project")
+    protected_output = tmp_path / "protected"
+    protected_output.mkdir()
+    protected_profile = protected_output / "profile.yaml"
+    profile_bytes = RULES.read_bytes()
+    protected_profile.write_bytes(profile_bytes)
+
+    result = invoke_inspect(
+        str(project),
+        "--rules",
+        str(protected_profile),
+        "--output",
+        str(protected_output),
+        "--overwrite",
+    )
+
+    assert result.exit_code == 2
+    assert "OUTPUT_OVERLAPS_INPUT" in result.output
+    assert protected_profile.read_bytes() == profile_bytes
+    assert not (protected_output / "manifest.json").exists()
 
 
 def test_cli_contract_requires_inputs_rules_and_output() -> None:

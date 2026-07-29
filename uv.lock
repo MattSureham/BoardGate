@@ -90,6 +90,7 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "gerbonara" },
+    { name = "jsonschema" },
     { name = "pydantic" },
     { name = "python-calamine" },
     { name = "pyyaml" },
@@ -99,7 +100,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
-    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -110,7 +110,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.4,<9" },
-    { name = "gerbonara", specifier = ">=1.6,<2" },
+    { name = "gerbonara", specifier = ">=1.6,<1.7" },
+    { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "pydantic", specifier = ">=2.13,<3" },
     { name = "python-calamine", specifier = ">=0.8,<0.9" },
     { name = "pyyaml", specifier = ">=6.0.3,<7" },
@@ -120,7 +121,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.163,<7" },
-    { name = "jsonschema", specifier = ">=4.26,<5" },
     { name = "mypy", specifier = ">=2.3,<3" },
     { name = "pytest", specifier = ">=9.1,<10" },
     { name = "pytest-cov", specifier = ">=7.1,<8" },

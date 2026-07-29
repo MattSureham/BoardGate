@@ -68,4 +68,10 @@ class Finding(VersionedModel):
         ):
             msg = "uncertain finding categories require human confirmation"
             raise ValueError(msg)
+        if (
+            self.measurement is not None
+            and self.measurement.config_path != self.config_path
+        ):
+            msg = "finding and measurement config_path values must match"
+            raise ValueError(msg)
         return self

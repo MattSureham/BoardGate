@@ -2,6 +2,7 @@
 
 from boardgate.config.models import RuleProfile
 from boardgate.domain.base import StrictModel
+from boardgate.domain.diagnostic import RunLogEvent
 from boardgate.domain.finding import Finding
 from boardgate.domain.project import PCBProject
 from boardgate.domain.source import ProjectManifest
@@ -13,6 +14,7 @@ MODEL_SCHEMAS: tuple[tuple[str, type[StrictModel]], ...] = (
     ("project.schema.json", PCBProject),
     ("finding.schema.json", Finding),
     ("findings.schema.json", ReviewResult),
+    ("run-log-event.schema.json", RunLogEvent),
 )
 
 

@@ -38,7 +38,8 @@ and one terminal newline. A run log may vary between executions, while each
 individual event still uses deterministic JSON key ordering.
 
 Before publication, BoardGate validates the exact inventory; strict model and
-checked-in Draft 2020-12 Schema round trips; project and profile identities;
+generated Draft 2020-12 Schema round trips (kept equal to the checked-in
+documents by CI); project and profile identities;
 the flattened Finding identity set; report and SVG Finding references; safe
 SVG XML; and a single run identifier with strictly increasing log sequence
 numbers. The SVG may use internal fragment references, but it may not contain
@@ -118,3 +119,6 @@ the post-ingestion fallback, and it must write every output through the
 recoverable staging transaction. Tests compare the five deterministic files
 separately from the run log. Future diagnostic fields or artifact paths are
 public contract changes and require a schema-version decision.
+Runtime Schema validation adds the MIT-licensed `jsonschema` package to the
+installed dependency set; this explicit redundancy is accepted so publication
+does not depend only on Pydantic's parser behavior.

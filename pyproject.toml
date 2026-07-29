@@ -12,7 +12,8 @@ license = "Apache-2.0"
 authors = [{ name = "Matt Sureham" }]
 dependencies = [
   "click>=8.4,<9",
-  "gerbonara>=1.6,<2",
+  "gerbonara>=1.6,<1.7",
+  "jsonschema>=4.26,<5",
   "pydantic>=2.13,<3",
   "python-calamine>=0.8,<0.9",
   "PyYAML>=6.0.3,<7",
@@ -25,7 +26,6 @@ pcb-review = "boardgate.cli:main"
 [dependency-groups]
 dev = [
   "hypothesis>=6.163,<7",
-  "jsonschema>=4.26,<5",
   "mypy>=2.3,<3",
   "pytest>=9.1,<10",
   "pytest-cov>=7.1,<8",

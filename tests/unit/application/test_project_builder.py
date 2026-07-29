@@ -193,3 +193,23 @@ def test_project_builder_rejects_inventory_and_digest_changes(tmp_path: Path) ->
             )
 
     assert caught.value.code == "PROJECT_SOURCE_CHANGED"
+
+
+def test_project_builder_rejects_incomplete_parser_plan(tmp_path: Path) -> None:
+    source_root = tmp_path / "project"
+    _write_project(source_root)
+    profile = load_rule_profile(Path("rules/default.yaml"))
+
+    with discover_inputs((source_root,)) as discovered:
+        manifest = build_manifest(discovered)
+        with pytest.raises(
+            ProjectBuildError,
+            match="ORCHESTRATION_PARSER_PLAN_MISMATCH",
+        ):
+            build_project(
+                discovered,
+                manifest,
+                profile,
+                parser_executor=_inline_executor,
+                selected_source_file_ids=frozenset(),
+            )

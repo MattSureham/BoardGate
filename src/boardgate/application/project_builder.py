@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import time
 from collections.abc import Callable
 from hashlib import sha256
 
@@ -51,6 +53,7 @@ _PARSABLE_TYPES = frozenset(
 )
 
 type ParserExecutor = Callable[..., ParserExecution]
+type MonotonicClock = Callable[[], float]
 
 
 class ProjectBuildError(ValueError):
@@ -147,8 +150,13 @@ def _diagnostic_uncertainty(
     source: SourceFile,
     diagnostic: SourceDiagnostic,
 ) -> Uncertainty:
+    risk_mode = (
+        RiskMode.UNIT_AMBIGUITY
+        if "UNIT" in diagnostic.code
+        else RiskMode.PARSER_LIMITATION
+    )
     return Uncertainty(
-        risk_mode=RiskMode.PARSER_LIMITATION,
+        risk_mode=risk_mode,
         subject=f"{source.logical_path}:{diagnostic.code}",
         summary=diagnostic.message,
         candidates=(diagnostic.code,),
@@ -223,16 +231,80 @@ def _validate_source_inventory(
         )
 
 
-def build_project(
+def build_evidence_only_project(
+    manifest: ProjectManifest,
+    profile: RuleProfile,
+) -> PCBProject:
+    """Build a deterministic envelope when normalized analysis is unavailable."""
+    assembly_present = any(
+        source.file_type
+        in {
+            FileType.BOM_CSV,
+            FileType.BOM_XLSX,
+            FileType.PLACEMENT_CSV,
+        }
+        for source in manifest.source_files
+    )
+    fabrication_requirements, assembly_requirements = _requirements(
+        profile,
+        assembly_present=assembly_present,
+    )
+    return PCBProject(
+        project_id=manifest.project_id,
+        source_files=manifest.source_files,
+        manifest=manifest,
+        coordinate_system=CoordinateSystem(),
+        fabrication_requirements=fabrication_requirements,
+        assembly_requirements=assembly_requirements,
+        metadata={
+            "analysis_state": "unavailable",
+            "implementation_version": __version__,
+        },
+        uncertainties=manifest.uncertainties,
+    )
+
+
+def build_project(  # noqa: PLR0913, PLR0915
     discovered: DiscoveredProject,
     manifest: ProjectManifest,
     profile: RuleProfile,
     *,
     parser_timeout_seconds: float = 30.0,
+    total_timeout_seconds: float = 300.0,
     parser_executor: ParserExecutor = run_parser,
+    monotonic_clock: MonotonicClock = time.monotonic,
+    selected_source_file_ids: frozenset[str] | None = None,
 ) -> PCBProject:
     """Parse and normalize every confirmed source in stable manifest order."""
+    if not math.isfinite(total_timeout_seconds) or total_timeout_seconds <= 0.0:
+        raise ValueError("total timeout must be a positive finite number")
+    deadline = monotonic_clock() + total_timeout_seconds
+
+    def remaining_time() -> float:
+        remaining = deadline - monotonic_clock()
+        if remaining <= 0.0:
+            raise ProjectBuildError(
+                "PROJECT_TIMEOUT",
+                manifest.project_id,
+                "project construction exceeded the total runtime limit",
+            )
+        return remaining
+
     _validate_source_inventory(discovered, manifest)
+    parsable_source_ids = frozenset(
+        source.source_file_id
+        for source in manifest.source_files
+        if source.file_type in _PARSABLE_TYPES
+    )
+    if (
+        selected_source_file_ids is not None
+        and selected_source_file_ids != parsable_source_ids
+    ):
+        raise ProjectBuildError(
+            "ORCHESTRATION_PARSER_PLAN_MISMATCH",
+            manifest.project_id,
+            "parser plan must cover exactly the supported manifest sources",
+        )
     layers: list[PCBLayer] = []
     drills: list[DrillHit] = []
     slots: list[DrillSlot] = []
@@ -243,6 +315,7 @@ def build_project(
     assembly_present = False
 
     for source in manifest.source_files:
+        remaining = remaining_time()
         if source.file_type not in _PARSABLE_TYPES:
             continue
         if source.file_type in {
@@ -258,8 +331,9 @@ def build_project(
                 file_type=source.file_type,
                 payload=_payload(source, discovered),
             ),
-            timeout_seconds=parser_timeout_seconds,
+            timeout_seconds=min(parser_timeout_seconds, remaining),
         )
+        remaining_time()
         if execution.failure is not None:
             diagnostic = _failure_diagnostic(source, execution)
             diagnostics.append(diagnostic)
@@ -283,12 +357,14 @@ def build_project(
         elif isinstance(result, BOMParseResult):
             bom_items.extend(result.items)
 
+    remaining_time()
     outline_result = reconstruct_board_outline(
         tuple(layers),
         closure_tolerance_mm=profile.tolerances.outline_closure,
         arc_chord_error_mm=profile.tolerances.arc_chord_error,
         geometry_epsilon_mm=profile.tolerances.geometry_epsilon,
     )
+    remaining_time()
     uncertainties.extend(outline_result.uncertainties)
     fabrication_requirements, assembly_requirements = _requirements(
         profile,

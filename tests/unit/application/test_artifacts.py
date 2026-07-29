@@ -40,6 +40,11 @@ from boardgate.domain.enums import (
 )
 from boardgate.domain.finding import Finding, FindingEvidence
 from boardgate.domain.geometry import CoordinateSystem
+from boardgate.domain.identifiers import (
+    finding_id,
+    project_id,
+    source_file_id,
+)
 from boardgate.domain.project import (
     AssemblyRequirements,
     FabricationRequirements,
@@ -56,17 +61,26 @@ from boardgate.rules.models import (
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_DIRECTORY = ROOT / "schemas" / "v1"
-PROJECT_ID = "prj-0123456789abcdef"
 PROFILE_SHA = "a" * 64
-FINDING_ID = "fnd-0123456789abcdef"
+SOURCE_SHA = "b" * 64
+SOURCE_ID = source_file_id("board.gtl", SOURCE_SHA)
+PROJECT_ID = project_id((("board.gtl", SOURCE_SHA),))
+FINDING_ID = finding_id(
+    rule_id=RuleId.MINIMUM_TRACE_WIDTH.value,
+    rule_version="1.0",
+    profile_sha256=PROFILE_SHA,
+    evidence_ids=("profile-config:fabrication.min_trace_width", "line-1"),
+    location=None,
+    measurement=None,
+)
 RUN_ID = "run-0123456789abcdef"
 
 
 def _manifest(*, project_id: str = PROJECT_ID) -> ProjectManifest:
     source = SourceFile(
-        source_file_id="src-0123456789abcdef",
+        source_file_id=SOURCE_ID,
         logical_path="board.gtl",
-        sha256="b" * 64,
+        sha256=SOURCE_SHA,
         size_bytes=12,
         file_type=FileType.GERBER,
     )
@@ -109,8 +123,8 @@ def _finding() -> Finding:
         evidence=(
             FindingEvidence(
                 provenance=Provenance(
-                    source_file_id="src-0123456789abcdef",
-                    object_id="line-0123456789abcdef",
+                    source_file_id=SOURCE_ID,
+                    object_id="line-1",
                     parser="test",
                     parser_version="1.0",
                 )
@@ -162,6 +176,7 @@ def _event(
 ) -> RunLogEvent:
     return RunLogEvent(
         run_id=run_id,
+        project_id=PROJECT_ID,
         sequence=sequence,
         occurred_at=occurred_at or datetime(2026, 7, 28, 12, 0, tzinfo=UTC),
         elapsed_ms=elapsed_ms,
@@ -179,6 +194,8 @@ def _report(review: ReviewResult) -> str:
     )
     return (
         "# PCB Manufacturing Review\n\n"
+        f"<!-- boardgate-project-id: {review.project_id} -->\n"
+        f"<!-- boardgate-profile-sha256: {review.profile_sha256} -->\n\n"
         f"{review.overall_status.value}\n{finding_lines}\n"
     )
 
@@ -192,7 +209,9 @@ def _svg(review: ReviewResult) -> str:
         for finding in review.findings
     )
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" '
+        f'data-project-id="{review.project_id}" '
+        f'data-profile-sha256="{review.profile_sha256}">'
         '<defs><linearGradient id="safe-gradient"/></defs>'
         f'<g fill="url(#safe-gradient)">{markers}</g></svg>\n'
     )
@@ -333,7 +352,7 @@ def test_report_and_svg_finding_ids_must_exactly_match_findings_json() -> None:
             _replace_file(
                 bundle,
                 "report.md",
-                "# PCB Manufacturing Review\n\nFinding omitted.\n",
+                _report(_review()).replace(FINDING_ID, "finding-omitted"),
             )
         )
     with pytest.raises(ArtifactContractError, match="SVG_FINDING_ID_MISMATCH"):
@@ -341,7 +360,11 @@ def test_report_and_svg_finding_ids_must_exactly_match_findings_json() -> None:
             _replace_file(
                 bundle,
                 "preview.svg",
-                '<svg xmlns="http://www.w3.org/2000/svg"/>\n',
+                (
+                    '<svg xmlns="http://www.w3.org/2000/svg" '
+                    f'data-project-id="{PROJECT_ID}" '
+                    f'data-profile-sha256="{PROFILE_SHA}"/>\n'
+                ),
             )
         )
 
@@ -507,11 +530,8 @@ def test_failure_bundle_is_complete_and_contains_no_normal_finding() -> None:
     )
     bundle = _bundle(
         review=review,
-        report=(
-            "# PCB Manufacturing Review\n\nANALYSIS_FAILED\n\n"
-            "PROJECT_BUILD_UNAVAILABLE\n"
-        ),
-        svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>\n',
+        report=_report(review),
+        svg=_svg(review),
     )
 
     validated = validate_artifact_bundle(bundle)

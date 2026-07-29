@@ -7,6 +7,7 @@ Direct runtime dependencies at the initial baseline:
 
 - Click — BSD-3-Clause
 - Gerbonara — Apache-2.0
+- jsonschema — MIT
 - Pydantic — MIT
 - python-calamine — MIT
 - PyYAML — MIT
