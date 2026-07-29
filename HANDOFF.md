@@ -16,16 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-29T00:00:00+08:00`
+- Last updated: `2026-07-29T01:35:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 85d3605 docs(handoff): record recovery and completed
-  Phase 9/10 pipeline (code HEAD ccfb1a0)`
-- Remote sync: `[CONFIRMED] local main is eight atomic commits ahead of
-  origin/main at 0ece4bb (1932282, b0ff240, 9d1de3d, ccfb1a0, two HANDOFF
-  commits, plus the three Phase 9 contract/report/SVG commits); no push has
-  been attempted since the recovery.`
+- HEAD: `[CONFIRMED] a037220 docs(readme): add bilingual user walkthrough`
+- Remote sync: `[CONFIRMED] origin/main is at a037220; git ls-remote
+  confirmed the push and GitHub Actions run 30414220783 completed
+  successfully.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; Phase 11 (optional API or
   minimal web viewer) is the only remaining spec phase.`
@@ -225,18 +223,54 @@ the current capabilities.
 
 ## Next Action
 
-Publish the seven unpushed local commits to `origin/main` with a normal
-(non-force) `git push origin main`, then confirm the resulting GitHub
-Actions run succeeds with `gh run list --limit 1`.
+Draft ADR 0004 deciding the Phase 11 transport boundary (read-only HTTP API
+versus static viewer consuming the existing six-artifact bundle), including
+rejected alternatives and security consequences, before writing any
+transport code.
+
+Start with:
+
+- `docs/adr/0004-review-transport.md` (new)
+- Phase 11 scope in `IMPLEMENT_PCB_AGENT.md` lines 1549–1570
 
 Acceptance criteria:
 
-1. `git ls-remote origin main` reports the pushed local HEAD after the push.
-2. The GitHub Actions run for the pushed HEAD completes successfully.
-3. If the proxy blocks the push again, retry normally and record the
-   attempts under ISSUE-003 rather than rewriting history.
+1. The ADR follows the format of ADR 0001–0003 and states why the chosen
+   transport cannot mutate the deterministic review evidence.
+2. HANDOFF Current State and Next Action are updated in the same commit.
 
 ## Recent Activity
+
+### 2026-07-29T01:35:00+08:00 — Claude — bilingual walkthrough, push, and CI confirmation
+
+- Role: documentation and release agent
+- Task: Add the user-facing walkthrough and publish all recovered commits.
+- Actions performed:
+  - Added an eight-step user walkthrough (install, input preparation, first
+    review, six artifacts, report reading, CI usage, profile tuning,
+    troubleshooting) to `README.md` and mirrored it in `README.zh-CN.md`.
+  - Verified every factual claim against the live CLI help, a real fixture
+    run, `ReviewStatus`/`RuleSeverity` enums, and ADR 0002.
+  - Pushed ten local commits to `origin/main` with a normal push.
+- Files modified:
+  - `README.md`
+  - `README.zh-CN.md`
+  - `HANDOFF.md` (this update)
+- Commands run:
+  - `uv run pcb-review --help` / `inspect --help`
+  - `uv run pcb-review inspect tests/fixtures/copper_too_close_to_edge ...`
+  - `git push origin main`
+  - `git ls-remote origin main`
+  - `gh run watch 30414220783 --exit-status`
+- Tests: No new tests; documentation-only change. Full gates were last run
+  at ccfb1a0 (495 passed, 90.63% coverage).
+- Evidence: `git ls-remote` reports origin/main at a037220; GitHub Actions
+  run 30414220783 completed successfully in 1m26s.
+- Commit: `a037220 docs(readme): add bilingual user walkthrough`
+- Issues created or updated: None.
+- Remaining uncertainty: Phase 11 transport direction is undecided.
+- Recommended next action: Draft ADR 0004 for the Phase 11 transport
+  boundary (see Next Action).
 
 ### 2026-07-29T00:00:00+08:00 — Claude — recovery, gate repair, and atomic commits
 
