@@ -1,0 +1,13 @@
+G04 BoardGate original closed profile for surface fixture*
+%FSLAX46Y46*%
+%MOMM*%
+%TF.FileFunction,Profile,NP*%
+%TF.SameCoordinates,boardgate-surface-golden*%
+%ADD10C,0.100*%
+D10*
+X00000000Y00000000D02*
+X20000000Y00000000D01*
+X20000000Y12000000D01*
+X00000000Y12000000D01*
+X00000000Y00000000D01*
+M02*

@@ -1,0 +1,10 @@
+G04 BoardGate original same-side surface legend fixture*
+%FSLAX46Y46*%
+%MOMM*%
+%TF.FileFunction,Legend,Top*%
+%TF.SameCoordinates,boardgate-surface-golden*%
+%ADD10C,0.300*%
+D10*
+X05000000Y05000000D03*
+X15000000Y05000000D03*
+M02*

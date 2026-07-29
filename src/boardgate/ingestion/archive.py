@@ -48,6 +48,11 @@ class ExpansionBudget:
         self.file_count = next_count
         self.total_bytes = next_total
 
+    @property
+    def remaining_file_count(self) -> int:
+        """Return capacity left before another metadata entry is retained."""
+        return self._limits.max_file_count - self.file_count
+
 
 def _is_symlink(info: zipfile.ZipInfo) -> bool:
     mode = info.external_attr >> 16
@@ -124,7 +129,7 @@ def _ensure_no_path_tree_conflict(logical_paths: tuple[str, ...]) -> None:
                 )
 
 
-def expand_zip(
+def expand_zip(  # noqa: PLR0912
     archive_path: Path,
     destination: Path,
     *,
@@ -168,6 +173,12 @@ def expand_zip(
             )
             if logical_path is None:
                 continue
+            if len(entries) >= budget.remaining_file_count:
+                raise IngestionError(
+                    "FILE_COUNT_LIMIT",
+                    logical_path,
+                    f"project exceeds {limits.max_file_count} files",
+                )
             collision_key = path_collision_key(logical_path)
             if collision_key in local_keys:
                 raise IngestionError(

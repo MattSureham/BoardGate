@@ -187,6 +187,20 @@ def test_archive_size_limit_uses_compressed_file_size(tmp_path: Path) -> None:
             pass
 
 
+def test_directory_file_count_is_rejected_during_walk(tmp_path: Path) -> None:
+    project = tmp_path / "too-many"
+    project.mkdir()
+    (project / "a.gtl").write_bytes(b"a")
+    (project / "b.gbl").write_bytes(b"b")
+
+    with pytest.raises(IngestionError, match="FILE_COUNT_LIMIT"):
+        with discover_inputs(
+            [project],
+            limits=IngestionLimits(max_file_count=1),
+        ):
+            pass
+
+
 def test_direct_symlink_is_rejected_and_path_is_not_disclosed(
     tmp_path: Path,
 ) -> None:

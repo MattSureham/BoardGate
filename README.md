@@ -45,6 +45,8 @@ All input files are treated as untrusted. A BoardGate report is engineering
 review evidence, not a fabrication warranty. The initial MVP intentionally
 excludes native EDA projects, ODB++, IPC-2581, SI/PI analysis, automatic PCB
 modification, a web API, and network-backed LLM providers.
+The exact supported subsets and known v0.1 limits are listed in
+[`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 
 ## Collaboration
 

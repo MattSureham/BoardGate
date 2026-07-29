@@ -103,7 +103,11 @@ def _copy_regular_file(
     return actual_size
 
 
-def _directory_files(root: Path) -> tuple[tuple[Path, str], ...]:
+def _directory_files(
+    root: Path,
+    *,
+    max_files: int,
+) -> tuple[tuple[Path, str], ...]:
     subject = _input_subject(root)
     results: list[tuple[Path, str]] = []
     try:
@@ -119,6 +123,12 @@ def _directory_files(root: Path) -> tuple[tuple[Path, str], ...]:
                         "symbolic links inside directories are rejected",
                     )
             for filename in filenames:
+                if len(results) >= max_files:
+                    raise IngestionError(
+                        "FILE_COUNT_LIMIT",
+                        subject,
+                        "directory exceeds the remaining project file-count limit",
+                    )
                 source = current_path / filename
                 if source.is_symlink():
                     raise IngestionError(
@@ -194,7 +204,10 @@ def discover_inputs(
                     "symbolic-link inputs are rejected",
                 )
             if input_path.is_dir():
-                for source, logical_path in _directory_files(input_path):
+                for source, logical_path in _directory_files(
+                    input_path,
+                    max_files=budget.remaining_file_count,
+                ):
                     register_path(logical_path)
                     destination = staging_directory.joinpath(
                         *PurePosixPath(logical_path).parts

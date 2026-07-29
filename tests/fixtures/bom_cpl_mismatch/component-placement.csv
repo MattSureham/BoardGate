@@ -1,0 +1,4 @@
+Reference,X,Y,Rotation,Side,Unit,DNP
+R1,5,5,0,Top,mm,no
+C1,7,5,90,Top,mm,no
+R9,9,5,0,Top,mm,yes

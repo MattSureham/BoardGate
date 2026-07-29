@@ -235,7 +235,11 @@ def _xlsx_signals(path: Path) -> list[_Signal]:
         return []
     try:
         with zipfile.ZipFile(path) as workbook:
-            names = {name.casefold() for name in workbook.namelist()}
+            names: set[str] = set()
+            for info in workbook.infolist():
+                names.add(info.filename.casefold())
+                if {"[content_types].xml", "xl/workbook.xml"} <= names:
+                    break
     except (OSError, zipfile.BadZipFile):
         return []
     required = {"[content_types].xml", "xl/workbook.xml"}

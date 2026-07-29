@@ -20,6 +20,10 @@ from boardgate.ingestion.paths import normalize_logical_path, path_collision_key
         "board?.gtl",
         "board.gtl.",
         "\x00board.gtl",
+        "CON",
+        "nul.gtl",
+        "fab/Com1.txt",
+        "LPT9",
     ],
 )
 def test_unsafe_paths_are_rejected(path: str) -> None:

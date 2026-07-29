@@ -9,6 +9,7 @@ from pathlib import PurePosixPath
 from boardgate.ingestion.errors import IngestionError
 
 _DRIVE_PREFIX = re.compile(r"^[A-Za-z]:")
+_WINDOWS_DEVICE_NAME = re.compile(r"(?i)^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)")
 _WINDOWS_FORBIDDEN = frozenset('<>:"|?*')
 _FIRST_PRINTABLE_CODEPOINT = 32
 
@@ -61,6 +62,12 @@ def normalize_logical_path(raw_path: str, *, subject: str) -> str:
                 "UNSAFE_PATH",
                 subject,
                 "path components may not end in a space or dot",
+            )
+        if _WINDOWS_DEVICE_NAME.match(part):
+            raise IngestionError(
+                "UNSAFE_PATH",
+                subject,
+                "Windows reserved device names are rejected",
             )
     return PurePosixPath(*parts).as_posix()
 

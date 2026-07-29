@@ -41,6 +41,8 @@ pcb-review inspect INPUT... \
 所有输入文件都按不可信数据处理。BoardGate 报告是工程审查证据，不是板厂
 投产保证。初始 MVP 明确不实现原生 EDA 工程、ODB++、IPC-2581、SI/PI、
 自动修改 PCB、Web API 或需要联网的 LLM Provider。
+v0.1 的精确支持范围与已知限制见
+[`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)。
 
 ## 协作
 
