@@ -16,17 +16,19 @@
 
 ## Current State
 
-- Last updated: `2026-07-28T21:36:05+08:00`
+- Last updated: `2026-07-29T00:00:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 650525b feat(rendering): generate deterministic review
-  SVG`
-- Remote sync: `[CONFIRMED] local main is three atomic commits ahead of
-  origin/main at 0ece4bb; the preceding GitHub Actions run 30362114646
-  completed successfully.`
-- Phase: `[CONFIRMED] Phase 6–8 deterministic rule implementation is complete;
-  Phase 9 complete-review artifacts are next.`
+- HEAD: `[CONFIRMED] ccfb1a0 test(review): harden ingestion and add fixture
+  and property matrices`
+- Remote sync: `[CONFIRMED] local main is seven atomic commits ahead of
+  origin/main at 0ece4bb (1932282, b0ff240, 9d1de3d, ccfb1a0 plus the three
+  Phase 9 contract/report/SVG commits); no push has been attempted since the
+  recovery.`
+- Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
+  deterministic agent orchestration are complete; Phase 11 (optional API or
+  minimal web viewer) is the only remaining spec phase.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -102,6 +104,28 @@
   - `[CONFIRMED] Original minimal valid-board and copper-edge fixtures exercise
     the real Gerber/Excellon adapters, project builder, and all required rules
     without third-party sample licensing.`
+  - `[CONFIRMED] Deterministic orchestrator creates a profile-bound ReviewPlan,
+    RuleEngine records unselected enabled rules as
+    SKIPPED/ORCHESTRATOR_FILTERED, and the presentation view carries only
+    stable Finding IDs (ADR 0003).`
+  - `[CONFIRMED] Typed NarrativeProvider protocol with index-only fact
+    selection and exact deterministic-Markdown fallback; v0.1 provider is
+    local and offline.`
+  - `[CONFIRMED] ReviewService connects ingestion, planning, project
+    construction, all 16 rules, report composition, SVG rendering, bundle
+    validation, and atomic publication of exactly the six contracted
+    artifacts, with schema-valid ANALYSIS_FAILED fallback and CLI exit
+    precedence 4 > 2 > 3 > 1 > 0 including --fail-on blocker.`
+  - `[CONFIRMED] Structured sanitized logs/run.jsonl events with a sixth
+    public Draft 2020-12 run-log-event schema; the first five artifacts are
+    byte-deterministic across runs.`
+  - `[CONFIRMED] Ingestion enforces directory-walk and ZIP file-count limits
+    and rejects Windows reserved device-name path components.`
+  - `[CONFIRMED] Eleven original failure-mode fixture projects, fabrication
+    and assembly fixture-matrix integration tests, and Hypothesis property
+    tests for geometry, units, paths, and spatial indexing.`
+  - `[CONFIRMED] docs/CAPABILITIES.md records the v0.1 supported subsets and
+    deliberate boundaries; jsonschema is now a runtime dependency.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -118,19 +142,20 @@
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
-  - `[CONFIRMED] uv run ruff format --check . passed.`
+  - `[CONFIRMED] uv run ruff format --check . passed (148 files).`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (120 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (136 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 427 tests, 91.02% coverage.`
+    --cov-fail-under=85 passed: 495 tests, 90.63% coverage.`
+  - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
+    tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
+    (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
-  - `[CONFIRMED] The current CLI slice still emits only manifest.json;
-    the project-assembly service is not yet invoked there, and rule execution,
-    complete artifact diagnostics, rendering, and review orchestration remain
-    unimplemented.`
-- Working tree: `[CONFIRMED] Verified original Phase 9 fixtures, direct-pipeline
-  integration tests, and this HANDOFF update are pending one atomic commit;
-  orchestration work remains separately uncommitted.`
+  - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
+    documented in docs/CAPABILITIES.md; no API or web viewer exists
+    (Phase 11).`
+- Working tree: `[CONFIRMED] Clean at ccfb1a0 after the recovery commits and
+  this HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -200,30 +225,72 @@ the current capabilities.
 
 ## Next Action
 
-Wire the complete Phase 9 `ReviewService` through atomic artifact
-publication.
-
-Start with:
-
-- `src/boardgate/application/review_service.py`
-- `src/boardgate/cli.py`
-- `tests/unit/application/test_review_service.py`
-- `tests/integration/test_inspect_review.py`
+Publish the seven unpushed local commits to `origin/main` with a normal
+(non-force) `git push origin main`, then confirm the resulting GitHub
+Actions run succeeds with `gh run list --limit 1`.
 
 Acceptance criteria:
 
-1. Keep staged input files alive through parsing and connect ingestion,
-   project construction, all 16 rules, report composition, SVG rendering,
-   bundle validation, and recoverable output replacement.
-2. Publish exactly the six contracted artifacts after safe ingestion and use
-   a schema-valid `ANALYSIS_FAILED` fallback without fabricated rule results.
-3. Apply CLI exit precedence `4 > 2 > 3 > 1 > 0`, including `--fail-on
-   blocker`, while preserving prior output on failed replacement.
-4. Verify deterministic bytes for the first five artifacts, structured
-   run-varying logs, success/blocker/failure paths, and both original fixture
-   projects before the separate commit.
+1. `git ls-remote origin main` reports `ccfb1a0` after the push.
+2. The GitHub Actions run for `ccfb1a0` completes successfully.
+3. If the proxy blocks the push again, retry normally and record the
+   attempts under ISSUE-003 rather than rewriting history.
 
 ## Recent Activity
+
+### 2026-07-29T00:00:00+08:00 — Claude — recovery, gate repair, and atomic commits
+
+- Role: primary recovery agent
+- Task: Recover the network-interrupted session, verify the actual repository
+  state, and land the completed Phase 9/10 working tree as atomic commits
+  without reimplementing finished work.
+- State labels:
+  - `[CONFIRMED] Actual recovery HEAD was 1932282 (fixture commit already
+    landed); HANDOFF was one commit stale and its fixture entry said
+    PENDING — that PENDING marker objectively refers to 1932282.`
+  - `[CONFIRMED] The interrupted working tree already contained the complete
+    ReviewService, agent orchestration, run-log schema, ingestion hardening,
+    fixture matrices, property tests, and CAPABILITIES doc.`
+  - `[CONFIRMED] PROJECT_SPEC.md remains absent; IMPLEMENT_PCB_AGENT.md is
+    the canonical specification.`
+- Actions performed:
+  - Read BOOTSTRAP.md, HANDOFF.md, IMPLEMENT_PCB_AGENT.md, ADR 0003, and the
+    full uncommitted diff before editing.
+  - Fixed one interrupted-session test bug (missing parent mkdir in
+    test_output_ancestor_of_input_is_rejected_and_preserves_input) and three
+    lint issues in test_inspect_review.py (unused imports, lambda
+    assignment); no production code needed changes.
+  - Split the working tree into three atomic commits and verified each on
+    its own staged tree via `git stash push -u --keep-index` before
+    committing.
+- Files modified:
+  - `tests/integration/test_inspect_manifest.py` (test fix, committed in
+    9d1de3d)
+  - `tests/integration/test_inspect_review.py` (lint fixes, committed in
+    9d1de3d)
+  - `HANDOFF.md` (this update, uncommitted)
+- Commands run:
+  - `uv run ruff format --check .` / `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `uv run python scripts/export_schemas.py` (schemas already current)
+  - `uv lock --check`
+- Tests:
+  - Commit b0ff240 staged tree: 444 passed, 90.40% branch coverage.
+  - Commit 9d1de3d staged tree: 471 passed, 90.57% branch coverage.
+  - Final HEAD ccfb1a0: 495 passed, 90.63% branch coverage; Ruff and mypy
+    clean (136 source files).
+- Evidence: Gate outputs above; clean `git status` at ccfb1a0.
+- Commits:
+  - `b0ff240 feat(agent): add deterministic orchestration boundary`
+  - `9d1de3d feat(review): wire complete review pipeline through the CLI`
+  - `ccfb1a0 test(review): harden ingestion and add fixture and property
+    matrices`
+- Issues created or updated: None; ISSUE-002 remains open and non-blocking.
+- Remaining uncertainty: The seven local commits are unpublished; GitHub
+  Actions has not run for them.
+- Recommended next action: Push to origin/main and confirm CI (see Next
+  Action).
 
 ### 2026-07-28T21:36:05+08:00 — Codex — original Phase 9 PCB fixtures
 
