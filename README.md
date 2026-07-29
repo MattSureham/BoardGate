@@ -39,6 +39,181 @@ pcb-review inspect INPUT... \
   --output artifacts/review
 ```
 
+## User walkthrough
+
+This walkthrough takes you from a clean checkout to acting on a completed
+review. Every command is deterministic: the same inputs and rule profile
+always produce the same `manifest.json`, `project.json`, `findings.json`,
+`report.md`, and `preview.svg` bytes.
+
+### 1. Install
+
+You need Python 3.12+ and uv 0.11.x. Then:
+
+```bash
+uv sync --locked
+uv run pcb-review --version
+```
+
+All examples below prefix the CLI with `uv run`. If you installed the package
+into your own environment, plain `pcb-review` works the same way.
+
+### 2. Prepare one project input
+
+`inspect` reviews exactly one PCB project per invocation. The project can be
+supplied in three equivalent forms:
+
+- a directory containing the fabrication/assembly files,
+- a single non-nested ZIP archive of those files, or
+- several explicit file paths.
+
+A typical two-layer project needs Gerber copper layers, a board outline, and
+an Excellon drill file; BOM and placement CSV/XLSX files are optional and
+enable the assembly rules. The repository ships two small original projects
+you can use immediately:
+
+```text
+tests/fixtures/valid_minimal_board/       # clean board, expected zero findings
+tests/fixtures/copper_too_close_to_edge/  # same board with an edge violation
+```
+
+Inputs are treated as untrusted: symlinks, encrypted or nested archives,
+absolute/traversal paths, and oversized payloads are rejected before any
+parser runs. Files are classified by content, X2 attributes, filename, and
+extension evidence together; ambiguous files are reported as unknown instead
+of being guessed.
+
+### 3. Run your first review
+
+```bash
+uv run pcb-review inspect tests/fixtures/copper_too_close_to_edge \
+  --rules rules/default.yaml \
+  --output artifacts/demo
+```
+
+Console output:
+
+```text
+Review prj-6aa57e8aab4e330a: READY_FOR_REVIEW; artifacts written to artifacts/demo
+```
+
+The project ID (`prj-...`) is derived from the input content, so the same
+project always receives the same ID. The output directory must be empty or
+absent; add `--overwrite` to atomically replace a previous review. The output
+path may not contain, or be contained by, any input path.
+
+### 4. What gets written
+
+Every completed or failed-safe review publishes exactly six artifacts:
+
+| Artifact | Content | Bytes |
+| --- | --- | --- |
+| `manifest.json` | Source inventory: SHA-256, sizes, classification evidence | Deterministic |
+| `project.json` | Normalized project model: layers, outline, drills, BOM/CPL | Deterministic |
+| `findings.json` | All rule results, findings, risk modes, review status | Deterministic |
+| `report.md` | Engineer-facing Markdown report | Deterministic |
+| `preview.svg` | Script-free board preview with finding markers | Deterministic |
+| `logs/run.jsonl` | Sanitized per-run structured events | Varies per run |
+
+All JSON artifacts validate against the checked-in Draft 2020-12 schemas in
+`schemas/v1/`. Before anything is published, the bundle is validated as a
+whole (cross-artifact project/profile IDs, finding references, safe SVG), and
+publication is atomic: a failed run never leaves a half-written or
+partially replaced output directory.
+
+### 5. Read the report
+
+`report.md` is the primary human interface. It contains, in order: an
+executive summary, an evidence-confidence section, the input inventory, the
+project interpretation (board size, layers, drills, assembly scope), findings
+grouped by severity (blockers, high-risk, warnings), findings that require
+human confirmation, optimization suggestions, rules executed and not executed
+(with reasons), parser/analysis limitations, an evidence index, and the
+non-guarantee disclaimer.
+
+The overall status is one of:
+
+| Status | Meaning |
+| --- | --- |
+| `READY_FOR_REVIEW` | Required checks completed with no readiness-affecting findings |
+| `READY_WITH_CONFIRMATIONS` | Usable, but some findings or partial coverage need a human decision |
+| `INSUFFICIENT_INFORMATION` | Too much of the project was unresolved to judge |
+| `NOT_READY_FOR_FABRICATION` | Confirmed readiness-affecting findings exist |
+| `ANALYSIS_FAILED` | The pipeline itself failed; rule results were not produced |
+
+Every finding has a stable ID and carries its evidence: source file SHA,
+object ID, line/byte span when available, and the geometric measurement with
+its configured threshold. The same finding ID appears in `report.md` and as
+`data-finding-id` in `preview.svg`, so you can locate each issue visually.
+
+Important: findings marked "requires human confirmation" are not weak
+results — they are cases where BoardGate refuses to guess (ambiguous layer
+mapping, unsupported aperture geometry, approximation error bands). The
+report never silently upgrades them to pass or fail.
+
+### 6. Use it in CI
+
+Exit codes follow a fixed precedence (`4 > 2 > 3 > 1 > 0`):
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Review completed; no `--fail-on` threshold reached |
+| 1 | Review completed and a confirmed blocker finding exists (only with `--fail-on blocker`) |
+| 2 | User/config error (bad input, bad profile, unsafe output path) — nothing published |
+| 3 | Pipeline failure after safe ingestion — an `ANALYSIS_FAILED` diagnostic bundle was published |
+| 4 | Unexpected internal error |
+
+A typical CI gate:
+
+```bash
+uv run pcb-review inspect fab/ --rules rules/default.yaml \
+  --output artifacts/review --fail-on blocker
+```
+
+Note that `--fail-on blocker` only changes the exit code; all six artifacts
+are always published for completed reviews.
+
+### 7. Tune the rule profile
+
+Copy `rules/default.yaml` and edit it — the profile is where your
+fabricator's real limits live:
+
+```yaml
+fabrication:
+  min_trace_width: 0.10      # mm
+  min_copper_spacing: 0.10
+  min_copper_to_edge: 0.25
+  min_drill_diameter: 0.20
+  min_annular_ring: 0.10
+  min_solder_mask_dam: 0.10
+```
+
+Each of the 16 rules can be enabled/disabled and assigned a severity
+(`blocker`, `high`, `warning`, `info`) plus whether it affects readiness.
+Profiles are validated strictly: unknown fields, YAML tags/aliases, and
+missing thresholds are rejected with exit code 2 before any file is read.
+The profile's SHA-256 is embedded in every artifact, so results are always
+traceable to the exact configuration that produced them.
+
+### 8. If something goes wrong
+
+| Message | Cause | Fix |
+| --- | --- | --- |
+| `INPUT_NOT_FOUND` | An input path does not exist | Check the path |
+| `PROFILE_VALIDATION_ERROR` | Profile failed strict validation | Compare against `rules/default.yaml` |
+| `OUTPUT_NOT_EMPTY` | Output directory has content | Choose a new directory or pass `--overwrite` |
+| `OUTPUT_OVERLAPS_INPUT` | Output contains or is inside an input | Move the output outside the project |
+| `FILE_COUNT_LIMIT` / `UNSAFE_PATH` | Input exceeded security budgets | Reduce/sanitize the input set |
+| `... (diagnostic fallback)` in the summary | A post-ingestion stage failed (exit 3) | Read `findings.json` `analysis_diagnostics` and `logs/run.jsonl` |
+
+For deeper inspection, `--log-level debug` increases console verbosity, and
+`logs/run.jsonl` records each pipeline stage with timestamps, selected
+parsers, executed/skipped rules, and finding counts.
+
+For the exact supported input subsets and deliberate v0.1 boundaries (no
+netlist inference, no pad-registration claims, no macro-aperture exact
+checks, and so on), see [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
+
 ## Safety and scope
 
 All input files are treated as untrusted. A BoardGate report is engineering
