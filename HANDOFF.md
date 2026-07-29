@@ -20,12 +20,12 @@
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] ccfb1a0 test(review): harden ingestion and add fixture
-  and property matrices`
-- Remote sync: `[CONFIRMED] local main is seven atomic commits ahead of
-  origin/main at 0ece4bb (1932282, b0ff240, 9d1de3d, ccfb1a0 plus the three
-  Phase 9 contract/report/SVG commits); no push has been attempted since the
-  recovery.`
+- HEAD: `[CONFIRMED] 85d3605 docs(handoff): record recovery and completed
+  Phase 9/10 pipeline (code HEAD ccfb1a0)`
+- Remote sync: `[CONFIRMED] local main is eight atomic commits ahead of
+  origin/main at 0ece4bb (1932282, b0ff240, 9d1de3d, ccfb1a0, two HANDOFF
+  commits, plus the three Phase 9 contract/report/SVG commits); no push has
+  been attempted since the recovery.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; Phase 11 (optional API or
   minimal web viewer) is the only remaining spec phase.`
@@ -154,8 +154,8 @@
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
     documented in docs/CAPABILITIES.md; no API or web viewer exists
     (Phase 11).`
-- Working tree: `[CONFIRMED] Clean at ccfb1a0 after the recovery commits and
-  this HANDOFF update.`
+- Working tree: `[CONFIRMED] Clean after the recovery commits and this
+  HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -231,8 +231,8 @@ Actions run succeeds with `gh run list --limit 1`.
 
 Acceptance criteria:
 
-1. `git ls-remote origin main` reports `ccfb1a0` after the push.
-2. The GitHub Actions run for `ccfb1a0` completes successfully.
+1. `git ls-remote origin main` reports the pushed local HEAD after the push.
+2. The GitHub Actions run for the pushed HEAD completes successfully.
 3. If the proxy blocks the push again, retry normally and record the
    attempts under ISSUE-003 rather than rewriting history.
 
