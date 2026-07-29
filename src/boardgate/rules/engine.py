@@ -81,10 +81,12 @@ def determine_review_status(
     """Apply the normative overall-status precedence exactly once."""
     if analysis_failed:
         return ReviewStatus.ANALYSIS_FAILED
-    findings = tuple(finding for result in rule_results for finding in result.findings)
     if any(
-        finding.severity is Severity.BLOCKER and not finding.requires_human_confirmation
-        for finding in findings
+        result.affects_readiness
+        and finding.severity is Severity.BLOCKER
+        and not finding.requires_human_confirmation
+        for result in rule_results
+        for finding in result.findings
     ):
         return ReviewStatus.NOT_READY_FOR_FABRICATION
     assembly_inventory = assembly_data_inventory(project)
@@ -94,6 +96,7 @@ def determine_review_status(
     if (
         any(
             result.required
+            and result.affects_readiness
             and result.outcome in {RuleOutcome.FAILED, RuleOutcome.SKIPPED}
             for result in rule_results
         )
@@ -101,13 +104,19 @@ def determine_review_status(
     ):
         return ReviewStatus.INSUFFICIENT_INFORMATION
     if (
-        any(finding.requires_human_confirmation for finding in findings)
+        any(
+            result.affects_readiness and finding.requires_human_confirmation
+            for result in rule_results
+            for finding in result.findings
+        )
         or any(
             uncertainty.requires_human_confirmation
             for uncertainty in project.uncertainties
         )
         or any(
-            result.required and result.coverage is RuleCoverage.PARTIAL
+            result.required
+            and result.affects_readiness
+            and result.coverage is RuleCoverage.PARTIAL
             for result in rule_results
         )
     ):
@@ -127,6 +136,7 @@ class RuleEngine:
         profile: RuleProfile,
         *,
         analysis_failed: bool = False,
+        selected_rule_ids: frozenset[RuleId] | None = None,
     ) -> ReviewResult:
         """Evaluate configured rules and aggregate a strict findings root."""
         digest = profile_hash(profile)
@@ -159,6 +169,22 @@ class RuleEngine:
                         reason=RuleReason.DISABLED,
                         summary=(
                             "Rule is explicitly disabled by the selected profile."
+                        ),
+                    ),
+                )
+            elif (
+                selected_rule_ids is not None and rule.rule_id not in selected_rule_ids
+            ):
+                result = _synthetic_result(
+                    rule_id=rule.rule_id,
+                    version=rule.version,
+                    profile=profile,
+                    evaluation=RuleEvaluation(
+                        outcome=RuleOutcome.SKIPPED,
+                        coverage=RuleCoverage.NONE,
+                        reason=RuleReason.ORCHESTRATOR_FILTERED,
+                        summary=(
+                            "Rule was excluded by the deterministic execution plan."
                         ),
                     ),
                 )

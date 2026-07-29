@@ -15,6 +15,7 @@ from boardgate.domain.diagnostic import SourceDiagnosticLevel
 from boardgate.domain.enums import RiskMode
 from boardgate.domain.finding import Finding, FindingEvidence, Measurement
 from boardgate.domain.geometry import Unit
+from boardgate.domain.identifiers import evidence_identifier
 from boardgate.domain.provenance import JsonScalar, Provenance
 from boardgate.domain.source import SourceFile
 from boardgate.rules.assembly_data import (
@@ -23,7 +24,6 @@ from boardgate.rules.assembly_data import (
     placement_file_types,
 )
 from boardgate.rules.common import (
-    evidence_identifier,
     make_finding,
     project_uncertainty_evidence,
 )

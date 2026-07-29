@@ -38,6 +38,37 @@ _STATUS_SUMMARIES = {
     ),
 }
 
+_STATIC_V1_LIMITATIONS = (
+    (
+        "Gerber support targets Ucamco Gerber Layer Format revision 2026.05 "
+        "RS-274X/X2 semantics, not complete format conformance."
+    ),
+    (
+        "Aperture macros and unsupported commands remain explicit limitations; "
+        "macro bounds are not treated as exact rule geometry."
+    ),
+    (
+        "Copper spacing compares disconnected geometry because v0.1 does not "
+        "infer electrical nets."
+    ),
+    (
+        "Drill alignment is a gross bounding-box check, and routed slots are "
+        "excluded from round-hole diameter and annular-ring rules."
+    ),
+    (
+        "Trace, annular-ring, mask, and silk rules run only on their documented "
+        "trusted standard-geometry subsets."
+    ),
+    (
+        "Placement containment checks CPL anchor points only; component body and "
+        "courtyard dimensions are not inferred."
+    ),
+    (
+        "Source line and byte spans depend on scanner alignment and remain "
+        "unavailable when they cannot be proven."
+    ),
+)
+
 
 def compose_markdown_report(project: PCBProject, review: ReviewResult) -> str:
     """Render a stable evidence-first report without timestamps or runtime data."""
@@ -47,6 +78,9 @@ def compose_markdown_report(project: PCBProject, review: ReviewResult) -> str:
 
     sections = [
         "# PCB Manufacturing Review",
+        "",
+        f"<!-- boardgate-project-id: {project.project_id} -->",
+        f"<!-- boardgate-profile-sha256: {review.profile_sha256} -->",
         *_overall_assessment(review),
         *_evidence_confidence(project, review),
         *_input_files(project),
@@ -497,8 +531,12 @@ def _parser_and_analysis_limitations(
         ),
     )
     lines = ["", "## Parser and Analysis Limitations", ""]
+    lines.append("Static v0.1 scope boundaries:")
+    lines.extend(
+        f"- {_escape_markdown(limitation)}" for limitation in _STATIC_V1_LIMITATIONS
+    )
     if not (diagnostics or limitation_findings or review.analysis_diagnostics):
-        lines.append("No structured parser or analysis limitation was recorded.")
+        lines.append("- No additional input-specific limitation was recorded.")
         return lines
     if review.analysis_diagnostics:
         lines.append(

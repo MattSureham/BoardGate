@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 
-from boardgate.domain.finding import Measurement
+from boardgate.domain.finding import FindingEvidence, Measurement
 from boardgate.domain.geometry import Point
 
 type JsonValue = (
@@ -81,6 +81,20 @@ def finding_id(  # noqa: PLR0913
             "rule_version": rule_version,
         },
     )
+
+
+def evidence_identifier(evidence: FindingEvidence) -> str:
+    """Return a stable evidence address when a parser object ID is unavailable."""
+    provenance = evidence.provenance
+    if provenance.object_id is not None:
+        return provenance.object_id
+    span = provenance.source_span
+    span_label = (
+        "none"
+        if span is None
+        else (f"{span.start_line}:{span.end_line}:{span.start_byte}:{span.end_byte}")
+    )
+    return f"{provenance.source_file_id}:{span_label}"
 
 
 def _json_mapping(value: Mapping[str, object]) -> dict[str, JsonValue]:

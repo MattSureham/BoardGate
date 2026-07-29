@@ -43,6 +43,7 @@ class RuleReason(StrEnum):
     DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"
     INPUT_UNCERTAIN = "INPUT_UNCERTAIN"
     UNSUPPORTED_GEOMETRY = "UNSUPPORTED_GEOMETRY"
+    ORCHESTRATOR_FILTERED = "ORCHESTRATOR_FILTERED"
     RULE_EXCEPTION = "RULE_EXCEPTION"
 
 
@@ -165,6 +166,13 @@ class ReviewResult(VersionedModel):
             self.analysis_diagnostics
         ):
             msg = "analysis diagnostics must be unique and sorted"
+            raise ValueError(msg)
+        analysis_failed = self.overall_status is ReviewStatus.ANALYSIS_FAILED
+        if analysis_failed != bool(self.analysis_diagnostics):
+            msg = "ANALYSIS_FAILED status and analysis diagnostics must occur together"
+            raise ValueError(msg)
+        if analysis_failed and (self.rule_results or self.findings):
+            msg = "ANALYSIS_FAILED reviews must not publish normal rule results"
             raise ValueError(msg)
         return self
 

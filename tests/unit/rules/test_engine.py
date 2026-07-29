@@ -195,6 +195,7 @@ def _result(  # noqa: PLR0913
     required: bool = True,
     findings: tuple[Finding, ...] = (),
     reason: RuleReason | None = None,
+    affects_readiness: bool = True,
 ) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
@@ -202,7 +203,7 @@ def _result(  # noqa: PLR0913
         outcome=outcome,
         coverage=coverage,
         required=required,
-        affects_readiness=True,
+        affects_readiness=affects_readiness,
         findings=findings,
         reason=reason,
         summary="Deterministic test result.",
@@ -321,6 +322,31 @@ def test_engine_records_disabled_rule_without_calling_it() -> None:
     assert result.outcome is RuleOutcome.SKIPPED
     assert result.coverage is RuleCoverage.NONE
     assert result.reason is RuleReason.DISABLED
+
+
+def test_engine_filter_keeps_explicit_results_and_dependency_safety() -> None:
+    prerequisite = RuleId.BOARD_OUTLINE_PRESENT
+    dependent = RuleId.BOARD_OUTLINE_CLOSED
+    registry = RuleRegistry.build(
+        (
+            DummyRule(prerequisite, _pass()),
+            DummyRule(dependent, _pass(), dependencies=(prerequisite,)),
+        ),
+        require_complete=False,
+    )
+
+    review = RuleEngine(registry).evaluate(
+        _project(),
+        load_rule_profile(PROFILE_PATH),
+        selected_rule_ids=frozenset({dependent}),
+    )
+    by_id = {result.rule_id: result for result in review.rule_results}
+
+    assert by_id[prerequisite].outcome is RuleOutcome.SKIPPED
+    assert by_id[prerequisite].reason is RuleReason.ORCHESTRATOR_FILTERED
+    assert by_id[dependent].outcome is RuleOutcome.SKIPPED
+    assert by_id[dependent].reason is RuleReason.DEPENDENCY_UNAVAILABLE
+    assert review.overall_status is ReviewStatus.INSUFFICIENT_INFORMATION
 
 
 @pytest.mark.parametrize(
@@ -486,6 +512,58 @@ def test_active_assembly_scope_requires_both_usable_datasets() -> None:
         determine_review_status(
             project=_assembly_project(),
             rule_results=passed,
+            analysis_failed=False,
+        )
+        is ReviewStatus.READY_FOR_REVIEW
+    )
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        _result(
+            RuleId.MINIMUM_TRACE_WIDTH,
+            outcome=RuleOutcome.FINDINGS,
+            findings=(
+                _finding(
+                    RuleId.MINIMUM_TRACE_WIDTH,
+                    severity=Severity.BLOCKER,
+                ),
+            ),
+            affects_readiness=False,
+        ),
+        _result(
+            RuleId.MINIMUM_TRACE_WIDTH,
+            outcome=RuleOutcome.SKIPPED,
+            coverage=RuleCoverage.NONE,
+            reason=RuleReason.INPUT_UNCERTAIN,
+            affects_readiness=False,
+        ),
+        _result(
+            RuleId.MINIMUM_TRACE_WIDTH,
+            coverage=RuleCoverage.PARTIAL,
+            affects_readiness=False,
+        ),
+        _result(
+            RuleId.MINIMUM_TRACE_WIDTH,
+            outcome=RuleOutcome.FINDINGS,
+            findings=(
+                _finding(
+                    RuleId.MINIMUM_TRACE_WIDTH,
+                    confirmation=True,
+                ),
+            ),
+            affects_readiness=False,
+        ),
+    ],
+)
+def test_non_readiness_rules_do_not_change_overall_status(
+    result: RuleResult,
+) -> None:
+    assert (
+        determine_review_status(
+            project=_project(),
+            rule_results=(result,),
             analysis_failed=False,
         )
         is ReviewStatus.READY_FOR_REVIEW

@@ -2,9 +2,11 @@
 
 import re
 from collections.abc import Iterable
+from datetime import datetime
 from enum import StrEnum
+from typing import Self
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from boardgate.domain.base import VersionedModel
 from boardgate.domain.provenance import SourceSpan
@@ -60,6 +62,7 @@ class AnalysisStage(StrEnum):
     NORMALIZATION = "NORMALIZATION"
     PROJECT_CONSTRUCTION = "PROJECT_CONSTRUCTION"
     RULE_EXECUTION = "RULE_EXECUTION"
+    AGENT_ORCHESTRATION = "AGENT_ORCHESTRATION"
     REPORT_COMPOSITION = "REPORT_COMPOSITION"
     SVG_RENDERING = "SVG_RENDERING"
     ARTIFACT_VALIDATION = "ARTIFACT_VALIDATION"
@@ -79,6 +82,83 @@ class AnalysisDiagnostic(VersionedModel):
     def require_sanitized_summary(cls, value: str) -> str:
         """Prevent persistence of host-specific or exception-derived text."""
         return validate_safe_diagnostic_summary(value)
+
+
+class RunLogLevel(StrEnum):
+    """Structured run-log severity independent of transport logging."""
+
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
+    DEBUG = "DEBUG"
+
+
+class RunLogEvent(VersionedModel):
+    """One sanitized event in the public ``logs/run.jsonl`` stream."""
+
+    run_id: str = Field(pattern=r"^run-[0-9a-f]{16}$")
+    project_id: str = Field(pattern=r"^prj-[0-9a-f]{16}$")
+    sequence: int = Field(ge=1)
+    occurred_at: datetime
+    elapsed_ms: int = Field(ge=0)
+    level: RunLogLevel
+    category: AnalysisDiagnosticCategory
+    stage: AnalysisStage
+    code: str = Field(pattern=r"^[A-Z][A-Z0-9_]+$")
+    summary: str = Field(min_length=1, max_length=500)
+    input_file_count: int | None = Field(default=None, ge=0)
+    file_classification_counts: dict[str, int] = Field(default_factory=dict)
+    selected_parsers: tuple[str, ...] = ()
+    primitive_count: int | None = Field(default=None, ge=0)
+    drill_count: int | None = Field(default=None, ge=0)
+    executed_rules: tuple[str, ...] = ()
+    skipped_rule_reasons: dict[str, str] = Field(default_factory=dict)
+    finding_count: int | None = Field(default=None, ge=0)
+    error_type: str | None = Field(
+        default=None,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    )
+
+    @field_validator("occurred_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        """Keep timestamps unambiguous across execution environments."""
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("run-log timestamps must include a UTC offset")
+        return value
+
+    @field_validator("summary")
+    @classmethod
+    def require_sanitized_summary(cls, value: str) -> str:
+        """Apply the same safe-text contract as persisted diagnostics."""
+        return validate_safe_diagnostic_summary(value)
+
+    @model_validator(mode="after")
+    def require_deterministic_collections(self) -> Self:
+        """Keep metric maps and identifier sequences canonical and bounded."""
+        if any(
+            not key or count < 0
+            for key, count in self.file_classification_counts.items()
+        ):
+            raise ValueError("classification counts require non-empty keys and counts")
+        if list(self.file_classification_counts) != sorted(
+            self.file_classification_counts
+        ):
+            raise ValueError("classification counts must be key-sorted")
+        for label, values in (
+            ("selected parsers", self.selected_parsers),
+            ("executed rules", self.executed_rules),
+        ):
+            if values != tuple(sorted(set(values))):
+                raise ValueError(f"{label} must be unique and sorted")
+        if list(self.skipped_rule_reasons) != sorted(self.skipped_rule_reasons):
+            raise ValueError("skipped rule reasons must be key-sorted")
+        if any(
+            not rule_id or not reason
+            for rule_id, reason in self.skipped_rule_reasons.items()
+        ):
+            raise ValueError("skipped rule reasons require non-empty keys and values")
+        return self
 
 
 def ordered_analysis_diagnostics(

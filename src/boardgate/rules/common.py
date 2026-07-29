@@ -6,7 +6,7 @@ from boardgate.config.models import RuleId, RuleSeverity
 from boardgate.domain.enums import RiskMode, Severity
 from boardgate.domain.finding import Finding, FindingEvidence, Measurement
 from boardgate.domain.geometry import Point
-from boardgate.domain.identifiers import finding_id
+from boardgate.domain.identifiers import evidence_identifier, finding_id
 from boardgate.domain.provenance import Provenance
 from boardgate.rules.engine import RuleContext
 
@@ -35,20 +35,6 @@ def project_uncertainty_evidence(
 def configured_severity(context: RuleContext, rule_id: RuleId) -> Severity:
     """Map a validated profile severity onto the public Finding enum."""
     return _SEVERITY[context.profile.rules.by_id(rule_id).severity]
-
-
-def evidence_identifier(evidence: FindingEvidence) -> str:
-    """Return a stable evidence address even when a parser span is unavailable."""
-    provenance = evidence.provenance
-    if provenance.object_id is not None:
-        return provenance.object_id
-    span = provenance.source_span
-    span_label = (
-        "none"
-        if span is None
-        else (f"{span.start_line}:{span.end_line}:{span.start_byte}:{span.end_byte}")
-    )
-    return f"{provenance.source_file_id}:{span_label}"
 
 
 def make_finding(  # noqa: PLR0913

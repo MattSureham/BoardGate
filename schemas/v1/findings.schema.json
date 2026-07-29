@@ -61,6 +61,7 @@
         "NORMALIZATION",
         "PROJECT_CONSTRUCTION",
         "RULE_EXECUTION",
+        "AGENT_ORCHESTRATION",
         "REPORT_COMPOSITION",
         "SVG_RENDERING",
         "ARTIFACT_VALIDATION",
@@ -574,6 +575,7 @@
         "DEPENDENCY_UNAVAILABLE",
         "INPUT_UNCERTAIN",
         "UNSUPPORTED_GEOMETRY",
+        "ORCHESTRATOR_FILTERED",
         "RULE_EXCEPTION"
       ],
       "title": "RuleReason",

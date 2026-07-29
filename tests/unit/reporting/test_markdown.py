@@ -198,7 +198,7 @@ def _finding(  # noqa: PLR0913
         category=category,
         severity=severity,
         confidence=0.8,
-        config_path="rules.test[0]",
+        config_path="fabrication.min_width" if detailed else "rules.test[0]",
         title=title,
         summary=summary,
         facts=("Measured <fact>.\n# not a heading",),
