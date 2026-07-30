@@ -75,6 +75,13 @@ _RISK_BEHAVIORS: dict[RiskMode, tuple[bool, bool, bool, str]] = {
         True,
         "Expose unsupported syntax and suppress conclusions that depend on it.",
     ),
+    RiskMode.ANALYSIS_LIMITATION: (
+        True,
+        True,
+        True,
+        "Expose the deterministic computation limit and suppress conclusions "
+        "outside the evaluated scope.",
+    ),
 }
 
 

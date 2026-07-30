@@ -11,18 +11,18 @@ from boardgate.config.models import RuleId
 from boardgate.domain.enums import BoardSide, LayerRole, Polarity, RiskMode
 from boardgate.domain.finding import FindingEvidence, Measurement
 from boardgate.domain.geometry import Point, Unit
-from boardgate.domain.layer import PCBLayer
+from boardgate.domain.layer import GraphicPrimitive, PCBLayer
 from boardgate.rules.common import make_finding, project_uncertainty_evidence
 from boardgate.rules.derived_geometry import (
+    DerivedGeometry,
+    IntersectionCandidateScope,
     LayerComposite,
-    component_pairs_within,
-    composite_layer,
-    geometry_components,
     shapely_bounds,
 )
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
     RuleCoverage,
+    RuleCoverageGap,
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
@@ -89,14 +89,17 @@ def _derive_side(
     ):
         return None, RuleReason.INPUT_UNCERTAIN
     composites = tuple(
-        composite_layer(
+        context.derived_geometry.composite_layer(
             layer,
             arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
             geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
         )
         for layer in layers
     )
-    if not all(composite.coverage_complete for composite in composites):
+    if any(not composite.geometry_supported for composite in composites) or any(
+        not composite.coverage_complete and not composite.coverage_gaps
+        for composite in composites
+    ):
         return None, RuleReason.UNSUPPORTED_GEOMETRY
     return (
         _SideGeometry(
@@ -113,11 +116,10 @@ def _derive_side(
 
 
 def _geometry_evidence(
+    contributors: tuple[tuple[GraphicPrimitive, DerivedGeometry], ...],
     layer: PCBLayer,
-    composite: LayerComposite,
     witness: BaseGeometry,
     *,
-    epsilon: float,
     note: str,
 ) -> tuple[FindingEvidence, ...]:
     bounds = shapely_bounds(witness)
@@ -128,8 +130,7 @@ def _geometry_evidence(
             witness_bounds=bounds,
             note=note,
         )
-        for primitive, derived in composite.primitive_geometries
-        if derived.geometry.intersects(witness.buffer(epsilon))
+        for primitive, derived in contributors
     )
 
 
@@ -141,7 +142,10 @@ class SilkscreenOverExposedPadRule:
     version: str = "1.0"
     dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+    def evaluate(  # noqa: PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Intersect final copper, mask openings, and silkscreen per side."""
         derived_sides: list[_SideGeometry] = []
         invalid_reasons: list[RuleReason] = []
@@ -181,8 +185,28 @@ class SilkscreenOverExposedPadRule:
         uncertainty_by_source = project_uncertainty_evidence(context)
         findings = []
         coverage_partial = bool(invalid_reasons)
+        coverage_gaps: list[RuleCoverageGap] = []
+        evaluated_side_count = 0
         exposed_component_count = 0
         for side_geometry in derived_sides:
+            side_composites = (
+                side_geometry.copper,
+                side_geometry.mask_openings,
+                side_geometry.silkscreen,
+            )
+            coverage_gaps.extend(
+                gap for composite in side_composites for gap in composite.coverage_gaps
+            )
+            coverage_partial = coverage_partial or any(
+                not composite.coverage_complete for composite in side_composites
+            )
+            if any(
+                composite.coverage_gaps
+                and composite.evaluated_dark_primitive_count == 0
+                for composite in side_composites
+            ):
+                continue
+            evaluated_side_count += 1
             source_ids = {
                 side_geometry.copper_layer.source_file_id,
                 side_geometry.mask_layer.source_file_id,
@@ -197,9 +221,43 @@ class SilkscreenOverExposedPadRule:
             exposed = side_geometry.copper.geometry.intersection(
                 side_geometry.mask_openings.geometry
             )
-            exposed_components = geometry_components(exposed)
+            exposed_components = context.derived_geometry.geometry_components(exposed)
             exposed_component_count += len(exposed_components)
             overlap = exposed.intersection(side_geometry.silkscreen.geometry)
+            overlap_components = context.derived_geometry.geometry_components(overlap)
+            contributor_queries = tuple(
+                context.derived_geometry.query_primitives(
+                    layer,
+                    overlap_components,
+                    scope=scope,
+                    arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                    geometry_epsilon_mm=epsilon,
+                    witness_buffer_mm=epsilon,
+                )
+                for layer, scope in (
+                    (
+                        side_geometry.copper_layer,
+                        IntersectionCandidateScope.SILK_COPPER_CONTRIBUTORS,
+                    ),
+                    (
+                        side_geometry.mask_layer,
+                        IntersectionCandidateScope.SILK_MASK_CONTRIBUTORS,
+                    ),
+                    (
+                        side_geometry.silk_layer,
+                        IntersectionCandidateScope.SILKSCREEN_CONTRIBUTORS,
+                    ),
+                )
+            )
+            query_gaps = tuple(
+                gap for query in contributor_queries for gap in query.coverage_gaps
+            )
+            if query_gaps:
+                coverage_gaps.extend(query_gaps)
+                coverage_partial = True
+                evaluated_side_count -= 1
+                exposed_component_count -= len(exposed_components)
+                continue
             error_length = (
                 side_geometry.copper.error_bound_mm
                 + side_geometry.mask_openings.error_bound_mm
@@ -209,7 +267,7 @@ class SilkscreenOverExposedPadRule:
             robust_overlap = exposed.buffer(-error_length).intersection(
                 side_geometry.silkscreen.geometry.buffer(-error_length)
             )
-            for component in geometry_components(overlap):
+            for component_index, component in enumerate(overlap_components):
                 robust_component = robust_overlap.intersection(component)
                 confirmation = robust_component.is_empty or bool(uncertainty)
                 coverage_partial = coverage_partial or confirmation
@@ -219,24 +277,21 @@ class SilkscreenOverExposedPadRule:
                 area_error = max(0.0, actual_area - robust_area)
                 evidence = (
                     *_geometry_evidence(
+                        contributor_queries[0].matches[component_index],
                         side_geometry.copper_layer,
-                        side_geometry.copper,
                         component,
-                        epsilon=epsilon,
                         note="Final copper contributing to the exposed area.",
                     ),
                     *_geometry_evidence(
+                        contributor_queries[1].matches[component_index],
                         side_geometry.mask_layer,
-                        side_geometry.mask_openings,
                         component,
-                        epsilon=epsilon,
                         note="Same-side solder-mask opening exposing copper.",
                     ),
                     *_geometry_evidence(
+                        contributor_queries[2].matches[component_index],
                         side_geometry.silk_layer,
-                        side_geometry.silkscreen,
                         component,
-                        epsilon=epsilon,
                         note="Same-side silkscreen contributing to overlap.",
                     ),
                     *(
@@ -300,6 +355,17 @@ class SilkscreenOverExposedPadRule:
                 )
 
         if not findings:
+            if coverage_gaps and evaluated_side_count == 0:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.COMPUTATION_LIMIT,
+                    coverage_gaps=tuple(coverage_gaps),
+                    summary=(
+                        "All applicable surface-overlap scope exceeded deterministic "
+                        "geometry resource limits."
+                    ),
+                )
             return RuleEvaluation(
                 outcome=RuleOutcome.PASS,
                 coverage=(
@@ -316,6 +382,7 @@ class SilkscreenOverExposedPadRule:
                 ),
                 evaluated_object_count=exposed_component_count,
                 applicable_object_count=exposed_component_count,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
@@ -324,6 +391,7 @@ class SilkscreenOverExposedPadRule:
             summary="Same-side silkscreen overlap with exposed copper was found.",
             evaluated_object_count=exposed_component_count,
             applicable_object_count=exposed_component_count,
+            coverage_gaps=tuple(coverage_gaps),
         )
 
 
@@ -356,12 +424,14 @@ def _derive_mask(
         or not _known_polarity(layer)
     ):
         return None, RuleReason.INPUT_UNCERTAIN
-    composite = composite_layer(
+    composite = context.derived_geometry.composite_layer(
         layer,
         arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
         geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
     )
-    if not composite.coverage_complete:
+    if not composite.geometry_supported or (
+        not composite.coverage_complete and not composite.coverage_gaps
+    ):
         return None, RuleReason.UNSUPPORTED_GEOMETRY
     return _MaskGeometry(side=side, layer=layer, openings=composite), None
 
@@ -374,7 +444,10 @@ class MinimumSolderMaskDamRule:
     version: str = "1.0"
     dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:  # noqa: PLR0912
+    def evaluate(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Compare mask-opening components per side using an STRtree."""
         masks: list[_MaskGeometry] = []
         invalid_reasons: list[RuleReason] = []
@@ -408,20 +481,48 @@ class MinimumSolderMaskDamRule:
         uncertainty_by_source = project_uncertainty_evidence(context)
         findings = []
         applicable_pairs = 0
+        evaluated_pairs = 0
         coverage_partial = bool(invalid_reasons)
+        coverage_gaps: list[RuleCoverageGap] = []
         for mask in masks:
+            coverage_gaps.extend(mask.openings.coverage_gaps)
+            coverage_partial = coverage_partial or not mask.openings.coverage_complete
+            if (
+                mask.openings.coverage_gaps
+                and mask.openings.evaluated_dark_primitive_count == 0
+            ):
+                continue
             uncertainty = uncertainty_by_source.get(
                 mask.layer.source_file_id,
                 (),
             )
             coverage_partial = coverage_partial or bool(uncertainty)
-            components = geometry_components(mask.openings.geometry)
+            components = context.derived_geometry.geometry_components(
+                mask.openings.geometry
+            )
             applicable_pairs += len(components) * (len(components) - 1) // 2
+            contributor_query = context.derived_geometry.query_primitives(
+                mask.layer,
+                components,
+                scope=IntersectionCandidateScope.SOLDER_MASK_DAM_CONTRIBUTORS,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+                witness_buffer_mm=epsilon,
+            )
+            if contributor_query.coverage_gaps:
+                coverage_gaps.extend(contributor_query.coverage_gaps)
+                coverage_partial = True
+                continue
             error = 2.0 * mask.openings.error_bound_mm + epsilon
-            for first_index, second_index, distance in component_pairs_within(
+            pair_query = context.derived_geometry.component_pairs_within(
                 components,
                 maximum_distance=required + error,
-            ):
+                layer=mask.layer,
+            )
+            coverage_gaps.extend(pair_query.coverage_gaps)
+            coverage_partial = coverage_partial or bool(pair_query.coverage_gaps)
+            evaluated_pairs += pair_query.evaluated_pair_count
+            for first_index, second_index, distance in pair_query.pairs:
                 disposition = evaluate_minimum_threshold(
                     actual=distance,
                     required=required,
@@ -443,17 +544,15 @@ class MinimumSolderMaskDamRule:
                 )
                 evidence = (
                     *_geometry_evidence(
+                        contributor_query.matches[first_index],
                         mask.layer,
-                        mask.openings,
                         first,
-                        epsilon=epsilon,
                         note="Primitive contributes to the first final opening.",
                     ),
                     *_geometry_evidence(
+                        contributor_query.matches[second_index],
                         mask.layer,
-                        mask.openings,
                         second,
-                        epsilon=epsilon,
                         note="Primitive contributes to the second final opening.",
                     ),
                     *(
@@ -511,6 +610,17 @@ class MinimumSolderMaskDamRule:
                 )
 
         if applicable_pairs == 0:
+            if coverage_gaps:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.COMPUTATION_LIMIT,
+                    coverage_gaps=tuple(coverage_gaps),
+                    summary=(
+                        "All applicable solder-mask scope exceeded deterministic "
+                        "geometry resource limits."
+                    ),
+                )
             if invalid_reasons:
                 reason = (
                     RuleReason.UNSUPPORTED_GEOMETRY
@@ -535,6 +645,18 @@ class MinimumSolderMaskDamRule:
                     "final openings; connected/gang openings are not dams."
                 ),
             )
+        if evaluated_pairs == 0 and coverage_gaps and not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.COMPUTATION_LIMIT,
+                coverage_gaps=tuple(coverage_gaps),
+                summary=(
+                    "All applicable solder-mask pairs exceeded deterministic "
+                    "geometry resource limits."
+                ),
+                applicable_object_count=applicable_pairs,
+            )
         if not findings:
             return RuleEvaluation(
                 outcome=RuleOutcome.PASS,
@@ -550,14 +672,16 @@ class MinimumSolderMaskDamRule:
                         "the configured dam."
                     )
                 ),
-                evaluated_object_count=applicable_pairs,
+                evaluated_object_count=evaluated_pairs,
                 applicable_object_count=applicable_pairs,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
             coverage=(RuleCoverage.PARTIAL if coverage_partial else RuleCoverage.FULL),
             findings=tuple(findings),
             summary="One or more distinct mask openings leave too little dam.",
-            evaluated_object_count=applicable_pairs,
+            evaluated_object_count=evaluated_pairs,
             applicable_object_count=applicable_pairs,
+            coverage_gaps=tuple(coverage_gaps),
         )

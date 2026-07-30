@@ -11,8 +11,10 @@ from boardgate.domain.project import PCBProject
 from boardgate.domain.provenance import SourceSpan
 from boardgate.domain.source import SourceFile
 from boardgate.rules.models import (
+    GeometryResourcePolicy,
     ReviewResult,
     RuleCoverage,
+    RuleCoverageGap,
     RuleOutcome,
     RuleReason,
     RuleResult,
@@ -164,6 +166,7 @@ def _evidence_confidence(
             f"- Rule coverage: {full_count} full, {partial_count} partial, "
             f"{none_count} none"
         ),
+        f"- Deterministic computation coverage gaps: {len(review.coverage_gaps)}",
     ]
     if review.findings:
         confidences = [finding.confidence for finding in review.findings]
@@ -476,7 +479,10 @@ def _executed_rule_line(result: RuleResult) -> str:
     counts = _object_counts(result)
     if result.outcome is RuleOutcome.PASS and result.coverage is RuleCoverage.PARTIAL:
         return (
-            prefix + "no issue found in checked scope " + f"(coverage PARTIAL{counts})"
+            prefix
+            + "no issue found in checked scope "
+            + f"(coverage PARTIAL{counts}) — "
+            + _escape_markdown(result.summary)
         )
     return (
         prefix
@@ -535,7 +541,17 @@ def _parser_and_analysis_limitations(
     lines.extend(
         f"- {_escape_markdown(limitation)}" for limitation in _STATIC_V1_LIMITATIONS
     )
-    if not (diagnostics or limitation_findings or review.analysis_diagnostics):
+    lines.append(
+        "- Derived-geometry resource policy "
+        f"{review.geometry_resource_policy.policy_version}: "
+        f"{_resource_policy_summary(review.geometry_resource_policy)}."
+    )
+    if not (
+        diagnostics
+        or limitation_findings
+        or review.coverage_gaps
+        or review.analysis_diagnostics
+    ):
         lines.append("- No additional input-specific limitation was recorded.")
         return lines
     if review.analysis_diagnostics:
@@ -558,6 +574,18 @@ def _parser_and_analysis_limitations(
     lines.extend(
         f"- {finding.finding_id}: {_escape_markdown(finding.summary)}"
         for finding in limitation_findings
+    )
+    lines.extend(
+        (
+            "- "
+            f"{gap.code} for {_escape_markdown(result.rule_id.value)} "
+            f"({_coverage_gap_subject(gap, source_by_id)}): "
+            f"{_escape_markdown(gap.metric)} observed {gap.observed} "
+            f"{gap.unit}, limit {gap.limit}, policy "
+            f"{gap.policy_version} — {_escape_markdown(gap.summary)}"
+        )
+        for result in review.rule_results
+        for gap in result.coverage_gaps
     )
     return lines
 
@@ -655,8 +683,8 @@ def _evidence_index(
 ) -> list[str]:
     source_by_id = {source.source_file_id: source for source in project.source_files}
     lines = ["", "## Evidence Index", ""]
-    if not review.findings:
-        lines.append("No finding evidence is present.")
+    if not review.findings and not review.coverage_gaps:
+        lines.append("No finding or computation-coverage evidence is present.")
         return lines
     for finding_index, finding in enumerate(
         sorted(review.findings, key=lambda item: item.finding_id),
@@ -677,7 +705,94 @@ def _evidence_index(
                     source=source_by_id.get(evidence.provenance.source_file_id),
                 )
             )
+    gap_index = 0
+    for result in review.rule_results:
+        for gap in result.coverage_gaps:
+            gap_index += 1
+            source = (
+                source_by_id.get(gap.source_file_id)
+                if gap.source_file_id is not None
+                else None
+            )
+            source_label = (
+                _escape_markdown(source.logical_path)
+                if source is not None
+                else "unresolved source"
+            )
+            lines.extend(
+                (
+                    "",
+                    (
+                        f"### Coverage gap {gap_index} — "
+                        f"{_escape_markdown(result.rule_id.value)}"
+                    ),
+                    "",
+                    f"- Code: {gap.code}",
+                    f"- Policy version: {gap.policy_version}",
+                    f"- Metric: {_escape_markdown(gap.metric)}",
+                    f"- Observed: {gap.observed} {gap.unit}",
+                    f"- Limit: {gap.limit} {gap.unit}",
+                    (
+                        "- Source: not applicable"
+                        if gap.source_file_id is None
+                        else (
+                            "- Source: "
+                            f"{source_label} "
+                            f"({_escape_markdown(gap.source_file_id)})"
+                        )
+                    ),
+                )
+            )
+            if source is not None:
+                lines.append(f"- SHA-256: {source.sha256}")
+            lines.extend(
+                (
+                    (
+                        "- Layer: not applicable"
+                        if gap.layer_id is None
+                        else f"- Layer: {_escape_markdown(gap.layer_id)}"
+                    ),
+                    f"- Summary: {_escape_markdown(gap.summary)}",
+                )
+            )
     return lines
+
+
+def _resource_policy_summary(policy: GeometryResourcePolicy) -> str:
+    return (
+        f"{policy.max_primitives_per_layer} primitives/layer, "
+        f"{policy.max_primitives_per_review} primitives/review, "
+        f"{policy.max_derived_coordinates_per_layer} derived coordinates/layer, "
+        f"{policy.max_intersection_candidates_per_layer} intersection "
+        "candidates/layer, "
+        f"{policy.max_primitives_per_connected_subset} primitives/connected "
+        "subset, "
+        f"{policy.max_union_inputs_per_batch} inputs/union batch, and "
+        f"{policy.max_component_pair_candidates} component-pair candidates/query; "
+        "policy-v1 intersection allocations are 32% layer composition, 20% trace "
+        "contributors, 12% copper-spacing contributors, 8% each copper-edge and "
+        "solder-mask-dam contributors, and 4% each for three silkscreen and two "
+        "annular-ring scopes, using deterministic largest-remainder rounding and "
+        "one cached witness batch per layer/scope"
+    )
+
+
+def _coverage_gap_subject(
+    gap: RuleCoverageGap,
+    source_by_id: dict[str, SourceFile],
+) -> str:
+    parts: list[str] = []
+    if gap.layer_id is not None:
+        parts.append(f"layer {_escape_markdown(gap.layer_id)}")
+    if gap.source_file_id is not None:
+        source = source_by_id.get(gap.source_file_id)
+        source_label = (
+            _escape_markdown(source.logical_path)
+            if source is not None
+            else "unresolved source"
+        )
+        parts.append(f"source {source_label} ({_escape_markdown(gap.source_file_id)})")
+    return ", ".join(parts) or "review scope"
 
 
 def _evidence_lines(

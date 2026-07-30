@@ -34,6 +34,8 @@ from boardgate.rules import (
     RuleReason,
 )
 from boardgate.rules.builtin import build_builtin_registry
+from boardgate.rules.derived_geometry import DerivedGeometryWorkspace
+from boardgate.rules.models import GeometryResourcePolicy
 from boardgate.rules.surface_rules import MinimumSolderMaskDamRule
 
 PROFILE_PATH = Path("rules/default.yaml")
@@ -290,6 +292,29 @@ def test_missing_mask_layer_is_not_applicable() -> None:
     result = _evaluate(_project())
 
     assert result.reason is RuleReason.NOT_APPLICABLE
+
+
+def test_all_contributor_queries_limited_is_not_reported_as_pass() -> None:
+    project = _project(_mask_layer(_flash("a"), _flash("b", x=0.4)))
+    profile = load_rule_profile(PROFILE_PATH)
+    result = MinimumSolderMaskDamRule().evaluate(
+        RuleContext(
+            project=project,
+            profile=profile,
+            profile_sha256=profile_hash(profile),
+            prior_results=(),
+            derived_geometry=DerivedGeometryWorkspace(
+                project=project,
+                policy=GeometryResourcePolicy(max_intersection_candidates_per_layer=1),
+            ),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.COMPUTATION_LIMIT
+    assert result.evaluated_object_count == 0
+    assert result.coverage_gaps
 
 
 def test_solder_mask_dam_review_json_round_trip() -> None:

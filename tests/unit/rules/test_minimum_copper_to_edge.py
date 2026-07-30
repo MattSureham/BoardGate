@@ -23,6 +23,8 @@ from boardgate.domain.layer import (
     Aperture,
     BoardOutline,
     FlashPrimitive,
+    GraphicPrimitive,
+    LinePrimitive,
     OutlineContour,
     PCBLayer,
     RegionLineSegment,
@@ -109,6 +111,7 @@ def _flash(
     x: float,
     y: float = 5.0,
     diameter: float = 0.2,
+    polarity: Polarity = Polarity.DARK,
 ) -> FlashPrimitive:
     return FlashPrimitive(
         primitive_id=identifier,
@@ -118,7 +121,7 @@ def _flash(
             width_mm=diameter,
             height_mm=diameter,
         ),
-        polarity=Polarity.DARK,
+        polarity=polarity,
         provenance=Provenance(
             source_file_id=SOURCE_ID,
             object_id=identifier,
@@ -129,7 +132,7 @@ def _flash(
 
 
 def _layer(
-    *primitives: FlashPrimitive,
+    *primitives: GraphicPrimitive,
     role: LayerRole = LayerRole.TOP_COPPER,
 ) -> PCBLayer:
     return PCBLayer(
@@ -143,7 +146,7 @@ def _layer(
 
 
 def _project(
-    *primitives: FlashPrimitive,
+    *primitives: GraphicPrimitive,
     cutout: bool = False,
     include_outline: bool = True,
 ) -> PCBProject:
@@ -167,6 +170,26 @@ def _project(
             profile_sha256="b" * 64,
         ),
         assembly_requirements=AssemblyRequirements(review_requested=False),
+    )
+
+
+def _rectangular_line(identifier: str, *, y: float) -> LinePrimitive:
+    return LinePrimitive(
+        primitive_id=identifier,
+        start=Point(x=1.0, y=y),
+        end=Point(x=9.0, y=y),
+        aperture=Aperture(
+            shape=ApertureShape.RECTANGLE,
+            width_mm=1.0,
+            height_mm=0.01,
+        ),
+        polarity=Polarity.DARK,
+        provenance=Provenance(
+            source_file_id=SOURCE_ID,
+            object_id=identifier,
+            parser="test-gerber",
+            parser_version="1.0",
+        ),
     )
 
 
@@ -256,6 +279,29 @@ def test_copper_outside_material_has_non_positive_signed_clearance() -> None:
     assert finding.measurement is not None
     assert finding.measurement.actual < 0.0
     assert "outside board material" in finding.title
+
+
+def test_unknown_polarity_suppresses_edge_measurements() -> None:
+    result = _evaluate(
+        _project(
+            _flash("near-edge", x=0.3),
+            _flash("unknown", x=5.0, polarity=Polarity.UNKNOWN),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.INPUT_UNCERTAIN
+    assert not result.findings
+
+
+def test_unsupported_draw_shape_cannot_create_edge_violation() -> None:
+    result = _evaluate(_project(_rectangular_line("rectangular", y=0.4)))
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.UNSUPPORTED_GEOMETRY
+    assert not result.findings
 
 
 def test_cutout_boundary_is_included_in_edge_clearance() -> None:

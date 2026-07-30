@@ -43,6 +43,7 @@ from boardgate.rules import (
     RuleReason,
     RuleResult,
 )
+from boardgate.rules.models import RuleCoverageGap
 
 PROJECT_ID = "prj-0123456789abcdef"
 SOURCE_ID = "src-0123456789abcdef"
@@ -233,6 +234,7 @@ def _result(  # noqa: PLR0913
     reason: RuleReason | None = None,
     summary: str = "The configured scope was evaluated.",
     required: bool = True,
+    coverage_gaps: tuple[RuleCoverageGap, ...] = (),
 ) -> RuleResult:
     return RuleResult(
         rule_id=rule_id,
@@ -242,6 +244,7 @@ def _result(  # noqa: PLR0913
         required=required,
         affects_readiness=True,
         findings=findings,
+        coverage_gaps=coverage_gaps,
         reason=reason,
         summary=summary,
         evaluated_object_count=1 if coverage is not RuleCoverage.NONE else 0,
@@ -256,6 +259,11 @@ def _review(
     analysis_diagnostics: tuple[AnalysisDiagnostic, ...] = (),
 ) -> ReviewResult:
     findings = tuple(finding for result in results for finding in result.findings)
+    coverage_gaps = tuple(gap for result in results for gap in result.coverage_gaps)
+    risk_modes = {
+        *(finding.category for finding in findings),
+        *((RiskMode.ANALYSIS_LIMITATION,) if coverage_gaps else ()),
+    }
     return ReviewResult(
         project_id=PROJECT_ID,
         profile_id="test.profile",
@@ -263,7 +271,8 @@ def _review(
         overall_status=status,
         rule_results=results,
         findings=findings,
-        risk_modes=tuple(sorted({finding.category for finding in findings}, key=str)),
+        coverage_gaps=coverage_gaps,
+        risk_modes=tuple(sorted(risk_modes, key=str)),
         analysis_diagnostics=analysis_diagnostics,
         disclaimer=disclaimer,
     )
@@ -375,14 +384,24 @@ def test_findings_are_grouped_escaped_and_indexed_with_source_spans() -> None:
 
 
 def test_partial_pass_never_claims_a_full_pass() -> None:
+    gap = RuleCoverageGap(
+        source_file_id=SOURCE_ID,
+        layer_id="top<copper>",
+        metric="intersection_candidates_per_layer",
+        unit="candidates",
+        observed=1_000_001,
+        limit=1_000_000,
+        summary="The candidate budget omitted part of this layer.",
+    )
     partial = _result(
         RuleId.MINIMUM_COPPER_SPACING,
         coverage=RuleCoverage.PARTIAL,
-        summary="UNSAFE FULL PASS CLAIM",
+        summary="No issue was found in the evaluated component pairs.",
+        coverage_gaps=(gap,),
     )
 
     report = compose_markdown_report(
-        _project(),
+        _project(include_layer=True),
         _review(
             partial,
             status=ReviewStatus.READY_WITH_CONFIRMATIONS,
@@ -390,9 +409,17 @@ def test_partial_pass_never_claims_a_full_pass() -> None:
     )
 
     assert "no issue found in checked scope" in report
-    assert "UNSAFE FULL PASS CLAIM" not in report
+    assert "No issue was found in the evaluated component pairs\\." in report
     assert "PASS; coverage PARTIAL" not in report
     assert "Rule minimum\\_copper\\_spacing has PARTIAL coverage" in report
+    assert "ANALYSIS" not in report.split("## Parser and Analysis Limitations")[0]
+    assert "COMPUTATION_LIMIT for minimum\\_copper\\_spacing" in report
+    assert "intersection\\_candidates\\_per\\_layer observed 1000001" in report
+    assert "policy-v1 intersection allocations are 32% layer composition" in report
+    assert "one cached witness batch per layer/scope" in report
+    assert "inputs/board\\.gtl" in report
+    assert "b" * 64 in report
+    assert "### Coverage gap 1 — minimum\\_copper\\_spacing" in report
 
 
 def test_missing_inputs_and_nonexecuted_rules_are_explicit() -> None:

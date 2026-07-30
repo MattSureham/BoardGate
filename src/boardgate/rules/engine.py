@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from boardgate.config.models import RuleId, RuleProfile, profile_hash
-from boardgate.domain.enums import ReviewStatus, Severity
+from boardgate.domain.enums import ReviewStatus, RiskMode, Severity
 from boardgate.domain.project import PCBProject
 from boardgate.rules.assembly_data import assembly_data_inventory
+from boardgate.rules.derived_geometry import DerivedGeometryWorkspace
 from boardgate.rules.models import (
+    GeometryResourcePolicy,
     ReviewResult,
     RuleCoverage,
     RuleEvaluation,
@@ -32,6 +34,9 @@ class RuleContext:
     profile: RuleProfile
     profile_sha256: str
     prior_results: tuple[RuleResult, ...]
+    derived_geometry: DerivedGeometryWorkspace = field(
+        default_factory=DerivedGeometryWorkspace
+    )
 
 
 def _synthetic_result(
@@ -65,6 +70,12 @@ def _bind_evaluation(
         required=setting.required,
         affects_readiness=setting.affects_readiness,
         findings=evaluation.findings,
+        coverage_gaps=tuple(
+            sorted(
+                evaluation.coverage_gaps,
+                key=lambda gap: gap.model_dump_json(),
+            )
+        ),
         reason=evaluation.reason,
         summary=evaluation.summary,
         evaluated_object_count=evaluation.evaluated_object_count,
@@ -137,11 +148,16 @@ class RuleEngine:
         *,
         analysis_failed: bool = False,
         selected_rule_ids: frozenset[RuleId] | None = None,
+        resource_policy: GeometryResourcePolicy | None = None,
     ) -> ReviewResult:
         """Evaluate configured rules and aggregate a strict findings root."""
         digest = profile_hash(profile)
         results: list[RuleResult] = []
         by_id: dict[RuleId, RuleResult] = {}
+        workspace = DerivedGeometryWorkspace(
+            project=project,
+            policy=resource_policy,
+        )
         for rule in self._registry.ordered_rules:
             setting = profile.rules.by_id(rule.rule_id)
             if setting.version != rule.version:
@@ -211,6 +227,7 @@ class RuleEngine:
                     profile=profile,
                     profile_sha256=digest,
                     prior_results=tuple(results),
+                    derived_geometry=workspace,
                 )
                 try:
                     evaluation = rule.evaluate(context)
@@ -240,11 +257,15 @@ class RuleEngine:
         findings = tuple(
             finding for result in ordered_results for finding in result.findings
         )
+        coverage_gaps = tuple(
+            gap for result in ordered_results for gap in result.coverage_gaps
+        )
         risk_modes = tuple(
             sorted(
                 {
                     *(finding.category for finding in findings),
                     *(uncertainty.risk_mode for uncertainty in project.uncertainties),
+                    *((RiskMode.ANALYSIS_LIMITATION,) if coverage_gaps else ()),
                 },
                 key=str,
             )
@@ -259,7 +280,9 @@ class RuleEngine:
                 analysis_failed=analysis_failed,
             ),
             rule_results=ordered_results,
+            geometry_resource_policy=workspace.policy,
             findings=findings,
+            coverage_gaps=coverage_gaps,
             risk_modes=risk_modes,
             disclaimer=_DISCLAIMER,
         )

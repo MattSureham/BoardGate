@@ -19,7 +19,7 @@ from boardgate.domain.diagnostic import (
     RunLogLevel,
     ordered_analysis_diagnostics,
 )
-from boardgate.domain.enums import ReviewStatus
+from boardgate.domain.enums import ReviewStatus, RiskMode
 from boardgate.domain.identifiers import (
     evidence_identifier,
     finding_id,
@@ -373,6 +373,45 @@ def _validate_safe_svg(svg: str) -> ElementTree.Element:
     return root
 
 
+def _validate_coverage_gap_evidence(
+    *,
+    review: ReviewResult,
+    project: PCBProject,
+    source_ids: set[str],
+) -> None:
+    layer_by_id = {layer.layer_id: layer for layer in project.layers}
+    for gap in review.coverage_gaps:
+        if gap.source_file_id is not None and gap.source_file_id not in source_ids:
+            raise ArtifactContractError(
+                "COVERAGE_GAP_SOURCE_EVIDENCE_MISMATCH",
+                "A coverage gap references a source outside the manifest.",
+            )
+        if gap.layer_id is not None and gap.layer_id not in layer_by_id:
+            raise ArtifactContractError(
+                "COVERAGE_GAP_LAYER_EVIDENCE_MISMATCH",
+                "A coverage gap references a layer outside project.json.",
+            )
+        if (
+            gap.layer_id is not None
+            and gap.source_file_id is not None
+            and layer_by_id[gap.layer_id].source_file_id != gap.source_file_id
+        ):
+            raise ArtifactContractError(
+                "COVERAGE_GAP_SOURCE_LAYER_MISMATCH",
+                "A coverage gap source does not own its referenced layer.",
+            )
+        if gap.policy_version != review.geometry_resource_policy.policy_version:
+            raise ArtifactContractError(
+                "COVERAGE_GAP_POLICY_MISMATCH",
+                "A coverage gap does not use the persisted resource policy version.",
+            )
+        if gap.observed <= gap.limit:
+            raise ArtifactContractError(
+                "COVERAGE_GAP_LIMIT_INVALID",
+                "A coverage gap may only describe an observed value above its limit.",
+            )
+
+
 def validate_artifact_bundle(  # noqa: PLR0912
     bundle: CompleteArtifactBundle,
 ) -> ArtifactBundleValidation:
@@ -467,12 +506,19 @@ def validate_artifact_bundle(  # noqa: PLR0912
                 "A Finding identifier is not derived from its canonical evidence.",
             )
 
+    _validate_coverage_gap_evidence(
+        review=review,
+        project=project,
+        source_ids=source_ids,
+    )
+
     if review.overall_status is not ReviewStatus.ANALYSIS_FAILED:
         expected_risk_modes = tuple(
             sorted(
                 {
                     *(finding.category for finding in review.findings),
                     *(uncertainty.risk_mode for uncertainty in project.uncertainties),
+                    *((RiskMode.ANALYSIS_LIMITATION,) if review.coverage_gaps else ()),
                 },
                 key=str,
             )

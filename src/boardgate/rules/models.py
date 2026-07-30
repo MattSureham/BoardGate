@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -44,7 +44,46 @@ class RuleReason(StrEnum):
     INPUT_UNCERTAIN = "INPUT_UNCERTAIN"
     UNSUPPORTED_GEOMETRY = "UNSUPPORTED_GEOMETRY"
     ORCHESTRATOR_FILTERED = "ORCHESTRATOR_FILTERED"
+    COMPUTATION_LIMIT = "COMPUTATION_LIMIT"
     RULE_EXCEPTION = "RULE_EXCEPTION"
+
+
+class GeometryResourcePolicy(VersionedModel):
+    """Versioned fixed budgets for one deterministic geometry review."""
+
+    policy_version: Literal["1.0"] = "1.0"
+    max_primitives_per_layer: int = Field(default=50_000, ge=1)
+    max_primitives_per_review: int = Field(default=150_000, ge=1)
+    max_derived_coordinates_per_layer: int = Field(default=1_500_000, ge=1)
+    max_intersection_candidates_per_layer: int = Field(default=1_000_000, ge=1)
+    max_primitives_per_connected_subset: int = Field(default=4_096, ge=1)
+    max_union_inputs_per_batch: int = Field(default=128, ge=2)
+    max_component_pair_candidates: int = Field(default=250_000, ge=1)
+
+
+class RuleCoverageGap(VersionedModel):
+    """Structured evidence for deterministic scope omitted by a resource budget."""
+
+    code: Literal["COMPUTATION_LIMIT"] = "COMPUTATION_LIMIT"
+    policy_version: Literal["1.0"] = "1.0"
+    source_file_id: str | None = Field(
+        default=None,
+        pattern=r"^src-[0-9a-f]{16}$",
+    )
+    layer_id: str | None = Field(default=None, min_length=1)
+    metric: str = Field(min_length=1, max_length=80)
+    unit: Literal["primitives", "coordinates", "candidates"]
+    observed: int = Field(ge=0)
+    limit: int = Field(ge=0)
+    summary: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def require_exceeded_limit(self) -> Self:
+        """Equality remains permitted; only N+1 is a coverage gap."""
+        if self.observed <= self.limit:
+            msg = "coverage-gap observed value must exceed its limit"
+            raise ValueError(msg)
+        return self
 
 
 class ThresholdDisposition(StrEnum):
@@ -61,6 +100,7 @@ class RuleEvaluation(StrictModel):
     outcome: RuleOutcome
     coverage: RuleCoverage
     findings: tuple[Finding, ...] = ()
+    coverage_gaps: tuple[RuleCoverageGap, ...] = ()
     reason: RuleReason | None = None
     summary: str = Field(min_length=1, max_length=500)
     evaluated_object_count: int = Field(default=0, ge=0)
@@ -83,6 +123,30 @@ class RuleEvaluation(StrictModel):
         ):
             msg = "SKIPPED rules must have NONE coverage"
             raise ValueError(msg)
+        if self.coverage is RuleCoverage.FULL and self.coverage_gaps:
+            msg = "FULL coverage forbids coverage gaps"
+            raise ValueError(msg)
+        if (
+            self.coverage_gaps
+            and self.outcome
+            in {
+                RuleOutcome.PASS,
+                RuleOutcome.FINDINGS,
+            }
+            and self.coverage is not RuleCoverage.PARTIAL
+        ):
+            msg = "evaluated rules with coverage gaps require PARTIAL coverage"
+            raise ValueError(msg)
+        if self.outcome is RuleOutcome.FAILED and self.coverage_gaps:
+            msg = "FAILED rules must not publish coverage gaps"
+            raise ValueError(msg)
+        if (
+            self.coverage_gaps
+            and self.outcome is RuleOutcome.SKIPPED
+            and self.reason is not RuleReason.COMPUTATION_LIMIT
+        ):
+            msg = "coverage-limited SKIPPED rules require COMPUTATION_LIMIT"
+            raise ValueError(msg)
         if (
             self.applicable_object_count is not None
             and self.evaluated_object_count > self.applicable_object_count
@@ -102,6 +166,7 @@ class RuleResult(VersionedModel):
     required: bool
     affects_readiness: bool
     findings: tuple[Finding, ...] = ()
+    coverage_gaps: tuple[RuleCoverageGap, ...] = ()
     reason: RuleReason | None = None
     summary: str = Field(min_length=1, max_length=500)
     evaluated_object_count: int = Field(default=0, ge=0)
@@ -114,6 +179,7 @@ class RuleResult(VersionedModel):
             outcome=self.outcome,
             coverage=self.coverage,
             findings=self.findings,
+            coverage_gaps=self.coverage_gaps,
             reason=self.reason,
             summary=self.summary,
             evaluated_object_count=self.evaluated_object_count,
@@ -137,7 +203,11 @@ class ReviewResult(VersionedModel):
     profile_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     overall_status: ReviewStatus
     rule_results: tuple[RuleResult, ...]
+    geometry_resource_policy: GeometryResourcePolicy = Field(
+        default_factory=GeometryResourcePolicy
+    )
     findings: tuple[Finding, ...] = ()
+    coverage_gaps: tuple[RuleCoverageGap, ...] = ()
     risk_modes: tuple[RiskMode, ...] = ()
     analysis_diagnostics: tuple[AnalysisDiagnostic, ...] = ()
     disclaimer: str = Field(min_length=1)
@@ -155,6 +225,12 @@ class ReviewResult(VersionedModel):
         if self.findings != flattened:
             msg = "review findings must exactly flatten rule-result findings"
             raise ValueError(msg)
+        flattened_gaps = tuple(
+            gap for result in self.rule_results for gap in result.coverage_gaps
+        )
+        if self.coverage_gaps != flattened_gaps:
+            msg = "review coverage gaps must exactly flatten rule-result gaps"
+            raise ValueError(msg)
         finding_ids = [finding.finding_id for finding in self.findings]
         if len(finding_ids) != len(set(finding_ids)):
             msg = "review result contains duplicate finding identifiers"
@@ -166,6 +242,16 @@ class ReviewResult(VersionedModel):
             self.analysis_diagnostics
         ):
             msg = "analysis diagnostics must be unique and sorted"
+            raise ValueError(msg)
+        if any(
+            gap.policy_version != self.geometry_resource_policy.policy_version
+            for gap in self.coverage_gaps
+        ):
+            msg = "coverage-gap policy versions must match the review policy"
+            raise ValueError(msg)
+        has_limit_risk = RiskMode.ANALYSIS_LIMITATION in self.risk_modes
+        if has_limit_risk != bool(self.coverage_gaps):
+            msg = "ANALYSIS_LIMITATION risk mode must occur exactly with coverage gaps"
             raise ValueError(msg)
         analysis_failed = self.overall_status is ReviewStatus.ANALYSIS_FAILED
         if analysis_failed != bool(self.analysis_diagnostics):

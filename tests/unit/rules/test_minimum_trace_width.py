@@ -43,13 +43,14 @@ def _line(
     identifier: str,
     width: float,
     *,
+    y: float = 0.0,
     polarity: Polarity = Polarity.DARK,
     shape: ApertureShape = ApertureShape.CIRCLE,
 ) -> LinePrimitive:
     return LinePrimitive(
         primitive_id=identifier,
-        start=Point(x=0, y=0),
-        end=Point(x=10, y=0),
+        start=Point(x=0, y=y),
+        end=Point(x=10, y=y),
         aperture=Aperture(
             shape=shape,
             width_mm=width,
@@ -158,6 +159,21 @@ def test_fully_widened_narrow_draw_is_excluded() -> None:
     assert result.evaluated_object_count == 1
 
 
+def test_positive_tolerance_sliver_forces_partial_without_hard_finding() -> None:
+    result = _evaluate(
+        _project(
+            _line("line-narrow", 0.05),
+            _line("line-wide", 0.2, y=0.075000001),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.PASS
+    assert result.coverage is RuleCoverage.PARTIAL
+    assert not result.findings
+    assert result.evaluated_object_count == 1
+    assert result.applicable_object_count == 2
+
+
 def test_non_circular_and_clear_cut_geometry_is_explicitly_unsupported() -> None:
     non_circular = _evaluate(
         _project(
@@ -179,6 +195,20 @@ def test_non_circular_and_clear_cut_geometry_is_explicitly_unsupported() -> None
     assert non_circular.reason is RuleReason.UNSUPPORTED_GEOMETRY
     assert clear_cut.outcome is RuleOutcome.SKIPPED
     assert clear_cut.reason is RuleReason.UNSUPPORTED_GEOMETRY
+
+
+def test_unknown_polarity_suppresses_trace_measurements() -> None:
+    result = _evaluate(
+        _project(
+            _line("line-narrow", 0.05),
+            _line("unknown-wide", 0.2, polarity=Polarity.UNKNOWN),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.INPUT_UNCERTAIN
+    assert not result.findings
 
 
 def test_trace_rule_review_round_trip() -> None:

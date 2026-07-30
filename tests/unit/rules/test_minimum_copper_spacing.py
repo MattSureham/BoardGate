@@ -15,7 +15,13 @@ from boardgate.domain.enums import (
     Polarity,
 )
 from boardgate.domain.geometry import CoordinateSystem, Point
-from boardgate.domain.layer import Aperture, FlashPrimitive, PCBLayer
+from boardgate.domain.layer import (
+    Aperture,
+    FlashPrimitive,
+    GraphicPrimitive,
+    LinePrimitive,
+    PCBLayer,
+)
 from boardgate.domain.project import (
     AssemblyRequirements,
     FabricationRequirements,
@@ -33,8 +39,12 @@ from boardgate.rules import (
     RuleReason,
 )
 from boardgate.rules.builtin import build_builtin_registry
-from boardgate.rules.derived_geometry import component_pairs_within
+from boardgate.rules.derived_geometry import (
+    DerivedGeometryWorkspace,
+    component_pairs_within,
+)
 from boardgate.rules.geometry_rules import MinimumCopperSpacingRule
+from boardgate.rules.models import GeometryResourcePolicy
 
 PROFILE_PATH = Path("rules/default.yaml")
 PROJECT_ID = "prj-0123456789abcdef"
@@ -98,7 +108,7 @@ def _project(*layers: PCBLayer) -> PCBProject:
 
 
 def _layer(
-    *primitives: FlashPrimitive,
+    *primitives: GraphicPrimitive,
     source_id: str = SOURCE_ID,
     layer_id: str = "layer-0123456789abcdef",
     role: LayerRole = LayerRole.TOP_COPPER,
@@ -110,6 +120,26 @@ def _layer(
         side=(BoardSide.TOP if role is LayerRole.TOP_COPPER else BoardSide.BOTTOM),
         mapping_confidence=0.99,
         primitives=primitives,
+    )
+
+
+def _rectangular_line(identifier: str, *, y: float) -> LinePrimitive:
+    return LinePrimitive(
+        primitive_id=identifier,
+        start=Point(x=1.0, y=y),
+        end=Point(x=9.0, y=y),
+        aperture=Aperture(
+            shape=ApertureShape.RECTANGLE,
+            width_mm=1.0,
+            height_mm=0.01,
+        ),
+        polarity=Polarity.DARK,
+        provenance=Provenance(
+            source_file_id=SOURCE_ID,
+            object_id=identifier,
+            parser="test-gerber",
+            parser_version="1.0",
+        ),
     )
 
 
@@ -201,6 +231,89 @@ def test_components_are_not_compared_across_layers() -> None:
     )
 
     assert result.outcome is RuleOutcome.SKIPPED
+
+
+def test_unknown_polarity_suppresses_spacing_measurements() -> None:
+    result = _evaluate(
+        _project(
+            _layer(
+                _flash("first", 0.0),
+                _flash("second", 0.19),
+                _flash("unknown", 0.1, polarity=Polarity.UNKNOWN),
+            )
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.INPUT_UNCERTAIN
+    assert not result.findings
+
+
+def test_unsupported_draw_shape_suppresses_spacing_measurements() -> None:
+    result = _evaluate(
+        _project(
+            _layer(
+                _rectangular_line("first", y=0.4),
+                _rectangular_line("second", y=0.6),
+            )
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.UNSUPPORTED_GEOMETRY
+    assert not result.findings
+
+
+def test_safe_layer_finding_is_partial_with_unknown_other_layer() -> None:
+    second_source = "src-fedcba9876543210"
+    result = _evaluate(
+        _project(
+            _layer(
+                _flash("unknown", 0.0, polarity=Polarity.UNKNOWN),
+            ),
+            _layer(
+                _flash("safe-first", 0.0, source_id=second_source),
+                _flash("safe-second", 0.19, source_id=second_source),
+                source_id=second_source,
+                layer_id="layer-fedcba9876543210",
+                role=LayerRole.BOTTOM_COPPER,
+            ),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.FINDINGS
+    assert result.coverage is RuleCoverage.PARTIAL
+    assert result.findings
+    assert {
+        evidence.provenance.source_file_id
+        for finding in result.findings
+        for evidence in finding.evidence
+    } == {second_source}
+
+
+def test_all_contributor_queries_limited_is_not_reported_as_pass() -> None:
+    project = _project(_layer(_flash("first", 0.0), _flash("second", 0.25)))
+    profile = load_rule_profile(PROFILE_PATH)
+    result = MinimumCopperSpacingRule().evaluate(
+        RuleContext(
+            project=project,
+            profile=profile,
+            profile_sha256=profile_hash(profile),
+            prior_results=(),
+            derived_geometry=DerivedGeometryWorkspace(
+                project=project,
+                policy=GeometryResourcePolicy(max_intersection_candidates_per_layer=1),
+            ),
+        )
+    )
+
+    assert result.outcome is RuleOutcome.SKIPPED
+    assert result.coverage is RuleCoverage.NONE
+    assert result.reason is RuleReason.COMPUTATION_LIMIT
+    assert result.evaluated_object_count == 0
+    assert result.coverage_gaps
 
 
 def test_strtree_pairs_match_brute_force_baseline() -> None:

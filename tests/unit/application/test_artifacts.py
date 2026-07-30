@@ -33,7 +33,9 @@ from boardgate.domain.diagnostic import (
     AnalysisStage,
 )
 from boardgate.domain.enums import (
+    BoardSide,
     FileType,
+    LayerRole,
     ReviewStatus,
     RiskMode,
     Severity,
@@ -45,6 +47,7 @@ from boardgate.domain.identifiers import (
     project_id,
     source_file_id,
 )
+from boardgate.domain.layer import PCBLayer
 from boardgate.domain.project import (
     AssemblyRequirements,
     FabricationRequirements,
@@ -55,6 +58,7 @@ from boardgate.domain.source import ProjectManifest, SourceFile
 from boardgate.rules.models import (
     ReviewResult,
     RuleCoverage,
+    RuleCoverageGap,
     RuleOutcome,
     RuleResult,
 )
@@ -92,13 +96,28 @@ def _project(
     manifest: ProjectManifest | None = None,
     profile_id: str = "default-2layer",
     profile_sha256: str = PROFILE_SHA,
+    include_layer: bool = False,
 ) -> PCBProject:
     selected_manifest = manifest or _manifest()
+    layers = (
+        (
+            PCBLayer(
+                layer_id="top-copper",
+                source_file_id=SOURCE_ID,
+                role=LayerRole.TOP_COPPER,
+                side=BoardSide.TOP,
+                mapping_confidence=1.0,
+            ),
+        )
+        if include_layer
+        else ()
+    )
     return PCBProject(
         project_id=selected_manifest.project_id,
         source_files=selected_manifest.source_files,
         manifest=selected_manifest,
         coordinate_system=CoordinateSystem(),
+        layers=layers,
         fabrication_requirements=FabricationRequirements(
             profile_id=profile_id,
             profile_sha256=profile_sha256,
@@ -164,6 +183,40 @@ def _review(
         disclaimer=(
             "Deterministic review evidence; fabricator approval is still required."
         ),
+    )
+
+
+def _coverage_limited_review() -> ReviewResult:
+    gap = RuleCoverageGap(
+        source_file_id=SOURCE_ID,
+        layer_id="top-copper",
+        metric="intersection_candidates_per_layer",
+        unit="candidates",
+        observed=1_000_001,
+        limit=1_000_000,
+        summary="The layer exceeded the deterministic candidate budget.",
+    )
+    result = RuleResult(
+        rule_id=RuleId.MINIMUM_COPPER_SPACING,
+        rule_version="1.0",
+        outcome=RuleOutcome.PASS,
+        coverage=RuleCoverage.PARTIAL,
+        required=True,
+        affects_readiness=True,
+        coverage_gaps=(gap,),
+        summary="No issue was found in the evaluated component pairs.",
+        evaluated_object_count=1,
+        applicable_object_count=2,
+    )
+    return ReviewResult(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        overall_status=ReviewStatus.READY_WITH_CONFIRMATIONS,
+        rule_results=(result,),
+        coverage_gaps=(gap,),
+        risk_modes=(RiskMode.ANALYSIS_LIMITATION,),
+        disclaimer="Deterministic review evidence; fabricator approval is required.",
     )
 
 
@@ -334,6 +387,43 @@ def test_bundle_rejects_cross_artifact_project_and_profile_mismatch() -> None:
                 deterministic_model_json(wrong_profile_review),
             )
         )
+
+
+def test_coverage_gap_evidence_is_cross_validated() -> None:
+    project = _project(include_layer=True)
+    review = _coverage_limited_review()
+    bundle = _bundle(project=project, review=review)
+
+    validated = validate_artifact_bundle(bundle)
+
+    assert validated.review.coverage_gaps == review.coverage_gaps
+    assert validated.review.risk_modes == (RiskMode.ANALYSIS_LIMITATION,)
+
+    for field, invalid_value, expected_code in (
+        (
+            "source_file_id",
+            "src-fedcba9876543210",
+            "COVERAGE_GAP_SOURCE_EVIDENCE_MISMATCH",
+        ),
+        (
+            "layer_id",
+            "unknown-layer",
+            "COVERAGE_GAP_LAYER_EVIDENCE_MISMATCH",
+        ),
+    ):
+        payload = review.model_dump(mode="json")
+        payload["coverage_gaps"][0][field] = invalid_value
+        payload["rule_results"][0]["coverage_gaps"][0][field] = invalid_value
+        invalid_review = ReviewResult.model_validate_json(json.dumps(payload))
+
+        with pytest.raises(ArtifactContractError, match=expected_code):
+            validate_artifact_bundle(
+                _replace_file(
+                    bundle,
+                    "findings.json",
+                    deterministic_model_json(invalid_review),
+                )
+            )
 
 
 def test_bundle_rejects_noncanonical_model_json() -> None:

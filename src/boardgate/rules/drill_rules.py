@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from shapely.geometry import Point as ShapelyPoint
+
 from boardgate import __version__
 from boardgate.config.models import RuleId
 from boardgate.domain.drill import DrillHit
@@ -17,13 +19,17 @@ from boardgate.domain.enums import (
 )
 from boardgate.domain.finding import FindingEvidence, Measurement
 from boardgate.domain.geometry import BoundingBox, Point, Unit
-from boardgate.domain.layer import FlashPrimitive, PCBLayer
+from boardgate.domain.layer import FlashPrimitive, GraphicPrimitive, PCBLayer
 from boardgate.domain.provenance import Provenance
 from boardgate.rules.common import make_finding, project_uncertainty_evidence
-from boardgate.rules.derived_geometry import derive_primitive
+from boardgate.rules.derived_geometry import (
+    DerivedGeometry,
+    IntersectionCandidateScope,
+)
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
     RuleCoverage,
+    RuleCoverageGap,
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
@@ -254,44 +260,40 @@ def _flash_evidence(
 
 
 def _interfering_clear_primitives(
-    context: RuleContext,
     layer: PCBLayer,
-    pad: FlashPrimitive,
+    contributors: tuple[tuple[GraphicPrimitive, DerivedGeometry], ...],
 ) -> tuple[FindingEvidence, ...]:
-    pad_geometry = derive_primitive(
-        pad,
-        arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
-        geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
-    ).geometry
     evidence = []
-    for primitive in layer.primitives:
-        if primitive.polarity is Polarity.DARK:
+    for primitive, derived in contributors:
+        if primitive.polarity is Polarity.DARK and derived.exact_supported:
             continue
-        derived = derive_primitive(
-            primitive,
-            arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
-            geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
-        )
-        if derived.geometry.intersects(pad_geometry):
-            evidence.append(
-                FindingEvidence(
-                    provenance=primitive.provenance,
-                    layer_id=layer.layer_id,
-                    witness_bounds=BoundingBox(
-                        minimum=Point(
-                            x=derived.geometry.bounds[0], y=derived.geometry.bounds[1]
-                        ),
-                        maximum=Point(
-                            x=derived.geometry.bounds[2], y=derived.geometry.bounds[3]
-                        ),
+        evidence.append(
+            FindingEvidence(
+                provenance=primitive.provenance,
+                layer_id=layer.layer_id,
+                witness_bounds=BoundingBox(
+                    minimum=Point(
+                        x=derived.geometry.bounds[0], y=derived.geometry.bounds[1]
                     ),
-                    note=(
-                        "Clear or unknown-polarity geometry intersects the "
-                        "candidate pad."
+                    maximum=Point(
+                        x=derived.geometry.bounds[2], y=derived.geometry.bounds[3]
                     ),
-                )
+                ),
+                note=(
+                    "Clear, unknown-polarity, or unsupported geometry intersects "
+                    "the candidate pad."
+                ),
             )
+        )
     return tuple(evidence)
+
+
+@dataclass(frozen=True, slots=True)
+class _AnnularLayerScope:
+    nearby: tuple[tuple[FlashPrimitive, ...], ...]
+    matches: tuple[FlashPrimitive | None, ...]
+    interference: tuple[tuple[FindingEvidence, ...], ...]
+    limited: tuple[bool, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,7 +307,10 @@ class MinimumAnnularRingRule:
         RuleId.REQUIRED_LAYERS_PRESENT,
     )
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+    def evaluate(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Match pad flashes per layer and account for center eccentricity."""
         drills = tuple(
             drill for drill in context.project.drills if drill.plating is Plating.PLATED
@@ -340,24 +345,147 @@ class MinimumAnnularRingRule:
         evaluated_count = 0
         applicable_count = len(drills) * len(layers)
         coverage_partial = False
-        for drill in drills:
-            for layer in layers:
-                nearby = tuple(
+        coverage_gaps: list[RuleCoverageGap] = []
+        layer_geometry: dict[str, _AnnularLayerScope] = {}
+        unsafe_layer_count = 0
+        for layer in layers:
+            composite = context.derived_geometry.composite_layer(
+                layer,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+            )
+            coverage_gaps.extend(composite.coverage_gaps)
+            coverage_partial = coverage_partial or not composite.coverage_complete
+            if not composite.polarity_complete:
+                unsafe_layer_count += 1
+                continue
+            if (
+                composite.coverage_gaps
+                and composite.evaluated_dark_primitive_count == 0
+            ):
+                continue
+            evaluated_ids = frozenset(composite.evaluated_primitive_ids)
+            drill_query = context.derived_geometry.query_primitives(
+                layer,
+                tuple(
+                    ShapelyPoint(drill.position.x, drill.position.y) for drill in drills
+                ),
+                scope=IntersectionCandidateScope.ANNULAR_DRILL_CANDIDATES,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+                witness_buffer_mm=epsilon,
+            )
+            if drill_query.coverage_gaps:
+                coverage_gaps.extend(drill_query.coverage_gaps)
+                coverage_partial = True
+                continue
+            nearby_by_drill = tuple(
+                tuple(
                     primitive
-                    for primitive in layer.primitives
-                    if isinstance(primitive, FlashPrimitive)
+                    for primitive, _ in candidates
+                    if primitive.primitive_id in evaluated_ids
+                    and isinstance(primitive, FlashPrimitive)
                     and _flash_distance(drill, primitive) <= epsilon
                 )
+                for drill, candidates in zip(
+                    drills,
+                    drill_query.matches,
+                    strict=True,
+                )
+            )
+            limited_by_drill = tuple(
+                any(
+                    primitive.primitive_id not in evaluated_ids
+                    and isinstance(primitive, FlashPrimitive)
+                    and _flash_distance(drill, primitive) <= epsilon
+                    for primitive, _ in candidates
+                )
+                for drill, candidates in zip(
+                    drills,
+                    drill_query.matches,
+                    strict=True,
+                )
+            )
+            matches = tuple(
+                standard[0] if len(nearby) == len(standard) == 1 else None
+                for nearby in nearby_by_drill
+                for standard in (
+                    tuple(flash for flash in nearby if _standard_round_pad(flash)),
+                )
+            )
+            matched_pads = tuple(match for match in matches if match is not None)
+            pad_query = context.derived_geometry.query_primitives(
+                layer,
+                tuple(
+                    context.derived_geometry.derive(
+                        layer,
+                        pad,
+                        arc_chord_error_mm=(context.profile.tolerances.arc_chord_error),
+                        geometry_epsilon_mm=epsilon,
+                    ).geometry
+                    for pad in matched_pads
+                ),
+                scope=IntersectionCandidateScope.ANNULAR_PAD_INTERFERENCE,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+                witness_buffer_mm=0.0,
+            )
+            if pad_query.coverage_gaps:
+                coverage_gaps.extend(pad_query.coverage_gaps)
+                coverage_partial = True
+                continue
+            pad_contributors = iter(pad_query.matches)
+            interference_by_drill = tuple(
+                (
+                    ()
+                    if match is None
+                    else _interfering_clear_primitives(
+                        layer,
+                        next(pad_contributors),
+                    )
+                )
+                for match in matches
+            )
+            layer_geometry[layer.layer_id] = _AnnularLayerScope(
+                nearby=nearby_by_drill,
+                matches=matches,
+                interference=interference_by_drill,
+                limited=limited_by_drill,
+            )
+        if not layer_geometry and coverage_gaps:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.COMPUTATION_LIMIT,
+                coverage_gaps=tuple(coverage_gaps),
+                summary=(
+                    "All applicable annular-ring geometry exceeded deterministic "
+                    "resource limits."
+                ),
+                applicable_object_count=applicable_count,
+            )
+        if not layer_geometry and unsafe_layer_count:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.INPUT_UNCERTAIN,
+                summary=(
+                    "Copper polarity is unknown for every annular-ring layer scope."
+                ),
+                applicable_object_count=applicable_count,
+            )
+        for drill_index, drill in enumerate(drills):
+            for layer in layers:
+                scope = layer_geometry.get(layer.layer_id)
+                if scope is None or scope.limited[drill_index]:
+                    continue
+                nearby = scope.nearby[drill_index]
                 standard = tuple(
                     flash for flash in nearby if _standard_round_pad(flash)
                 )
-                match = standard[0] if len(nearby) == len(standard) == 1 else None
-                interference = (
-                    ()
-                    if match is None
-                    else _interfering_clear_primitives(context, layer, match)
-                )
-                if match is None or interference:
+                match = scope.matches[drill_index]
+                drill_interference = scope.interference[drill_index]
+                if match is None or drill_interference:
                     coverage_partial = True
                     candidate_evidence = tuple(
                         _flash_evidence(
@@ -388,14 +516,14 @@ class MinimumAnnularRingRule:
                                 f"Supported round-pad count is {len(standard)}.",
                                 (
                                     "Intersecting clear/unknown geometry count "
-                                    f"is {len(interference)}."
+                                    f"is {len(drill_interference)}."
                                 ),
                             ),
                             evidence=(
                                 _drill_evidence(drill),
                                 _layer_evidence(layer),
                                 *candidate_evidence,
-                                *interference,
+                                *drill_interference,
                             ),
                             confidence=0.5,
                             location=drill.position,
@@ -495,6 +623,18 @@ class MinimumAnnularRingRule:
                     )
                 )
 
+        if not findings and evaluated_count == 0 and coverage_gaps:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.COMPUTATION_LIMIT,
+                coverage_gaps=tuple(coverage_gaps),
+                summary=(
+                    "All applicable annular-ring scope exceeded deterministic "
+                    "geometry resource limits."
+                ),
+                applicable_object_count=applicable_count,
+            )
         if not findings:
             return RuleEvaluation(
                 outcome=RuleOutcome.PASS,
@@ -512,6 +652,7 @@ class MinimumAnnularRingRule:
                 ),
                 evaluated_object_count=evaluated_count,
                 applicable_object_count=applicable_count,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
@@ -523,4 +664,5 @@ class MinimumAnnularRingRule:
             ),
             evaluated_object_count=evaluated_count,
             applicable_object_count=applicable_count,
+            coverage_gaps=tuple(coverage_gaps),
         )

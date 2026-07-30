@@ -320,6 +320,68 @@
       "title": "FindingStatus",
       "type": "string"
     },
+    "GeometryResourcePolicy": {
+      "additionalProperties": false,
+      "description": "Versioned fixed budgets for one deterministic geometry review.",
+      "properties": {
+        "max_component_pair_candidates": {
+          "default": 250000,
+          "minimum": 1,
+          "title": "Max Component Pair Candidates",
+          "type": "integer"
+        },
+        "max_derived_coordinates_per_layer": {
+          "default": 1500000,
+          "minimum": 1,
+          "title": "Max Derived Coordinates Per Layer",
+          "type": "integer"
+        },
+        "max_intersection_candidates_per_layer": {
+          "default": 1000000,
+          "minimum": 1,
+          "title": "Max Intersection Candidates Per Layer",
+          "type": "integer"
+        },
+        "max_primitives_per_connected_subset": {
+          "default": 4096,
+          "minimum": 1,
+          "title": "Max Primitives Per Connected Subset",
+          "type": "integer"
+        },
+        "max_primitives_per_layer": {
+          "default": 50000,
+          "minimum": 1,
+          "title": "Max Primitives Per Layer",
+          "type": "integer"
+        },
+        "max_primitives_per_review": {
+          "default": 150000,
+          "minimum": 1,
+          "title": "Max Primitives Per Review",
+          "type": "integer"
+        },
+        "max_union_inputs_per_batch": {
+          "default": 128,
+          "minimum": 2,
+          "title": "Max Union Inputs Per Batch",
+          "type": "integer"
+        },
+        "policy_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "title": "GeometryResourcePolicy",
+      "type": "object"
+    },
     "JsonScalar": {
       "anyOf": [
         {
@@ -518,7 +580,8 @@
         "CROSS_FILE_INCONSISTENCY",
         "DESIGN_INTENT_UNKNOWN",
         "MANUFACTURER_RULE_MISMATCH",
-        "PARSER_LIMITATION"
+        "PARSER_LIMITATION",
+        "ANALYSIS_LIMITATION"
       ],
       "title": "RiskMode",
       "type": "string"
@@ -532,6 +595,96 @@
       ],
       "title": "RuleCoverage",
       "type": "string"
+    },
+    "RuleCoverageGap": {
+      "additionalProperties": false,
+      "description": "Structured evidence for deterministic scope omitted by a resource budget.",
+      "properties": {
+        "code": {
+          "const": "COMPUTATION_LIMIT",
+          "default": "COMPUTATION_LIMIT",
+          "title": "Code",
+          "type": "string"
+        },
+        "layer_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layer Id"
+        },
+        "limit": {
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "metric": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "observed": {
+          "minimum": 0,
+          "title": "Observed",
+          "type": "integer"
+        },
+        "policy_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "anyOf": [
+            {
+              "pattern": "^src-[0-9a-f]{16}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source File Id"
+        },
+        "summary": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "primitives",
+            "coordinates",
+            "candidates"
+          ],
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "unit",
+        "observed",
+        "limit",
+        "summary"
+      ],
+      "title": "RuleCoverageGap",
+      "type": "object"
     },
     "RuleId": {
       "description": "Rule identifiers supported by the v1 deterministic engine.",
@@ -576,6 +729,7 @@
         "INPUT_UNCERTAIN",
         "UNSUPPORTED_GEOMETRY",
         "ORCHESTRATOR_FILTERED",
+        "COMPUTATION_LIMIT",
         "RULE_EXCEPTION"
       ],
       "title": "RuleReason",
@@ -604,6 +758,14 @@
         },
         "coverage": {
           "$ref": "#/$defs/RuleCoverage"
+        },
+        "coverage_gaps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RuleCoverageGap"
+          },
+          "title": "Coverage Gaps",
+          "type": "array"
         },
         "evaluated_object_count": {
           "default": 0,
@@ -770,6 +932,14 @@
       "title": "Analysis Diagnostics",
       "type": "array"
     },
+    "coverage_gaps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RuleCoverageGap"
+      },
+      "title": "Coverage Gaps",
+      "type": "array"
+    },
     "disclaimer": {
       "minLength": 1,
       "title": "Disclaimer",
@@ -782,6 +952,9 @@
       },
       "title": "Findings",
       "type": "array"
+    },
+    "geometry_resource_policy": {
+      "$ref": "#/$defs/GeometryResourcePolicy"
     },
     "overall_status": {
       "$ref": "#/$defs/ReviewStatus"

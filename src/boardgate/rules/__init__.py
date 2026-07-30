@@ -2,8 +2,10 @@
 
 from boardgate.rules.engine import RuleContext, RuleEngine, determine_review_status
 from boardgate.rules.models import (
+    GeometryResourcePolicy,
     ReviewResult,
     RuleCoverage,
+    RuleCoverageGap,
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
@@ -15,10 +17,12 @@ from boardgate.rules.models import (
 from boardgate.rules.registry import Rule, RuleRegistry, RuleRegistryError
 
 __all__ = [
+    "GeometryResourcePolicy",
     "ReviewResult",
     "Rule",
     "RuleContext",
     "RuleCoverage",
+    "RuleCoverageGap",
     "RuleEngine",
     "RuleEvaluation",
     "RuleOutcome",

@@ -6,27 +6,24 @@ import math
 from dataclasses import dataclass
 
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import nearest_points, unary_union
+from shapely.ops import nearest_points
 
 from boardgate.config.models import RuleId
 from boardgate.domain.drill import DrillHit, DrillSlot
 from boardgate.domain.enums import ApertureShape, LayerRole, Polarity, RiskMode
 from boardgate.domain.finding import FindingEvidence, Measurement
 from boardgate.domain.geometry import BoundingBox, Point, Unit
-from boardgate.domain.layer import ArcPrimitive, LinePrimitive
+from boardgate.domain.layer import ArcPrimitive, GraphicPrimitive, LinePrimitive
 from boardgate.rules.common import make_finding
 from boardgate.rules.derived_geometry import (
     DerivedGeometry,
-    LayerComposite,
-    board_material_geometry,
-    component_pairs_within,
-    composite_layer,
-    geometry_components,
+    IntersectionCandidateScope,
     shapely_bounds,
 )
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
     RuleCoverage,
+    RuleCoverageGap,
     RuleEvaluation,
     RuleOutcome,
     RuleReason,
@@ -238,7 +235,10 @@ class MinimumTraceWidthRule:
     version: str = "1.0"
     dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+    def evaluate(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Exclude widened, clear-cut, non-circular, and untrusted traces."""
         trusted_layers = tuple(
             layer
@@ -268,49 +268,88 @@ class MinimumTraceWidthRule:
         eligible: list[tuple[str, LinePrimitive | ArcPrimitive, DerivedGeometry]] = []
         coverage_partial = uncertain_copper
         excluded_supported = 0
+        coverage_gaps: list[RuleCoverageGap] = []
+        unsafe_layer_count = 0
+        unsupported_layer_count = 0
         for layer in trusted_layers:
-            composite = composite_layer(
+            composite = context.derived_geometry.composite_layer(
                 layer,
                 arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
                 geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
             )
+            coverage_gaps.extend(composite.coverage_gaps)
             coverage_partial = coverage_partial or not composite.coverage_complete
+            if not composite.polarity_complete:
+                unsafe_layer_count += 1
+                continue
+            if not composite.geometry_supported:
+                unsupported_layer_count += 1
+                continue
+            evaluated_ids = frozenset(composite.evaluated_primitive_ids)
+            if not evaluated_ids:
+                continue
             dark_items = tuple(
                 (primitive, derived)
                 for primitive, derived in composite.primitive_geometries
                 if primitive.polarity is Polarity.DARK
+                and primitive.primitive_id in evaluated_ids
             )
-            clear_geometries = tuple(
-                derived.geometry
-                for primitive, derived in composite.primitive_geometries
-                if primitive.polarity is Polarity.CLEAR
+            coverage_partial = coverage_partial or any(
+                isinstance(primitive, LinePrimitive | ArcPrimitive)
+                and primitive.aperture.shape is not ApertureShape.CIRCLE
+                for primitive, _ in dark_items
             )
-            for primitive, derived in dark_items:
-                if not isinstance(primitive, LinePrimitive | ArcPrimitive):
-                    continue
-                if primitive.aperture.shape is not ApertureShape.CIRCLE:
-                    coverage_partial = True
-                    continue
-                if any(
-                    clear_geometry.intersects(derived.geometry)
-                    for clear_geometry in clear_geometries
-                ):
+            trace_items = tuple(
+                (primitive, derived)
+                for primitive, derived in dark_items
+                if isinstance(primitive, LinePrimitive | ArcPrimitive)
+                and primitive.aperture.shape is ApertureShape.CIRCLE
+            )
+            neighbor_query = context.derived_geometry.query_primitives(
+                layer,
+                tuple(derived.geometry for _, derived in trace_items),
+                scope=IntersectionCandidateScope.TRACE_WIDTH_CONTRIBUTORS,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=context.profile.tolerances.geometry_epsilon,
+                witness_buffer_mm=0.0,
+            )
+            if neighbor_query.coverage_gaps:
+                coverage_gaps.extend(neighbor_query.coverage_gaps)
+                coverage_partial = True
+                continue
+            for (primitive, derived), indexed_items in zip(
+                trace_items,
+                neighbor_query.matches,
+                strict=True,
+            ):
+                clear_geometries = tuple(
+                    item.geometry
+                    for candidate, item in indexed_items
+                    if candidate.polarity is Polarity.CLEAR
+                    and candidate.primitive_id in evaluated_ids
+                )
+                if clear_geometries:
                     coverage_partial = True
                     excluded_supported += 1
                     continue
-                other_dark = unary_union(
-                    [
-                        other.geometry
-                        for other_primitive, other in dark_items
-                        if other_primitive.primitive_id != primitive.primitive_id
-                    ]
+                local_dark = tuple(
+                    item.geometry
+                    for candidate, item in indexed_items
+                    if candidate.polarity is Polarity.DARK
+                    and candidate.primitive_id in evaluated_ids
+                    and candidate.primitive_id != primitive.primitive_id
                 )
+                other_dark = context.derived_geometry.bounded_union(local_dark)
                 exposed = (
                     derived.geometry
                     if other_dark.is_empty
                     else derived.geometry.difference(other_dark)
                 )
+                if exposed.is_empty or exposed.area == 0.0:
+                    excluded_supported += 1
+                    continue
                 if exposed.area <= context.profile.tolerances.geometry_epsilon**2:
+                    coverage_partial = True
                     excluded_supported += 1
                     continue
                 eligible.append(
@@ -322,6 +361,40 @@ class MinimumTraceWidthRule:
                 )
 
         if not eligible:
+            if coverage_gaps:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.COMPUTATION_LIMIT,
+                    coverage_gaps=tuple(coverage_gaps),
+                    summary=(
+                        "All trusted copper layers exceeded deterministic geometry "
+                        "resource limits."
+                    ),
+                    applicable_object_count=sum(
+                        len(layer.primitives) for layer in trusted_layers
+                    ),
+                )
+            if unsafe_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.INPUT_UNCERTAIN,
+                    summary=(
+                        "Copper polarity is unknown for every remaining trace-width "
+                        "scope."
+                    ),
+                )
+            if unsupported_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.UNSUPPORTED_GEOMETRY,
+                    summary=(
+                        "Copper geometry is outside the exact trace-width "
+                        "composition scope."
+                    ),
+                )
             return RuleEvaluation(
                 outcome=RuleOutcome.SKIPPED,
                 coverage=RuleCoverage.NONE,
@@ -330,6 +403,7 @@ class MinimumTraceWidthRule:
                     if coverage_partial or excluded_supported
                     else RuleReason.NOT_APPLICABLE
                 ),
+                coverage_gaps=tuple(coverage_gaps),
                 summary=(
                     "No unwidened standard circular-aperture copper draw is "
                     "eligible for width measurement."
@@ -419,6 +493,7 @@ class MinimumTraceWidthRule:
                 ),
                 evaluated_object_count=len(eligible),
                 applicable_object_count=len(eligible) + excluded_supported,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
@@ -429,15 +504,14 @@ class MinimumTraceWidthRule:
             ),
             evaluated_object_count=len(eligible),
             applicable_object_count=len(eligible) + excluded_supported,
+            coverage_gaps=tuple(coverage_gaps),
         )
 
 
 def _component_evidence(
+    contributors: tuple[tuple[GraphicPrimitive, DerivedGeometry], ...],
     layer_id: str,
-    composite: LayerComposite,
     component: BaseGeometry,
-    *,
-    geometry_epsilon_mm: float,
 ) -> tuple[FindingEvidence, ...]:
     bounds = shapely_bounds(component)
     return tuple(
@@ -447,9 +521,8 @@ def _component_evidence(
             witness_bounds=bounds,
             note="Primitive contributes to this final connected copper component.",
         )
-        for primitive, derived in composite.primitive_geometries
+        for primitive, derived in contributors
         if primitive.polarity is Polarity.DARK
-        and derived.geometry.intersects(component.buffer(geometry_epsilon_mm))
     )
 
 
@@ -461,7 +534,10 @@ class MinimumCopperSpacingRule:
     version: str = "1.0"
     dependencies: tuple[RuleId, ...] = (RuleId.REQUIRED_LAYERS_PRESENT,)
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+    def evaluate(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Use per-layer STRtrees without inferring electrical nets."""
         trusted_layers = tuple(
             layer
@@ -479,21 +555,51 @@ class MinimumCopperSpacingRule:
         epsilon = context.profile.tolerances.geometry_epsilon
         findings = []
         applicable_pairs = 0
+        evaluated_pairs = 0
         coverage_partial = False
+        coverage_gaps: list[RuleCoverageGap] = []
+        unsafe_layer_count = 0
+        unsupported_layer_count = 0
         for layer in trusted_layers:
-            composite = composite_layer(
+            composite = context.derived_geometry.composite_layer(
                 layer,
                 arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
                 geometry_epsilon_mm=epsilon,
             )
+            coverage_gaps.extend(composite.coverage_gaps)
             coverage_partial = coverage_partial or not composite.coverage_complete
-            components = geometry_components(composite.geometry)
+            if not composite.polarity_complete:
+                unsafe_layer_count += 1
+                continue
+            if not composite.geometry_supported:
+                unsupported_layer_count += 1
+                continue
+            components = context.derived_geometry.geometry_components(
+                composite.geometry
+            )
             applicable_pairs += len(components) * (len(components) - 1) // 2
+            contributor_query = context.derived_geometry.query_primitives(
+                layer,
+                components,
+                scope=IntersectionCandidateScope.COPPER_SPACING_CONTRIBUTORS,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+                witness_buffer_mm=epsilon,
+            )
+            if contributor_query.coverage_gaps:
+                coverage_gaps.extend(contributor_query.coverage_gaps)
+                coverage_partial = True
+                continue
             error = 2.0 * composite.error_bound_mm + epsilon
-            for first_index, second_index, distance in component_pairs_within(
+            pair_query = context.derived_geometry.component_pairs_within(
                 components,
                 maximum_distance=required + error,
-            ):
+                layer=layer,
+            )
+            coverage_gaps.extend(pair_query.coverage_gaps)
+            coverage_partial = coverage_partial or bool(pair_query.coverage_gaps)
+            evaluated_pairs += pair_query.evaluated_pair_count
+            for first_index, second_index, distance in pair_query.pairs:
                 disposition = evaluate_minimum_threshold(
                     actual=distance,
                     required=required,
@@ -512,16 +618,14 @@ class MinimumCopperSpacingRule:
                 )
                 evidence = (
                     *_component_evidence(
+                        contributor_query.matches[first_index],
                         layer.layer_id,
-                        composite,
                         first,
-                        geometry_epsilon_mm=epsilon,
                     ),
                     *_component_evidence(
+                        contributor_query.matches[second_index],
                         layer.layer_id,
-                        composite,
                         second,
-                        geometry_epsilon_mm=epsilon,
                     ),
                 )
                 measurement = Measurement(
@@ -567,6 +671,36 @@ class MinimumCopperSpacingRule:
                     )
                 )
         if applicable_pairs == 0:
+            if coverage_gaps:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.COMPUTATION_LIMIT,
+                    coverage_gaps=tuple(coverage_gaps),
+                    summary=(
+                        "All applicable copper spacing scope exceeded deterministic "
+                        "geometry resource limits."
+                    ),
+                )
+            if unsafe_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.INPUT_UNCERTAIN,
+                    summary=(
+                        "Copper polarity is unknown for the unevaluated spacing scope."
+                    ),
+                )
+            if unsupported_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.UNSUPPORTED_GEOMETRY,
+                    summary=(
+                        "Copper geometry is outside the exact spacing composition "
+                        "scope."
+                    ),
+                )
             return RuleEvaluation(
                 outcome=RuleOutcome.SKIPPED,
                 coverage=RuleCoverage.NONE,
@@ -575,6 +709,18 @@ class MinimumCopperSpacingRule:
                     "Fewer than two final connected copper components exist on "
                     "each trusted layer."
                 ),
+            )
+        if evaluated_pairs == 0 and coverage_gaps and not findings:
+            return RuleEvaluation(
+                outcome=RuleOutcome.SKIPPED,
+                coverage=RuleCoverage.NONE,
+                reason=RuleReason.COMPUTATION_LIMIT,
+                coverage_gaps=tuple(coverage_gaps),
+                summary=(
+                    "All applicable copper spacing pairs exceeded deterministic "
+                    "geometry resource limits."
+                ),
+                applicable_object_count=applicable_pairs,
             )
         if not findings:
             return RuleEvaluation(
@@ -590,8 +736,9 @@ class MinimumCopperSpacingRule:
                         "configured spacing."
                     )
                 ),
-                evaluated_object_count=applicable_pairs,
+                evaluated_object_count=evaluated_pairs,
                 applicable_object_count=applicable_pairs,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
@@ -601,8 +748,9 @@ class MinimumCopperSpacingRule:
                 "One or more distinct geometric copper components do not "
                 "clearly meet spacing."
             ),
-            evaluated_object_count=applicable_pairs,
+            evaluated_object_count=evaluated_pairs,
             applicable_object_count=applicable_pairs,
+            coverage_gaps=tuple(coverage_gaps),
         )
 
 
@@ -617,7 +765,10 @@ class MinimumCopperToEdgeRule:
         RuleId.BOARD_OUTLINE_CLOSED,
     )
 
-    def evaluate(self, context: RuleContext) -> RuleEvaluation:
+    def evaluate(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        context: RuleContext,
+    ) -> RuleEvaluation:
         """Apply containment, edge-touch policy, and propagated geometry error."""
         outline = context.project.board_outline
         trusted_layers = tuple(
@@ -632,22 +783,51 @@ class MinimumCopperToEdgeRule:
                 reason=RuleReason.NOT_APPLICABLE,
                 summary="A trusted outline and copper layer are required.",
             )
-        material = board_material_geometry(outline)
+        material = context.derived_geometry.board_material_geometry(outline)
         boundary = material.boundary
         required = context.profile.fabrication.min_copper_to_edge
         epsilon = context.profile.tolerances.geometry_epsilon
         findings = []
         component_count = 0
         coverage_partial = False
+        coverage_gaps: list[RuleCoverageGap] = []
+        unsafe_layer_count = 0
+        unsupported_layer_count = 0
         for layer in trusted_layers:
-            composite = composite_layer(
+            composite = context.derived_geometry.composite_layer(
                 layer,
                 arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
                 geometry_epsilon_mm=epsilon,
             )
+            coverage_gaps.extend(composite.coverage_gaps)
             coverage_partial = coverage_partial or not composite.coverage_complete
+            if not composite.polarity_complete:
+                unsafe_layer_count += 1
+                continue
+            if not composite.geometry_supported:
+                unsupported_layer_count += 1
+                continue
             error = composite.error_bound_mm + outline.measurement_error_mm + epsilon
-            for component in geometry_components(composite.geometry):
+            components = context.derived_geometry.geometry_components(
+                composite.geometry
+            )
+            contributor_query = context.derived_geometry.query_primitives(
+                layer,
+                components,
+                scope=IntersectionCandidateScope.COPPER_EDGE_CONTRIBUTORS,
+                arc_chord_error_mm=context.profile.tolerances.arc_chord_error,
+                geometry_epsilon_mm=epsilon,
+                witness_buffer_mm=epsilon,
+            )
+            if contributor_query.coverage_gaps:
+                coverage_gaps.extend(contributor_query.coverage_gaps)
+                coverage_partial = True
+                continue
+            for component, contributors in zip(
+                components,
+                contributor_query.matches,
+                strict=True,
+            ):
                 component_count += 1
                 contained = material.covers(component)
                 contained_with_error = material.buffer(error).covers(component)
@@ -697,10 +877,9 @@ class MinimumCopperToEdgeRule:
                 )
                 evidence = (
                     *_component_evidence(
+                        contributors,
                         layer.layer_id,
-                        composite,
                         component,
-                        geometry_epsilon_mm=epsilon,
                     ),
                     *(
                         FindingEvidence(
@@ -750,6 +929,37 @@ class MinimumCopperToEdgeRule:
                     )
                 )
         if component_count == 0:
+            if coverage_gaps:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.COMPUTATION_LIMIT,
+                    coverage_gaps=tuple(coverage_gaps),
+                    summary=(
+                        "All applicable copper-to-edge scope exceeded deterministic "
+                        "geometry resource limits."
+                    ),
+                )
+            if unsafe_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.INPUT_UNCERTAIN,
+                    summary=(
+                        "Copper polarity is unknown for the unevaluated edge-clearance "
+                        "scope."
+                    ),
+                )
+            if unsupported_layer_count:
+                return RuleEvaluation(
+                    outcome=RuleOutcome.SKIPPED,
+                    coverage=RuleCoverage.NONE,
+                    reason=RuleReason.UNSUPPORTED_GEOMETRY,
+                    summary=(
+                        "Copper geometry is outside the exact edge-clearance "
+                        "composition scope."
+                    ),
+                )
             return RuleEvaluation(
                 outcome=RuleOutcome.SKIPPED,
                 coverage=RuleCoverage.NONE,
@@ -768,6 +978,7 @@ class MinimumCopperToEdgeRule:
                 ),
                 evaluated_object_count=component_count,
                 applicable_object_count=component_count,
+                coverage_gaps=tuple(coverage_gaps),
             )
         return RuleEvaluation(
             outcome=RuleOutcome.FINDINGS,
@@ -776,4 +987,5 @@ class MinimumCopperToEdgeRule:
             summary="Copper containment or edge clearance needs attention.",
             evaluated_object_count=component_count,
             applicable_object_count=component_count,
+            coverage_gaps=tuple(coverage_gaps),
         )

@@ -27,7 +27,6 @@ from boardgate.rules.common import (
     make_finding,
     project_uncertainty_evidence,
 )
-from boardgate.rules.derived_geometry import board_material_geometry
 from boardgate.rules.engine import RuleContext
 from boardgate.rules.models import (
     RuleCoverage,
@@ -665,7 +664,7 @@ class PlacementOutsideBoardOutlineRule:
                 reason=RuleReason.INPUT_UNCERTAIN,
                 summary="A trusted closed board outline is required.",
             )
-        material = board_material_geometry(outline)
+        material = context.derived_geometry.board_material_geometry(outline)
         if material.is_empty or not material.is_valid:
             return RuleEvaluation(
                 outcome=RuleOutcome.SKIPPED,
