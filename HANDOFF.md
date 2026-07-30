@@ -339,7 +339,8 @@ Acceptance criteria:
 - Tests: None; documentation-only triage.
 - Evidence: Open issues above; resolved issues (ISSUE-001, ISSUE-003)
   remain listed until archival.
-- Commit: PENDING (this triage commit)
+- Commit: `35f3ba6 docs(handoff): audit open issues and target ISSUE-004
+  for Codex`
 - Issues created or updated: ISSUE-005 created.
 - Remaining uncertainty: ISSUE-002 depends on a future Gerbonara upgrade.
 - Recommended next action: Resolve ISSUE-004 (see Next Action).
