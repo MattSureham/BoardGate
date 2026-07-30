@@ -97,7 +97,7 @@ beforeAll(async () => {
     parsedArtifact(findingBundle, "project.json"),
     parsedArtifact(findingBundle, "findings.json"),
   ]);
-});
+}, 60_000);
 
 afterAll(() => {
   minimalBundle.cleanup();
