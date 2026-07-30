@@ -16,7 +16,7 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T12:40:00+08:00`
+- Last updated: `2026-07-30T13:10:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
@@ -239,6 +239,33 @@ the current capabilities.
   `src/boardgate/application/review_service.py`
 - Blocking: Yes for real-world-scale inputs; v0.1 fixture scope unaffected.
 
+### ISSUE-005 — Network-backed NarrativeProvider has no formal support path
+
+- Status: OPEN
+- Severity: low
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: The user operates a local, untracked Kimi provider experiment
+  (`experiments/`, git-excluded) that successfully passes the
+  NarrativeProvider protocol validation against the Kimi coding endpoint.
+  ADR 0003 requires a separate security/privacy decision before any
+  network-backed provider enters the repository.
+- Evidence: Local experiment runs on 2026-07-29/30 produced validated
+  `Agent Evidence Narrative` sections and exact-baseline fallback on
+  invalid responses.
+- Suspected cause: Deliberate v0.1 boundary, not a defect.
+- Attempted approaches: Local programmatic injection via
+  `ReviewService(narrative_provider=...)`; the CLI has no provider option.
+- Current resolution state: Unresolved. Formal support would need an ADR
+  (data-egress scope, credential handling, determinism marker semantics),
+  dependency-policy-compliant HTTP client isolation, fallback tests, and an
+  explicit CLI opt-in.
+- Remaining work: Draft and accept the network-provider ADR before any
+  implementation; until then keep experiments untracked.
+- Relevant files: `src/boardgate/agent/narrative.py`,
+  `docs/adr/0003-deterministic-agent-and-projections.md`
+- Blocking: No.
+
 ### ISSUE-003 — GitHub HTTPS push is temporarily blocked by proxy
 
 - Status: RESOLVED
@@ -262,23 +289,60 @@ the current capabilities.
 
 ## Next Action
 
-Draft ADR 0005 deciding the Phase 11 transport boundary (read-only HTTP API
-versus static viewer consuming the existing six-artifact bundle), including
-rejected alternatives and security consequences, before writing any
-transport code. (ADR 0004 is now the output-separation decision.)
+Resolve ISSUE-004: make geometry compositing bounded and shared so a
+real-scale board completes review within the total timeout.
 
 Start with:
 
-- `docs/adr/0005-review-transport.md` (new)
-- Phase 11 scope in `IMPLEMENT_PCB_AGENT.md` lines 1549–1570
+- `src/boardgate/rules/derived_geometry.py`
+- `src/boardgate/rules/engine.py`
+- `src/boardgate/application/review_service.py`
+- A real-scale reproduction input exists locally at
+  `/Users/matthew/Projects/testruns/PCB/1` (six Gerbers, largest 1.3 MB);
+  rename copies to `.gbl/.gbo/.gbs/.gtl/.gto/.gts` before use. Do NOT commit
+  this input to the repository.
 
 Acceptance criteria:
 
-1. The ADR follows the format of ADR 0001–0003 and states why the chosen
-   transport cannot mutate the deterministic review evidence.
-2. HANDOFF Current State and Next Action are updated in the same commit.
+1. Compositing has an explicit primitive/complexity budget; exceeding it
+   downgrades affected rules to PARTIAL with source-relevant uncertainty
+   instead of stalling inside GEOS.
+2. Derived geometry for one layer is computed once per review and shared by
+   all geometry rules (no per-rule recompositing).
+3. The total review timeout is checked inside long computations, so a
+   single degenerate union cannot exceed it unbounded.
+4. The reproduction board completes `inspect` within the 300 s default
+   budget (with downgraded coverage where budgeted) and the full gate suite
+   (Ruff, mypy, coverage ≥ 85%) stays green.
 
 ## Recent Activity
+
+### 2026-07-30T13:10:00+08:00 — Claude — open-issue audit for Codex handoff
+
+- Role: triage agent
+- Task: Audit all currently unresolved issues beyond ISSUE-004 and prepare
+  HANDOFF for a Codex implementation round.
+- Actions performed:
+  - Grepped `src/` for TODO/FIXME markers: none.
+  - Confirmed the complete open-issue set: ISSUE-002 (low, Gerbonara
+    plating hint ignored — re-evaluate on dependency upgrades), ISSUE-004
+    (high, blocking real-scale inputs), and the newly recorded ISSUE-005
+    (low, network NarrativeProvider needs its own ADR per ADR 0003).
+  - Added ISSUE-005 with evidence from the user's working local Kimi
+    experiment.
+  - Replaced Next Action with a bounded ISSUE-004 fix including the local
+    real-scale reproduction input path.
+- Files modified:
+  - `HANDOFF.md`
+- Commands run:
+  - `grep -rn "TODO|FIXME|XXX" src/`
+- Tests: None; documentation-only triage.
+- Evidence: Open issues above; resolved issues (ISSUE-001, ISSUE-003)
+  remain listed until archival.
+- Commit: PENDING (this triage commit)
+- Issues created or updated: ISSUE-005 created.
+- Remaining uncertainty: ISSUE-002 depends on a future Gerbonara upgrade.
+- Recommended next action: Resolve ISSUE-004 (see Next Action).
 
 ### 2026-07-30T12:40:00+08:00 — Claude — output separation and config precedence
 
