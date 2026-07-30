@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T16:37:06+08:00`
+- Last updated: `2026-07-30T16:55:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] The branch-tip ADR/HANDOFF commit containing this state
-  follows verified baseline 17445dd docs(handoff): correct HEAD self-reference
-  after review commit.`
+- HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
+  state follows verified ADR 0006 parent 076c6ed docs(adr): choose static
+  viewer transport boundary.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD point to
   the same public-main branch tip after a normal, non-force push.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
@@ -196,6 +196,13 @@
   - `[CONFIRMED] GitHub Actions run 30523736566 succeeded at baseline
     17445dd before ADR 0006; the public repository and default main branch
     were independently rechecked before this documentation-only change.`
+  - `[CONFIRMED] Independent Claude verification on 2026-07-30 at 076c6ed:
+    commit 076c6ed touches only HANDOFF.md and docs/adr/0006-review-transport.md
+    (no source, dependency, workflow, or Schema changes); ADR 0006 follows the
+    ADR 0001–0005 format and explains why the static viewer cannot mutate
+    review evidence; Actions run 30527646931 passed all six jobs; HEAD ==
+    origin/main == origin/HEAD; Ruff format/check passed, checked-in Schemas
+    are current, and the full suite passed 559 tests.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -203,8 +210,8 @@
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
     documented in docs/CAPABILITIES.md; ADR 0006 decides the Phase 11 static
     Viewer boundary, but no Viewer or API implementation exists.`
-- Working tree: `[CONFIRMED] Clean after the ADR 0006 documentation commit
-  and HANDOFF update.`
+- Working tree: `[CONFIRMED] Clean at 076c6ed before this documentation-only
+  HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -396,6 +403,46 @@ inventory/schema/cross-artifact/SVG validation errors, and render only the
 project/status summary without network access or bundle writes.
 
 ## Recent Activity
+
+### 2026-07-30T16:55:00+08:00 — Claude — ADR 0006 consistency review
+
+- Role: verification agent
+- Task: Independently verify the Codex ADR 0006 round (commit 076c6ed)
+  against repository evidence and update HANDOFF per BOOTSTRAP.
+- Actions performed:
+  - Confirmed 076c6ed modifies only `HANDOFF.md` and
+    `docs/adr/0006-review-transport.md` — no source, dependency, workflow,
+    or Schema changes, matching the Codex delivery report.
+  - Read ADR 0006 in full: it follows the ADR 0001–0005 format, records
+    rejected alternatives (loopback HTTP adapter, upload/review API,
+    mutable catalog, seventh bundle artifact, raw Markdown/SVG trust), and
+    states why the offline static viewer cannot mutate deterministic
+    evidence (read-only user-selected files, immutable in-memory snapshot,
+    no write or analysis transport).
+  - Confirmed the Current State correction from five to six checked-in
+    public Schemas matches `schemas/v1/`.
+  - Re-ran gates and CI queries (see Tests); found no discrepancies with
+    the Codex claims.
+  - Kept the Codex Next Action (Phase 11 viewer bundle-loader foundation)
+    unchanged as the sole bounded next action.
+- Files modified:
+  - `HANDOFF.md`
+- Commands run:
+  - `git pull --ff-only` / `git show --stat 076c6ed`
+  - `gh run view 30527646931` (all six jobs success)
+  - `git rev-parse HEAD origin/main origin/HEAD` (all 076c6ed)
+  - `uv run ruff format --check .` / `uv run ruff check .`
+  - `uv run python scripts/export_schemas.py` (schemas already current)
+  - `uv run pytest -q`
+- Tests: 559 passed; Ruff format/check passed; working tree clean.
+- Commit: PENDING (this consistency-review commit)
+- Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
+  ISSUE-007 — all low, non-blocking.
+- Remaining uncertainty: Viewer bundle-loader budgets and browser
+  validation tooling are undecided implementation details of the Next
+  Action; a future HTTP transport requires a separate ADR.
+- Recommended next action: Implement the Phase 11 offline static viewer
+  bundle-loader foundation (see Next Action).
 
 ### 2026-07-30T16:38:48+08:00 — Codex — Phase 11 static Viewer boundary
 
