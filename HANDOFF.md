@@ -16,14 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-29T01:35:00+08:00`
+- Last updated: `2026-07-30T12:40:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] a037220 docs(readme): add bilingual user walkthrough`
-- Remote sync: `[CONFIRMED] origin/main is at a037220; git ls-remote
-  confirmed the push and GitHub Actions run 30414220783 completed
-  successfully.`
+- HEAD: `[CONFIRMED] 35f8426 feat(cli): resolve output via CLI, project
+  config, then default`
+- Remote sync: `[CONFIRMED] origin/main is at 22486ce; the output-precedence
+  commit and its HANDOFF reference fix are pending push.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; Phase 11 (optional API or
   minimal web viewer) is the only remaining spec phase.`
@@ -310,7 +310,8 @@ Acceptance criteria:
 - Tests: Full suite 515 passed, 90.75% branch coverage.
 - Evidence: Gate outputs above; precedence integration tests run the real
   CLI against fixture copies.
-- Commit: PENDING (this output-precedence commit)
+- Commit: `35f8426 feat(cli): resolve output via CLI, project config, then
+  default`
 - Issues created or updated: None; ISSUE-004 remains open and blocking for
   real-scale geometry inputs.
 - Remaining uncertainty: Phase 11 transport direction still undecided.
