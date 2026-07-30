@@ -16,12 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T11:46:11+08:00`
+- Last updated: `2026-07-30T15:50:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows code/CI parent 0c8c85f ci: enforce declared Python runtimes.`
+  state follows code/CI parent a677e5b docs(handoff): record bounded
+  geometry recovery.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD point to
   the same public-main branch tip after a normal, non-force push.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
@@ -179,6 +180,14 @@
   - `[CONFIRMED] GitHub Actions run 30511949778 succeeded for quality,
     Python 3.12 and 3.14 tests, and full Ubuntu/macOS/Windows CLI review
     smokes. Its 3.14 log records CPython 3.14.6 and pytest on Python 3.14.6.`
+  - `[CONFIRMED] Independent Claude verification on 2026-07-30 re-ran every
+    Codex-reported gate at a677e5b: 559 tests passed at 89.69% branch
+    coverage, Ruff format/check and mypy (142 files) passed, checked-in
+    schemas are current, and the working tree was clean. A fresh
+    default-profile inspect of the renamed private reproduction completed
+    in 105.9 s wall time, published six artifacts with policy 1.0 and zero
+    coverage gaps, and reported NOT_READY_FOR_FABRICATION solely from the
+    missing drill/outline/required-layer blockers in that input.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -186,8 +195,8 @@
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
     documented in docs/CAPABILITIES.md; no API or web viewer exists
     (Phase 11).`
-- Working tree: `[CONFIRMED] Clean after the four ISSUE-004 recovery commits
-  and this HANDOFF update.`
+- Working tree: `[CONFIRMED] Clean at a677e5b before this documentation-only
+  HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -373,9 +382,75 @@ the current capabilities.
 
 ## Next Action
 
-Review v0.1 end-to-end Evidence and decide whether to start Phase 11 API/Viewer.
+Draft ADR 0006 deciding the Phase 11 transport boundary (read-only HTTP API
+versus static viewer consuming the existing six-artifact bundle), including
+rejected alternatives and security consequences, before writing any
+transport code. (ADR 0004 covers output separation; ADR 0005 covers bounded
+derived geometry and rule isolation.)
+
+Start with:
+
+- `docs/adr/0006-review-transport.md` (new)
+- Phase 11 scope in `IMPLEMENT_PCB_AGENT.md` lines 1549–1570
+
+Acceptance criteria:
+
+1. The ADR follows the format of ADR 0001–0005 and states why the chosen
+   transport cannot mutate the deterministic review evidence.
+2. HANDOFF Current State and Next Action are updated in the same commit.
 
 ## Recent Activity
+
+### 2026-07-30T15:50:00+08:00 — Claude — post-Codex consistency review
+
+- Role: verification and triage agent
+- Task: Independently verify that the Codex ISSUE-004 recovery round
+  (commits c1c97c6, 3622527, 0c8c85f, a677e5b) is consistent with the
+  repository, then update HANDOFF per BOOTSTRAP.
+- Actions performed:
+  - Confirmed ADR 0005 exists and matches the four ISSUE-004 acceptance
+    criteria (budgeted degradation, shared workspace, deadline-enforced
+    spawn worker, bounded reproduction).
+  - Confirmed `DerivedGeometryWorkspace` is created once per review in
+    `src/boardgate/rules/engine.py` and shared with every rule context, and
+    that `src/boardgate/application/rule_runner.py` enforces the remaining
+    deadline with terminate/kill on a fresh spawn worker.
+  - Confirmed `RuleCoverageGap`, `COMPUTATION_LIMIT`,
+    `ANALYSIS_LIMITATION`, and the persisted policy version are wired
+    through domain enums, rules, report, and artifact validation.
+  - Confirmed `docs/CAPABILITIES.md` documents the workspace, worker, and
+    policy-1.0 limits; README claims remain accurate.
+  - Re-ran the full gate suite and the CI query, and re-executed the
+    private real-scale reproduction independently (see Tests).
+  - Found no discrepancies between the Codex HANDOFF claims and repository
+    evidence.
+- Files modified:
+  - `HANDOFF.md`
+- Commands run:
+  - `uv run ruff format --check .` / `uv run ruff check .`
+  - `uv run mypy src tests` (142 files)
+  - `uv run python scripts/export_schemas.py` (schemas already current)
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `gh run view 30511949778` (all six jobs success)
+  - `uv run pcb-review inspect <renamed private reproduction> --rules
+    rules/default.yaml --output <sibling verification output> --overwrite`
+- Tests:
+  - 559 passed, 89.69% branch coverage — exactly matching the Codex report.
+  - Independent reproduction run: 105.9 s wall time (Codex reported
+    109.01 s/109.25 s), six artifacts published, policy 1.0 recorded, zero
+    coverage gaps, `NOT_READY_FOR_FABRICATION` from the input's missing
+    drill/outline/required-layer blockers only; not ANALYSIS_FAILED.
+- Evidence: Gate outputs above; verification bundle at
+  `/Users/matthew/Projects/testruns/PCB/1-verify.review-output` (private,
+  not committed).
+- Commit: PENDING (this consistency-review commit)
+- Issues created or updated: None. Open set remains ISSUE-002 (low),
+  ISSUE-005 (low), ISSUE-007 (low); none blocking.
+- Remaining uncertainty: ISSUE-007 action-runtime annotations depend on
+  upstream action releases; the private reproduction still lacks drill and
+  outline files, so its geometry rules legitimately SKIP.
+- Recommended next action: Draft ADR 0006 for the Phase 11 transport
+  boundary (see Next Action).
 
 ### 2026-07-30T11:46:11+08:00 — Codex — bounded geometry and rule-timeout recovery
 
