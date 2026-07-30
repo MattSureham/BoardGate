@@ -26,6 +26,65 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy src tests
 
+  viewer-quality:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
+    defaults:
+      run:
+        working-directory: viewer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12"
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+      - name: Sync BoardGate oracle
+        working-directory: .
+        run: uv sync --locked
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:coverage
+      - run: npm run build:check
+
+  viewer-browsers:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.12"
+    defaults:
+      run:
+        working-directory: viewer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12"
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+      - name: Sync BoardGate CLI
+        working-directory: .
+        run: uv sync --locked
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e
+
   tests:
     runs-on: ubuntu-latest
     strategy:
