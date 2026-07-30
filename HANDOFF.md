@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T15:50:00+08:00`
+- Last updated: `2026-07-30T16:37:06+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows code/CI parent a677e5b docs(handoff): record bounded
-  geometry recovery.`
+- HEAD: `[CONFIRMED] The branch-tip ADR/HANDOFF commit containing this state
+  follows verified baseline 17445dd docs(handoff): correct HEAD self-reference
+  after review commit.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD point to
   the same public-main branch tip after a normal, non-force push.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
@@ -46,7 +46,7 @@
     helpers.`
   - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
     required layers, fabrication thresholds, tolerances, and review policy.`
-  - `[CONFIRMED] Restricted YAML/JSON loader and five checked-in Draft
+  - `[CONFIRMED] Restricted YAML/JSON loader and six checked-in Draft
     2020-12 public JSON Schemas.`
   - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
     archives, and explicit regular files.`
@@ -148,6 +148,11 @@
     --output CLI option, then boardgate.toml [review].output for a single
     directory input, then the built-in sibling <INPUT>.review-output default;
     --output is now optional and multi-input runs without it exit 2.`
+  - `[CONFIRMED] ADR 0006 selects a separately distributed, offline,
+    read-only static Viewer as the Phase 11 transport boundary. It consumes
+    only an explicitly user-selected, validated six-artifact bundle in browser
+    memory and cannot upload, persist, trigger review, or mutate Evidence. No
+    Viewer or HTTP transport code exists yet.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -188,15 +193,18 @@
     in 105.9 s wall time, published six artifacts with policy 1.0 and zero
     coverage gaps, and reported NOT_READY_FOR_FABRICATION solely from the
     missing drill/outline/required-layer blockers in that input.`
+  - `[CONFIRMED] GitHub Actions run 30523736566 succeeded at baseline
+    17445dd before ADR 0006; the public repository and default main branch
+    were independently rechecked before this documentation-only change.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
-    documented in docs/CAPABILITIES.md; no API or web viewer exists
-    (Phase 11).`
-- Working tree: `[CONFIRMED] Clean at a677e5b before this documentation-only
-  HANDOFF update.`
+    documented in docs/CAPABILITIES.md; ADR 0006 decides the Phase 11 static
+    Viewer boundary, but no Viewer or API implementation exists.`
+- Working tree: `[CONFIRMED] Clean after the ADR 0006 documentation commit
+  and HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -382,24 +390,63 @@ the current capabilities.
 
 ## Next Action
 
-Draft ADR 0006 deciding the Phase 11 transport boundary (read-only HTTP API
-versus static viewer consuming the existing six-artifact bundle), including
-rejected alternatives and security consequences, before writing any
-transport code. (ADR 0004 covers output separation; ADR 0005 covers bounded
-derived geometry and rule isolation.)
-
-Start with:
-
-- `docs/adr/0006-review-transport.md` (new)
-- Phase 11 scope in `IMPLEMENT_PCB_AGENT.md` lines 1549–1570
-
-Acceptance criteria:
-
-1. The ADR follows the format of ADR 0001–0005 and states why the chosen
-   transport cannot mutate the deterministic review evidence.
-2. HANDOFF Current State and Next Action are updated in the same commit.
+Implement the Phase 11 offline static viewer bundle-loader foundation: load an
+explicitly user-selected exact six-artifact bundle, fail closed on
+inventory/schema/cross-artifact/SVG validation errors, and render only the
+project/status summary without network access or bundle writes.
 
 ## Recent Activity
+
+### 2026-07-30T16:38:48+08:00 — Codex — Phase 11 static Viewer boundary
+
+- Role: primary documentation and architecture agent
+- Task: Accept ADR 0006 for the bounded Phase 11 transport decision and
+  advance HANDOFF to the first implementation slice without writing transport
+  code.
+- Context inspected:
+  - `BOOTSTRAP.md`, `HANDOFF.md`, the Phase 11 scope in
+    `IMPLEMENT_PCB_AGENT.md`, ADR 0001 through ADR 0005, the artifact
+    validator and review service boundaries, project configuration, public
+    Schemas, git history/status/remotes, and the latest GitHub Actions
+    evidence.
+- Actions performed:
+  - Reconciled Current State with repository evidence at baseline 17445dd,
+    successful Actions run 30523736566, the public `main` branch, and the six
+    checked-in public Schemas.
+  - Accepted a separately distributed, offline, read-only static Viewer that
+    consumes an explicitly selected exact six-artifact bundle in browser
+    memory.
+  - Defined fail-closed inventory, Schema, cross-artifact, run-log, and SVG
+    admission; exact-byte downloads; untrusted Markdown handling; explicit
+    resource budgets; Schema-version rejection without migration; and a
+    prohibition on review execution, persistence, Evidence rewriting, remote
+    resources, and a seventh bundle artifact.
+  - Deferred HTTP transport until remote collaboration justifies a separate
+    decision covering authentication, authorization, tenancy, CORS, quotas,
+    storage, TLS, immutable review identity, and exact-byte responses.
+- Files modified:
+  - `docs/adr/0006-review-transport.md`
+  - `HANDOFF.md`
+- Verification performed:
+  - Inspected the exact artifact inventory, public Schema inventory,
+    cross-artifact and SVG validation boundary, Phase 11 scope, prior ADR
+    constraints, and open issue set.
+  - Confirmed the documentation diff contains no source, dependency,
+    workflow, Schema, or prior Recent Activity modification.
+  - Ran `git diff --check` and a separate read-only ADR/HANDOFF audit.
+- Findings:
+  - The existing six-artifact contract is sufficient as the Viewer source of
+    truth; no seventh artifact or second rule/readiness implementation is
+    required.
+  - Open ISSUE-002, ISSUE-005, and ISSUE-007 remain low-priority,
+    non-blocking, and unchanged.
+- Issues created or updated: None.
+- Remaining uncertainty: Browser file-selection compatibility, validation
+  tooling, and concrete file/total/parse budgets remain implementation
+  decisions for the bounded loader slice. Any future HTTP transport still
+  requires a separate ADR.
+- Recommended next action: Implement the offline static Viewer bundle-loader
+  foundation described in the sole Next Action.
 
 ### 2026-07-30T15:50:00+08:00 — Claude — post-Codex consistency review
 
