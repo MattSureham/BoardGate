@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="{{BOARDGATE_CSP}}"
+    >
+    <meta name="color-scheme" content="light dark">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BoardGate Offline Review Viewer</title>
+    <!--
+      BoardGate Offline Review Viewer is licensed under Apache-2.0.
+      Bundled third-party code: Ajv (MIT), fast-deep-equal (MIT),
+      fast-uri (BSD-3-Clause), json-schema-traverse (MIT),
+      require-from-string (MIT), saxes (ISC), and xmlchars (MIT).
+    -->
+    <style>{{BOARDGATE_STYLE}}</style>
+  </head>
+  <body>
+    <main id="boardgate-viewer" aria-live="polite"></main>
+    <noscript>This offline viewer requires JavaScript to validate a review bundle.</noscript>
+    <script>{{BOARDGATE_SCRIPT}}</script>
+  </body>
+</html>

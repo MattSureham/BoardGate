@@ -16,3 +16,12 @@ htmlcov/
 build/
 dist/
 artifacts/
+
+node_modules/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+viewer/src/generated/schema-validators.js
+viewer/src/generated/schema-validators.d.ts

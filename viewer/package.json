@@ -1,0 +1,42 @@
+{
+  "name": "@boardgate/offline-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline, read-only viewer for validated BoardGate review bundles.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12 <25"
+  },
+  "scripts": {
+    "schema:generate": "node scripts/generate-schema-validators.mjs",
+    "prebuild": "npm run schema:generate",
+    "build": "node scripts/build.mjs",
+    "prebuild:check": "npm run schema:generate",
+    "build:check": "node scripts/check-deterministic-build.mjs",
+    "pretypecheck": "npm run schema:generate",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "pretest": "npm run schema:generate",
+    "test": "vitest run",
+    "pretest:coverage": "npm run schema:generate",
+    "test:coverage": "vitest run --coverage",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "saxes": "6.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@playwright/test": "1.62.0",
+    "@types/node": "22.20.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "typescript": "6.0.3",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}
