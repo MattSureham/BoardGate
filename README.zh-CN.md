@@ -90,9 +90,21 @@ uv run pcb-review inspect tests/fixtures/copper_too_close_to_edge \
 Review prj-6aa57e8aab4e330a: READY_FOR_REVIEW; artifacts written to artifacts/demo
 ```
 
-项目 ID（`prj-...`）由输入内容推导，同一项目永远得到同一 ID。输出目录
-必须为空或不存在；加 `--overwrite` 可原子替换上一次结果。输出路径不得
-包含任一输入路径，也不得被任一输入路径包含。
+项目 ID（`prj-...`）由输入内容推导，同一项目永远得到同一 ID。
+
+`--output` 是可选的。输出目录按三层优先级解析（ADR 0004）：
+
+1. 命令行 `--output` 参数（给出时优先）；
+2. 否则读取单个目录输入中的 `boardgate.toml`，例如
+   `[review]` `output = ".review-output"`（相对路径相对输入目录的
+   父目录解析）；
+3. 否则使用内置默认值：输入目录的兄弟目录 `<输入名>.review-output`
+   （压缩包和文件取其主名）。
+
+提供多个输入时必须显式给出 `--output`。无论哪一层，输出目录必须为空
+或不存在（加 `--overwrite` 可原子替换上一次结果），且不得包含任一
+输入路径、也不得被任一输入路径包含——违反此规则的配置值会以退出码
+2 拒绝。
 
 ### 4. 产出物
 
@@ -187,6 +199,8 @@ fabrication:
 | --- | --- | --- |
 | `INPUT_NOT_FOUND` | 输入路径不存在 | 检查路径 |
 | `PROFILE_VALIDATION_ERROR` | Profile 未通过严格校验 | 对照 `rules/default.yaml` 修改 |
+| `PROJECT_CONFIG_ERROR` | `boardgate.toml` 未通过严格校验 | 修正或删除该配置文件 |
+| `OUTPUT_REQUIRED` | 多个输入但未给 `--output` | 显式传入 `--output` |
 | `OUTPUT_NOT_EMPTY` | 输出目录非空 | 换新目录或加 `--overwrite` |
 | `OUTPUT_OVERLAPS_INPUT` | 输出包含输入或被输入包含 | 把输出移到项目之外 |
 | `FILE_COUNT_LIMIT` / `UNSAFE_PATH` | 输入超出安全预算 | 精简/清理输入集 |

@@ -18,9 +18,15 @@ from boardgate.application import (
 from boardgate.application.output import (
     OutputError,
     preflight_output,
+    resolve_output_directory,
 )
 from boardgate.application.review_service import reject_output_input_overlap
-from boardgate.config import RuleProfileError, load_rule_profile
+from boardgate.config import (
+    ProjectConfigError,
+    RuleProfileError,
+    load_project_config,
+    load_rule_profile,
+)
 from boardgate.ingestion import IngestionError
 
 
@@ -33,7 +39,9 @@ class _InternalError(click.ClickException):
 
 
 def _raise_click_error(error: Exception) -> NoReturn:
-    if isinstance(error, (IngestionError, OutputError, RuleProfileError)):
+    if isinstance(
+        error, (IngestionError, OutputError, ProjectConfigError, RuleProfileError)
+    ):
         raise _UserInputError(str(error)) from error
     if isinstance(error, ReviewPublicationError):
         raise _InternalError(str(error)) from error
@@ -74,9 +82,11 @@ def main() -> None:
 @click.option(
     "--output",
     "output_path",
-    required=True,
     type=click.Path(path_type=Path, file_okay=False),
-    help="Artifact output directory.",
+    help=(
+        "Artifact output directory. Defaults to boardgate.toml "
+        "[review].output, then a sibling <INPUT>.review-output directory."
+    ),
 )
 @click.option(
     "--overwrite",
@@ -99,7 +109,7 @@ def main() -> None:
 def inspect(  # noqa: PLR0913
     inputs: tuple[Path, ...],
     rules_path: Path,
-    output_path: Path,
+    output_path: Path | None,
     *,
     overwrite: bool,
     fail_on: str,
@@ -107,17 +117,33 @@ def inspect(  # noqa: PLR0913
 ) -> None:
     """Safely inspect one PCB project from INPUTS."""
     try:
-        preflight_output(output_path, overwrite=overwrite)
-        reject_output_input_overlap((*inputs, rules_path), output_path)
+        configured_output: str | None = None
+        if output_path is None and len(inputs) == 1 and inputs[0].is_dir():
+            project_config = load_project_config(inputs[0])
+            if project_config is not None:
+                configured_output = project_config.review.output
+        resolved_output = resolve_output_directory(
+            inputs,
+            output_path,
+            configured_output,
+        )
+        preflight_output(resolved_output, overwrite=overwrite)
+        reject_output_input_overlap((*inputs, rules_path), resolved_output)
         profile = load_rule_profile(rules_path)
         run = ReviewService().inspect(
             inputs,
             profile,
-            output_path,
+            resolved_output,
             overwrite=overwrite,
             fail_on=FailOn(fail_on.casefold()),
         )
-    except (IngestionError, OSError, OutputError, RuleProfileError) as error:
+    except (
+        IngestionError,
+        OSError,
+        OutputError,
+        ProjectConfigError,
+        RuleProfileError,
+    ) as error:
         _raise_click_error(error)
     except ReviewPublicationError as error:
         _raise_click_error(error)

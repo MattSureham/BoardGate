@@ -7,7 +7,9 @@ import pytest
 from boardgate.application.output import (
     OutputError,
     OutputTransaction,
+    default_output_directory,
     preflight_output,
+    resolve_output_directory,
 )
 
 
@@ -126,3 +128,39 @@ def test_output_file_and_symlink_are_rejected(tmp_path: Path) -> None:
         preflight_output(target_file, overwrite=True)
     with pytest.raises(OutputError, match="OUTPUT_SYMLINK"):
         preflight_output(link, overwrite=True)
+
+
+def test_default_output_directory_names() -> None:
+    assert default_output_directory(Path("/data/board")) == Path(
+        "/data/board.review-output"
+    )
+    assert default_output_directory(Path("/data/pack.zip")) == Path(
+        "/data/pack.review-output"
+    )
+    assert default_output_directory(Path("/data/orig-gbl")) == Path(
+        "/data/orig-gbl.review-output"
+    )
+
+
+def test_cli_option_wins_over_config_and_default() -> None:
+    inputs = (Path("/data/board"),)
+    explicit = Path("/elsewhere/out")
+    assert resolve_output_directory(inputs, explicit, "configured") == explicit
+
+
+def test_config_relative_resolves_against_input_parent() -> None:
+    inputs = (Path("/data/board"),)
+    assert resolve_output_directory(inputs, None, "custom") == Path("/data/custom")
+    assert resolve_output_directory(inputs, None, "/abs/out") == Path("/abs/out")
+
+
+def test_config_with_multiple_inputs_is_rejected() -> None:
+    inputs = (Path("/data/a"), Path("/data/b"))
+    with pytest.raises(OutputError, match="OUTPUT_CONFIG_UNRESOLVED"):
+        resolve_output_directory(inputs, None, "custom")
+
+
+def test_multiple_inputs_without_output_are_rejected() -> None:
+    inputs = (Path("/data/a"), Path("/data/b"))
+    with pytest.raises(OutputError, match="OUTPUT_REQUIRED"):
+        resolve_output_directory(inputs, None, None)

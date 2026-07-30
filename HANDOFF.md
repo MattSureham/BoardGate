@@ -124,6 +124,10 @@
     tests for geometry, units, paths, and spatial indexing.`
   - `[CONFIRMED] docs/CAPABILITIES.md records the v0.1 supported subsets and
     deliberate boundaries; jsonschema is now a runtime dependency.`
+  - `[CONFIRMED] ADR 0004 output separation and three-tier output resolution:
+    --output CLI option, then boardgate.toml [review].output for a single
+    directory input, then the built-in sibling <INPUT>.review-output default;
+    --output is now optional and multi-input runs without it exit 2.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -140,11 +144,11 @@
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
-  - `[CONFIRMED] uv run ruff format --check . passed (148 files).`
+  - `[CONFIRMED] uv run ruff format --check . passed (152 files).`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (136 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (139 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 495 tests, 90.63% coverage.`
+    --cov-fail-under=85 passed: 515 tests, 90.75% coverage.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -200,6 +204,41 @@ the current capabilities.
 - Relevant files: `src/boardgate/parsers/excellon.py`
 - Blocking: No.
 
+### ISSUE-004 — GEOS cascaded union degrades on real-scale Gerber input
+
+- Status: OPEN
+- Severity: high
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: A real two-layer board (six extension-less Gerbers renamed to
+  `.gbl/.gbo/.gbs/.gtl/.gto/.gts`, largest 1.3 MB with tens of thousands of
+  primitives) reaches rule evaluation after layer mapping succeeds, and the
+  copper/mask polarity compositing stalls inside a single GEOS
+  `CascadedPolygonUnion` call.
+- Evidence: Process sampled twice (~18 min and ~84 min elapsed, 100% CPU);
+  both samples show the identical `GEOSUnaryUnion_r` →
+  `CascadedPolygonUnion::binaryUnion` stack. The run never reached report
+  composition. Fixture-scale projects (dozens of primitives) complete in
+  seconds, so this is scale-dependent.
+- Suspected cause: `unary_union` over tens of thousands of possibly
+  overlapping primitive polygons degenerates; derived-geometry compositing
+  in `src/boardgate/rules/derived_geometry.py` has no primitive-count budget
+  and no incremental/spatial pre-grouping.
+- Attempted approaches: Waited 84+ minutes with two stack samples; no
+  progress beyond the same union call.
+- Current resolution state: Unresolved. Two adjacent defects confirmed:
+  (a) the 300 s `ReviewService` total timeout is only checked between
+  pipeline stages, so one long rule-internal computation cannot be
+  interrupted; (b) each geometry rule recomposites the same layer
+  independently instead of sharing one derived-geometry cache.
+- Remaining work: Add a bounded compositing strategy (primitive budget with
+  explicit PARTIAL downgrade, spatial pre-grouping, or incremental union),
+  share derived geometry across rules, and enforce the total timeout inside
+  long rule evaluations.
+- Relevant files: `src/boardgate/rules/derived_geometry.py`,
+  `src/boardgate/application/review_service.py`
+- Blocking: Yes for real-world-scale inputs; v0.1 fixture scope unaffected.
+
 ### ISSUE-003 — GitHub HTTPS push is temporarily blocked by proxy
 
 - Status: RESOLVED
@@ -223,14 +262,14 @@ the current capabilities.
 
 ## Next Action
 
-Draft ADR 0004 deciding the Phase 11 transport boundary (read-only HTTP API
+Draft ADR 0005 deciding the Phase 11 transport boundary (read-only HTTP API
 versus static viewer consuming the existing six-artifact bundle), including
 rejected alternatives and security consequences, before writing any
-transport code.
+transport code. (ADR 0004 is now the output-separation decision.)
 
 Start with:
 
-- `docs/adr/0004-review-transport.md` (new)
+- `docs/adr/0005-review-transport.md` (new)
 - Phase 11 scope in `IMPLEMENT_PCB_AGENT.md` lines 1549–1570
 
 Acceptance criteria:
@@ -240,6 +279,43 @@ Acceptance criteria:
 2. HANDOFF Current State and Next Action are updated in the same commit.
 
 ## Recent Activity
+
+### 2026-07-30T12:40:00+08:00 — Claude — output separation and config precedence
+
+- Role: primary implementation agent
+- Task: Turn the user's output-separation principle into a permanent norm
+  (ADR 0004) and implement three-tier output resolution.
+- Actions performed:
+  - Accepted ADR 0004: strict input/output separation; CLI option >
+    boardgate.toml > built-in sibling default; TOML via stdlib tomllib
+    (YAML deferred, no new dependency).
+  - Added strict size-bounded ProjectConfig loader, output resolution and
+    sibling-default helpers, and CLI wiring (--output now optional).
+  - Added 27 unit/integration tests covering precedence, config validation,
+    overlap rejection, multi-input requirements, and archive stem defaults.
+  - Updated both README walkthroughs and the troubleshooting tables.
+- Files modified:
+  - `docs/adr/0004-output-separation-and-config-precedence.md`
+  - `src/boardgate/config/project.py`, `src/boardgate/config/__init__.py`
+  - `src/boardgate/application/output.py`, `src/boardgate/cli.py`
+  - `tests/unit/config/test_project_config.py`
+  - `tests/unit/application/test_output.py`
+  - `tests/integration/test_output_precedence.py`
+  - `README.md`, `README.zh-CN.md`
+  - `HANDOFF.md`
+- Commands run:
+  - `uv run ruff format --check .` / `uv run ruff check .`
+  - `uv run mypy src tests` (139 files)
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests: Full suite 515 passed, 90.75% branch coverage.
+- Evidence: Gate outputs above; precedence integration tests run the real
+  CLI against fixture copies.
+- Commit: PENDING (this output-precedence commit)
+- Issues created or updated: None; ISSUE-004 remains open and blocking for
+  real-scale geometry inputs.
+- Remaining uncertainty: Phase 11 transport direction still undecided.
+- Recommended next action: Draft ADR 0005 for the Phase 11 transport
+  boundary (see Next Action).
 
 ### 2026-07-29T01:35:00+08:00 — Claude — bilingual walkthrough, push, and CI confirmation
 

@@ -98,9 +98,22 @@ Review prj-6aa57e8aab4e330a: READY_FOR_REVIEW; artifacts written to artifacts/de
 ```
 
 The project ID (`prj-...`) is derived from the input content, so the same
-project always receives the same ID. The output directory must be empty or
-absent; add `--overwrite` to atomically replace a previous review. The output
-path may not contain, or be contained by, any input path.
+project always receives the same ID.
+
+`--output` is optional. The output directory is resolved in three tiers
+(ADR 0004):
+
+1. the `--output` CLI option, when given;
+2. otherwise `boardgate.toml` in a single directory input, e.g.
+   `[review]` `output = ".review-output"` (relative paths resolve against
+   the input directory's parent);
+3. otherwise the built-in default: a sibling `<INPUT>.review-output`
+   directory (archives and files use their stem).
+
+When several inputs are supplied, `--output` is required. In every tier the
+output must be empty or absent (add `--overwrite` to atomically replace a
+previous review), and it may never contain, or be contained by, any input
+path — a config value that violates this is rejected with exit code 2.
 
 ### 4. What gets written
 
@@ -201,6 +214,8 @@ traceable to the exact configuration that produced them.
 | --- | --- | --- |
 | `INPUT_NOT_FOUND` | An input path does not exist | Check the path |
 | `PROFILE_VALIDATION_ERROR` | Profile failed strict validation | Compare against `rules/default.yaml` |
+| `PROJECT_CONFIG_ERROR` | `boardgate.toml` failed strict validation | Fix or remove the config file |
+| `OUTPUT_REQUIRED` | Several inputs but no `--output` | Pass `--output` explicitly |
 | `OUTPUT_NOT_EMPTY` | Output directory has content | Choose a new directory or pass `--overwrite` |
 | `OUTPUT_OVERLAPS_INPUT` | Output contains or is inside an input | Move the output outside the project |
 | `FILE_COUNT_LIMIT` / `UNSAFE_PATH` | Input exceeded security budgets | Reduce/sanitize the input set |

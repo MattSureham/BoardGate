@@ -162,3 +162,37 @@ class OutputTransaction:
         if self._staging is not None:
             shutil.rmtree(self._staging, ignore_errors=True)
             self._staging = None
+
+
+def default_output_directory(input_path: Path) -> Path:
+    """Return the built-in sibling output directory for one input."""
+    name = input_path.stem if input_path.suffix else input_path.name
+    return input_path.parent / f"{name}.review-output"
+
+
+def resolve_output_directory(
+    inputs: tuple[Path, ...],
+    output_path: Path | None,
+    configured_output: str | None,
+) -> Path:
+    """Resolve CLI option, project config, then built-in default (ADR 0004)."""
+    if output_path is not None:
+        return output_path
+    if configured_output is not None:
+        if len(inputs) != 1:
+            raise OutputError(
+                "OUTPUT_CONFIG_UNRESOLVED",
+                "<output>",
+                "a configured relative output requires exactly one input",
+            )
+        candidate = Path(configured_output)
+        if candidate.is_absolute():
+            return candidate
+        return inputs[0].parent / candidate
+    if len(inputs) != 1:
+        raise OutputError(
+            "OUTPUT_REQUIRED",
+            "<output>",
+            "an explicit --output directory is required with several inputs",
+        )
+    return default_output_directory(inputs[0])
