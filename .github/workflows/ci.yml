@@ -32,6 +32,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.14"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -42,6 +44,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked --all-groups
+      - name: Verify declared Python runtime
+        env:
+          EXPECTED_PYTHON: ${{ matrix.python-version }}
+        run: >-
+          uv run python -c
+          "import os, sys;
+          actual = f'{sys.version_info.major}.{sys.version_info.minor}';
+          expected = os.environ['EXPECTED_PYTHON'];
+          assert actual == expected, f'expected Python {expected}, got {actual}'"
       - run: uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85
 
   cli-smoke:
@@ -50,6 +61,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -61,3 +74,9 @@ jobs:
           python-version: "3.12"
       - run: uv sync --locked
       - run: uv run pcb-review --version
+      - name: Run complete review smoke test
+        run: >-
+          uv run pcb-review inspect
+          tests/fixtures/valid_minimal_board
+          --rules rules/default.yaml
+          --output boardgate-smoke-output
