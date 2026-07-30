@@ -16,14 +16,14 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T13:10:00+08:00`
+- Last updated: `2026-07-30T11:46:11+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] 35f8426 feat(cli): resolve output via CLI, project
-  config, then default`
-- Remote sync: `[CONFIRMED] origin/main is at 22486ce; the output-precedence
-  commit and its HANDOFF reference fix are pending push.`
+- HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
+  state follows code/CI parent 0c8c85f ci: enforce declared Python runtimes.`
+- Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD point to
+  the same public-main branch tip after a normal, non-force push.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; Phase 11 (optional API or
   minimal web viewer) is the only remaining spec phase.`
@@ -31,7 +31,9 @@
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
-  - `[CONFIRMED] Locked Python 3.12 development environment and CI gates.`
+  - `[CONFIRMED] Locked Python 3.12 development environment; Ubuntu CI
+    asserts and tests the actual Python 3.12 and 3.14 interpreters, while
+    Ubuntu, macOS, and Windows run a complete Python 3.12 CLI review smoke.`
   - `[CONFIRMED] Repository collaboration protocol and architecture boundary.`
   - `[CONFIRMED] Strict, versioned Unit, Point, BoundingBox,
     CoordinateSystem, SourceSpan, and Provenance models.`
@@ -87,6 +89,18 @@
     v1 registry validation, deterministic dependency ordering, per-rule
     exception containment, threshold error-band semantics, and overall status
     precedence are implemented.`
+  - `[CONFIRMED] A single review-scoped DerivedGeometryWorkspace shares
+    primitive derivation, spatial indexes, polarity composition, components,
+    board material, and contributor queries across rules while keeping all
+    Shapely objects inside the workspace.`
+  - `[CONFIRMED] Geometry resource policy 1.0 persists inclusive primitive,
+    coordinate, spatial-candidate, connected-subset, union-batch, and
+    component-pair limits; its fixed named spatial allocations sum exactly to
+    the per-layer cap without first-come or per-query budget resets.`
+  - `[CONFIRMED] Resource exclusions produce structured RuleCoverageGap
+    evidence, COMPUTATION_LIMIT reasons, conservative mixed/all-limited
+    coverage semantics, and ANALYSIS_LIMITATION risk aggregation without
+    fabricating hardware violations.`
   - `[CONFIRMED] Strict findings.json root model aggregates ordered
     RuleResults, unique Findings, risk modes, profile identity, review status,
     analysis diagnostics, and the non-guarantee disclaimer.`
@@ -114,6 +128,11 @@
     validation, and atomic publication of exactly the six contracted
     artifacts, with schema-valid ANALYSIS_FAILED fallback and CLI exit
     precedence 4 > 2 > 3 > 1 > 0 including --fail-on blocker.`
+  - `[CONFIRMED] Production built-in rule evaluation runs in a fresh spawn
+    worker using bounded private canonical-JSON exchange; the parent enforces
+    the remaining review deadline, validates the response, terminates/kills
+    unresponsive workers, cleans temporary state, and discards partial
+    hardware conclusions on timeout or crash.`
   - `[CONFIRMED] Structured sanitized logs/run.jsonl events with a sixth
     public Draft 2020-12 run-log-event schema; the first five artifacts are
     byte-deterministic across runs.`
@@ -144,11 +163,22 @@
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
-  - `[CONFIRMED] uv run ruff format --check . passed (152 files).`
+  - `[CONFIRMED] uv run ruff format --check . passed (156 files).`
   - `[CONFIRMED] uv run ruff check . passed.`
-  - `[CONFIRMED] uv run mypy src tests passed (139 source files).`
+  - `[CONFIRMED] uv run mypy src tests passed (142 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
-    --cov-fail-under=85 passed: 515 tests, 90.75% coverage.`
+    --cov-fail-under=85 passed: 559 tests, 89.69% branch coverage.`
+  - `[CONFIRMED] UV_PYTHON=3.14 uv run --isolated --python 3.14 pytest -q
+    passed all 559 tests under local CPython 3.14.4.`
+  - `[CONFIRMED] The 126,054-primitive private reproduction completed twice
+    after the final fixes in 109.01 s and 109.25 s; each run produced exactly
+    six valid artifacts, did not report ANALYSIS_FAILED, left no worker/temp
+    residue, and had byte-identical manifest.json, project.json,
+    findings.json, report.md, and preview.svg. The private input and outputs
+    were not added to the repository.`
+  - `[CONFIRMED] GitHub Actions run 30511949778 succeeded for quality,
+    Python 3.12 and 3.14 tests, and full Ubuntu/macOS/Windows CLI review
+    smokes. Its 3.14 log records CPython 3.14.6 and pytest on Python 3.14.6.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -156,8 +186,8 @@
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
     documented in docs/CAPABILITIES.md; no API or web viewer exists
     (Phase 11).`
-- Working tree: `[CONFIRMED] Clean after the recovery commits and this
-  HANDOFF update.`
+- Working tree: `[CONFIRMED] Clean after the four ISSUE-004 recovery commits
+  and this HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -206,38 +236,46 @@ the current capabilities.
 
 ### ISSUE-004 — GEOS cascaded union degrades on real-scale Gerber input
 
-- Status: OPEN
+- Status: RESOLVED
 - Severity: high
-- Owner: unassigned
+- Owner: Codex
 - State label: `[CONFIRMED]`
 - Context: A real two-layer board (six extension-less Gerbers renamed to
   `.gbl/.gbo/.gbs/.gtl/.gto/.gts`, largest 1.3 MB with tens of thousands of
   primitives) reaches rule evaluation after layer mapping succeeds, and the
   copper/mask polarity compositing stalls inside a single GEOS
   `CascadedPolygonUnion` call.
-- Evidence: Process sampled twice (~18 min and ~84 min elapsed, 100% CPU);
-  both samples show the identical `GEOSUnaryUnion_r` →
-  `CascadedPolygonUnion::binaryUnion` stack. The run never reached report
-  composition. Fixture-scale projects (dozens of primitives) complete in
-  seconds, so this is scale-dependent.
+- Evidence: The original process was sampled twice (~18 min and ~84 min
+  elapsed, 100% CPU); both samples showed the identical `GEOSUnaryUnion_r` →
+  `CascadedPolygonUnion::binaryUnion` stack and never reached report
+  composition. After commits c1c97c6 and 3622527, the same private
+  126,054-primitive reproduction completed twice in 109.01 s and 109.25 s,
+  produced six schema-valid artifacts, remained outside ANALYSIS_FAILED, left
+  no worker/temp residue, and produced byte-identical first-five artifacts.
+  The final local gate passed 559 tests at 89.69% branch coverage; Actions run
+  30511949778 passed all quality, interpreter, test, and cross-platform smoke
+  jobs.
 - Suspected cause: `unary_union` over tens of thousands of possibly
   overlapping primitive polygons degenerates; derived-geometry compositing
-  in `src/boardgate/rules/derived_geometry.py` has no primitive-count budget
-  and no incremental/spatial pre-grouping.
+  in the original `src/boardgate/rules/derived_geometry.py` had no
+  primitive-count budget and no incremental/spatial pre-grouping.
 - Attempted approaches: Waited 84+ minutes with two stack samples; no
   progress beyond the same union call.
-- Current resolution state: Unresolved. Two adjacent defects confirmed:
-  (a) the 300 s `ReviewService` total timeout is only checked between
-  pipeline stages, so one long rule-internal computation cannot be
-  interrupted; (b) each geometry rule recomposites the same layer
-  independently instead of sharing one derived-geometry cache.
-- Remaining work: Add a bounded compositing strategy (primitive budget with
-  explicit PARTIAL downgrade, spatial pre-grouping, or incremental union),
-  share derived geometry across rules, and enforce the total timeout inside
-  long rule evaluations.
+- Current resolution state: Resolved for v0.1. RuleEngine creates one
+  review-scoped DerivedGeometryWorkspace with deterministic bounded
+  composition and cached derived products. Policy 1.0 publishes structured
+  coverage gaps instead of entering known-over-budget GEOS work. Production
+  rule evaluation runs in a fresh spawn worker that the parent can
+  terminate/kill at the remaining review deadline; timeout/crash results are
+  discarded into the six-artifact ANALYSIS_FAILED fallback.
+- Remaining work: None for ISSUE-004; future resource-policy changes require a
+  new policy version, Schema/report updates, and equality/N+1 regressions.
 - Relevant files: `src/boardgate/rules/derived_geometry.py`,
-  `src/boardgate/application/review_service.py`
-- Blocking: Yes for real-world-scale inputs; v0.1 fixture scope unaffected.
+  `src/boardgate/rules/engine.py`,
+  `src/boardgate/application/rule_runner.py`,
+  `src/boardgate/application/review_service.py`,
+  `docs/adr/0005-bounded-derived-geometry-and-rule-isolation.md`
+- Blocking: No.
 
 ### ISSUE-005 — Network-backed NarrativeProvider has no formal support path
 
@@ -266,6 +304,52 @@ the current capabilities.
   `docs/adr/0003-deterministic-agent-and-projections.md`
 - Blocking: No.
 
+### ISSUE-006 — Python 3.14 CI job used Python 3.12
+
+- Status: RESOLVED
+- Severity: medium
+- Owner: Codex
+- State label: `[CONFIRMED]`
+- Context: The Ubuntu test matrix declared Python 3.14, but uv selected the
+  repository's default Python 3.12 interpreter after setup.
+- Evidence: Actions run 30507555190 job 90760486771 was named
+  `tests (3.14)`, while its log records `Using CPython 3.12.3` and
+  `platform linux -- Python 3.12.3`. After commit 0c8c85f, run 30511949778
+  job 90773711195 records `Using CPython 3.14.6`, passes the explicit runtime
+  assertion, and runs pytest on Python 3.14.6.
+- Suspected cause: The matrix configured actions/setup-python but did not bind
+  uv's interpreter selection to `matrix.python-version`.
+- Attempted approaches: Added matrix-scoped `UV_PYTHON`, an explicit
+  major/minor assertion, and a local isolated CPython 3.14.4 full-suite run.
+- Current resolution state: Resolved. Ubuntu tests now execute and assert both
+  declared interpreters; all 559 tests pass locally and in CI on Python 3.14.
+- Remaining work: None for this issue.
+- Relevant files: `.github/workflows/ci.yml`
+- Blocking: No.
+
+### ISSUE-007 — GitHub Actions emit Node 20 deprecation annotations
+
+- Status: OPEN
+- Severity: low
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: GitHub-hosted runners report that the pinned checkout, setup-python,
+  and setup-uv action releases target deprecated Node 20 and are being forced
+  to run on Node 24.
+- Evidence: Successful Actions run 30511949778 annotates
+  `actions/checkout@v4`, `actions/setup-python@v5`, and
+  `astral-sh/setup-uv@v6` with the Node 20 deprecation notice.
+- Suspected cause: The currently pinned action majors have not moved their
+  packaged runtime metadata to Node 24.
+- Attempted approaches: None; the forced Node 24 execution completed
+  successfully on every job.
+- Current resolution state: Non-blocking external-tooling warning. No BoardGate
+  test or artifact contract is affected.
+- Remaining work: Re-evaluate supported newer action majors during the next
+  dependency-maintenance pass, including release provenance and changelogs.
+- Relevant files: `.github/workflows/ci.yml`
+- Blocking: No.
+
 ### ISSUE-003 — GitHub HTTPS push is temporarily blocked by proxy
 
 - Status: RESOLVED
@@ -289,33 +373,91 @@ the current capabilities.
 
 ## Next Action
 
-Resolve ISSUE-004: make geometry compositing bounded and shared so a
-real-scale board completes review within the total timeout.
-
-Start with:
-
-- `src/boardgate/rules/derived_geometry.py`
-- `src/boardgate/rules/engine.py`
-- `src/boardgate/application/review_service.py`
-- A real-scale reproduction input exists locally at
-  `/Users/matthew/Projects/testruns/PCB/1` (six Gerbers, largest 1.3 MB);
-  rename copies to `.gbl/.gbo/.gbs/.gtl/.gto/.gts` before use. Do NOT commit
-  this input to the repository.
-
-Acceptance criteria:
-
-1. Compositing has an explicit primitive/complexity budget; exceeding it
-   downgrades affected rules to PARTIAL with source-relevant uncertainty
-   instead of stalling inside GEOS.
-2. Derived geometry for one layer is computed once per review and shared by
-   all geometry rules (no per-rule recompositing).
-3. The total review timeout is checked inside long computations, so a
-   single degenerate union cannot exceed it unbounded.
-4. The reproduction board completes `inspect` within the 300 s default
-   budget (with downgraded coverage where budgeted) and the full gate suite
-   (Ruff, mypy, coverage ≥ 85%) stays green.
+Review v0.1 end-to-end Evidence and decide whether to start Phase 11 API/Viewer.
 
 ## Recent Activity
+
+### 2026-07-30T11:46:11+08:00 — Codex — bounded geometry and rule-timeout recovery
+
+- Role: primary recovery and implementation agent
+- Task: Resolve ISSUE-004 without replacing completed architecture, correct
+  the false Python 3.14 CI matrix, and preserve evidence-first result
+  semantics at real-board scale.
+- Actions performed:
+  - Validated the repository baseline at 84d266d against BOOTSTRAP,
+    IMPLEMENT_PCB_AGENT, HANDOFF, git history, the clean worktree, the public
+    main branch, and successful pre-change Actions run 30507555190.
+  - Added one review-scoped DerivedGeometryWorkspace with cached derivation,
+    indexes, composition, components, board material, and contributor queries;
+    replaced repeated whole-layer unions with deterministic spatial grouping
+    and bounded stable union batches.
+  - Added persisted geometry resource policy 1.0, fixed per-layer candidate
+    allocations, RuleCoverageGap/COMPUTATION_LIMIT contracts,
+    ANALYSIS_LIMITATION risk aggregation, report/Evidence Index projection,
+    artifact cross-validation, and current public Schemas.
+  - Added conservative regressions for unknown polarity, unsupported exact
+    geometry, clear subtraction, trace slivers, equality/N+1 budgets, query
+    order/cache isolation, mixed/all-limited semantics, and pre-GEOS extreme
+    geometry rejection.
+  - Added a fresh spawn-isolated default rule worker with private bounded
+    canonical-JSON staging, small typed Pipe envelope, result size/hash/model
+    validation, exact deadline polling, terminate/kill cleanup, and
+    six-artifact ANALYSIS_FAILED fallback.
+  - Bound CI uv selection to the declared matrix interpreter, asserted the
+    actual version, and expanded Linux/macOS/Windows smoke jobs to run a
+    complete valid fixture review through the spawn worker.
+  - Accepted ADR 0005 and updated CAPABILITIES with the resource and worker
+    boundaries. Two independent read-only adversarial audits reported no
+    remaining geometry, false-hardware, worker, cleanup, or contract blocker.
+- Files modified:
+  - `src/boardgate/rules/`, `src/boardgate/application/rule_runner.py`,
+    `src/boardgate/application/review_service.py`,
+    `src/boardgate/application/artifacts.py`
+  - `src/boardgate/reporting/markdown.py`,
+    `src/boardgate/agent/risk_modes.py`,
+    `src/boardgate/domain/enums.py`
+  - `tests/unit/rules/`, `tests/unit/application/`,
+    `tests/unit/reporting/test_markdown.py`
+  - `schemas/v1/`, `.github/workflows/ci.yml`,
+    `docs/adr/0005-bounded-derived-geometry-and-rule-isolation.md`,
+    `docs/CAPABILITIES.md`, `HANDOFF.md`
+- Commands run:
+  - `uv lock --check`
+  - `uv sync --locked`
+  - `uv run python scripts/export_schemas.py`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .`
+  - `uv run mypy src tests`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `UV_PYTHON=3.14 uv run --isolated --python 3.14 pytest -q`
+  - Two private `uv run pcb-review inspect` runs over the 126,054-primitive
+    reproduction, followed by strict bundle validation and first-five
+    artifact SHA-256 equality checks.
+  - `git push origin main`, `gh run watch 30511949778 --exit-status`, and
+    3.14 job-log inspection.
+- Tests:
+  - Python 3.12.13: 559 passed; 89.69% branch coverage.
+  - Python 3.14.4: 559 passed.
+  - Private real-scale runs: 109.01 s and 109.25 s; six valid artifacts per
+    run; not ANALYSIS_FAILED; byte-identical first five; no worker/temp
+    residue.
+  - GitHub Actions 30511949778: all six jobs passed; the 3.14 job used
+    CPython 3.14.6; all three OS smoke jobs completed a valid review.
+- Commits:
+  - `c1c97c6 feat(geometry): share bounded derived geometry`
+  - `3622527 feat(review): isolate rule evaluation behind timeout`
+  - `0c8c85f ci: enforce declared Python runtimes`
+  - `docs(handoff): record bounded geometry recovery` (the commit containing
+    this activity record)
+- Generated artifacts: Two private six-artifact review bundles were validated
+  and compared outside the repository; neither the input nor outputs were
+  committed.
+- Issues created or updated: ISSUE-004 resolved; ISSUE-006 created and
+  resolved; ISSUE-007 opened as a non-blocking external Actions warning.
+  ISSUE-002 and ISSUE-005 remain open and non-blocking.
+- Remaining uncertainty: Future policy changes require a new policy version;
+  network NarrativeProvider support still requires its own security/privacy
+  ADR; supported Node 24 action majors require dependency review.
 
 ### 2026-07-30T13:10:00+08:00 — Claude — open-issue audit for Codex handoff
 

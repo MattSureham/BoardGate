@@ -19,9 +19,49 @@ approval.
 | Mask and silk | Trusted same-side, trusted-polarity overlap/dam checks | Gang openings are not reported as zero-width dams |
 | Assembly | BOM/CPL reference reconciliation, duplicates, and CPL anchor containment | No package-body, courtyard, rotation-envelope, or pick-and-place collision inference |
 | Evidence | Source SHA, object ID, nullable scanner line/byte span, geometric witness | Scanner alignment can be partial; unavailable source lines remain `null` |
+| Derived geometry | One deterministic review-scoped workspace caches geometry, spatial indexes, polarity composition, components, board material, and contributor queries | Versioned resource limits produce explicit coverage gaps; no Shapely object crosses a persistence or worker boundary |
+| Rule execution | Built-in rules run in a fresh spawned worker under the remaining review deadline | A timed-out, crashed, invalid, or oversized worker result is discarded and produces the six-artifact `ANALYSIS_FAILED` fallback |
 | Visualization | Static, script-free SVG with layers, outline, drills, and Finding IDs | Not a pixel-equivalent CAM renderer and never feeds rule evaluation |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
+
+## Bounded derived geometry policy
+
+Policy version 1.0 is serialized in `findings.json` and fixes the following
+inclusive limits:
+
+| Resource | Limit |
+| --- | ---: |
+| Parsed primitives per layer | 50,000 |
+| Parsed primitives per review | 150,000 |
+| Derived coordinates per layer | 1,500,000 |
+| Spatial-intersection candidates per layer | 1,000,000 |
+| Primitives per connected subset | 4,096 |
+| Inputs per union batch | 128 |
+| Component-pair candidates per review query | 250,000 |
+
+The 1,000,000 intersection-candidate limit is shared per layer. Policy 1.0
+uses fixed named allocations: 32% for layer composition; 20% for trace
+contributors; 12% for copper-spacing contributors; 8% each for copper-edge
+and solder-mask-dam contributors; and 4% each for the three silkscreen
+contributor scopes and the two annular-ring scopes. Deterministic
+largest-remainder rounding makes the allocations sum exactly to the configured
+per-layer maximum. A layer/scope permits one witness batch per review
+(identical repeats use the cache); a distinct second batch is rejected before
+querying, so rules cannot reset or acquire this budget according to execution
+order.
+
+Equality is allowed; only exceeding a limit reduces coverage. A rule that
+evaluates some applicable scope reports `PASS` or `FINDINGS` with `PARTIAL`
+coverage. If every applicable scope is limited, it reports `SKIPPED` with
+`NONE` coverage and `COMPUTATION_LIMIT`. Each structured coverage gap records
+the affected source or layer, observed value, limit, and policy version, and
+adds the `ANALYSIS_LIMITATION` risk mode without inventing a hardware Finding.
+
+A wall-clock timeout has different semantics: the spawned rule worker's normal
+result is discarded in full, BoardGate publishes the validated six-artifact
+`ANALYSIS_FAILED` fallback, and the CLI exits 3. No hardware-dependent partial
+result is recovered from an unresponsive worker.
 
 Parser and rule limitations are also emitted in each `report.md`, including
 static v0.1 scope boundaries even when a particular input produces no dynamic
