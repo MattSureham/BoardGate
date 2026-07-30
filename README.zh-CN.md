@@ -214,6 +214,50 @@ v0.1 精确的输入子集与刻意保留的边界（不做网络表推断、不
 对位、不对宏光圈做精确检查等）见
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)。
 
+## 离线审查 Viewer
+
+独立分发的
+[`viewer/boardgate-viewer.html`](viewer/boardgate-viewer.html) 可以在当前
+Chromium、Firefox 和 WebKit 浏览器中直接以 `file://` 打开。它不是第七个
+审查 Artifact。把 Viewer 放在任意位置并打开，通过浏览器的目录选择器选择
+一个已完成的审查输出目录，然后等待页面显示 **Bundle validation complete**。
+
+Viewer 只接受包含以下大小写敏感路径的、恰好六个 Artifact 的 Bundle：
+
+```text
+manifest.json
+project.json
+findings.json
+report.md
+preview.svg
+logs/run.jsonl
+```
+
+准入过程完全离线、只读、受资源上限约束，并且失败关闭。Viewer 会先检查
+文件清单、规范 JSON 与 Schema、语义和跨 Artifact 身份、报告元数据、安全
+SVG 结构及运行日志，之后才显示任何工程结论。缺失、额外、格式错误、
+相互不一致或包含主动内容的 Artifact 都只会让界面进入中性的
+**Review unavailable** 状态。所选 `File` 对象只作为当前页面内存中的快照
+存在；Viewer 不上传、不发起网络请求、不写入存储、不触发审查，也不修改
+Bundle。
+
+当前 Phase 11 基础版本只显示通过验证的项目/Profile 身份、原始总体状态、
+证据计数、风险模式，以及 `ANALYSIS_FAILED` 的安全诊断。它尚不渲染 SVG
+或 Markdown 报告，不提供 Finding 列表和图层切换，也不会重新执行或解释
+任何审查规则。
+
+开发者需要 Node.js 22.12 或更高版本（且低于 25）来重建并测试已签入的
+单文件 Viewer：
+
+```bash
+cd viewer
+npm ci
+npm run check
+npm run typecheck
+npm run test:coverage
+npm run build:check
+```
+
 ## 安全与范围
 
 所有输入文件都按不可信数据处理。BoardGate 报告是工程审查证据，不是板厂

@@ -16,18 +16,21 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T16:55:00+08:00`
+- Last updated: `2026-07-30T22:45:40+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified ADR 0006 parent 076c6ed docs(adr): choose static
-  viewer transport boundary.`
-- Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD point to
-  the same public-main branch tip after a normal, non-force push.`
+  state follows verified Viewer implementation parent 9fcf6b2
+  test(viewer): bound semantic fixture setup.`
+- Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
+  identical at verified implementation parent 9fcf6b2 after normal,
+  non-force pushes; the branch-tip documentation commit containing this state
+  follows that parent.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
-  deterministic agent orchestration are complete; Phase 11 (optional API or
-  minimal web viewer) is the only remaining spec phase.`
+  deterministic agent orchestration are complete; the Phase 11 offline
+  static Viewer bundle-loader foundation is complete, while validated SVG
+  exploration remains unimplemented.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -151,8 +154,29 @@
   - `[CONFIRMED] ADR 0006 selects a separately distributed, offline,
     read-only static Viewer as the Phase 11 transport boundary. It consumes
     only an explicitly user-selected, validated six-artifact bundle in browser
-    memory and cannot upload, persist, trigger review, or mutate Evidence. No
-    Viewer or HTTP transport code exists yet.`
+    memory and cannot upload, persist, trigger review, or mutate Evidence.`
+  - `[CONFIRMED] viewer/boardgate-viewer.html is a separately distributed,
+    deterministic single-file application that opens through file:// in
+    Chromium, Firefox, and WebKit; it is not a seventh review artifact.`
+  - `[CONFIRMED] Viewer resource policy 1.0 applies inclusive per-artifact,
+    384 MiB total, JSON depth/entry, SVG element/attribute, JSONL, and
+    60-second fresh-worker limits before displaying any engineering summary.`
+  - `[CONFIRMED] Viewer admission requires the exact case-sensitive six-path
+    inventory and validates fatal UTF-8, Python-compatible canonical JSON,
+    strict standalone Draft 2020-12 Schemas, model semantics, stable IDs,
+    cross-artifact identities, report metadata, passive SVG/XML, and the
+    ordered run log. Admission errors expose only stable safe codes and no
+    partial project conclusion.`
+  - `[CONFIRMED] Each directory selection clears prior evidence, snapshots
+    read-only bytes, terminates any prior Worker, and transfers bytes to a
+    fresh validation Worker. Timeout, replacement, crash, and malformed
+    responses terminate/revoke the Worker transport without storage, network,
+    review execution, or bundle writes.`
+  - `[CONFIRMED] The Phase 11 foundation UI uses createElement/textContent to
+    display only the admitted project/profile identity, original overall
+    status, evidence counts, risk modes, disclaimer, and safe
+    ANALYSIS_FAILED diagnostics. It does not render SVG/Markdown, navigate
+    Findings, switch layers, or reinterpret readiness.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -169,7 +193,7 @@
 - Verification:
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
-  - `[CONFIRMED] uv run ruff format --check . passed (156 files).`
+  - `[CONFIRMED] uv run ruff format --check . passed (158 files).`
   - `[CONFIRMED] uv run ruff check . passed.`
   - `[CONFIRMED] uv run mypy src tests passed (142 source files).`
   - `[CONFIRMED] uv run pytest --cov=boardgate --cov-branch
@@ -203,15 +227,39 @@
     review evidence; Actions run 30527646931 passed all six jobs; HEAD ==
     origin/main == origin/HEAD; Ruff format/check passed, checked-in Schemas
     are current, and the full suite passed 559 tests.`
+  - `[CONFIRMED] Viewer local gates at implementation parent 9fcf6b2 passed:
+    npm ci reported zero vulnerabilities; Biome format/lint and TypeScript
+    passed; Vitest passed 118 tests with one opt-in private-scale test skipped
+    and 92.14% statements, 87.01% branches, 97.69% functions, and 92.02%
+    lines; two consecutive standalone builds were byte-identical with
+    matching CSP hashes.`
+  - `[CONFIRMED] Playwright file:// E2E passed 12 tests across Chromium,
+    Firefox, and WebKit, including zero network/storage/service-worker use,
+    unchanged bundle bytes, neutral replacement failure, and Worker
+    terminate/revoke behavior on replacement and deadline.`
+  - `[CONFIRMED] The untracked approximately 225.6 MiB private Bundle was
+    admitted sequentially by the final standalone build in Chromium,
+    Firefox, and WebKit in 5.869 s, 7.483 s, and 4.894 s. All engines produced
+    the same original status and summary SHA-256 prefix 77a1ca0ef67409a9
+    without remote requests or console errors; neither input nor output was
+    added to the repository.`
+  - `[CONFIRMED] GitHub Actions run 30553112414 succeeded at implementation
+    parent 9fcf6b2 for all eight jobs: Viewer quality/parity, three-engine
+    file:// E2E, root quality, Python 3.12/3.14 tests, and Ubuntu/macOS/Windows
+    complete CLI smokes.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
-    documented in docs/CAPABILITIES.md; ADR 0006 decides the Phase 11 static
-    Viewer boundary, but no Viewer or API implementation exists.`
-- Working tree: `[CONFIRMED] Clean at 076c6ed before this documentation-only
-  HANDOFF update.`
+    documented in docs/CAPABILITIES.md. The Phase 11 Viewer currently stops
+    after bundle admission and project/status summary; it does not insert
+    preview.svg, render report.md, expose Finding navigation, or provide any
+    API/upload/review/persistence channel.`
+- Working tree: `[CONFIRMED] The implementation is captured by the atomic
+  commit series 45f8f76, 7d4c5d7, ad88c44, fd1fe8f, and 9fcf6b2; the
+  branch-tip documentation commit containing this state captures the
+  remaining documentation changes.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -362,7 +410,9 @@ the current capabilities.
   to run on Node 24.
 - Evidence: Successful Actions run 30511949778 annotates
   `actions/checkout@v4`, `actions/setup-python@v5`, and
-  `astral-sh/setup-uv@v6` with the Node 20 deprecation notice.
+  `astral-sh/setup-uv@v6` with the Node 20 deprecation notice. Successful
+  Viewer Actions run 30553112414 confirms the warning remains and also
+  annotates the newly used `actions/setup-node@v4`.
 - Suspected cause: The currently pinned action majors have not moved their
   packaged runtime metadata to Node 24.
 - Attempted approaches: None; the forced Node 24 execution completed
@@ -397,12 +447,104 @@ the current capabilities.
 
 ## Next Action
 
-Implement the Phase 11 offline static viewer bundle-loader foundation: load an
-explicitly user-selected exact six-artifact bundle, fail closed on
-inventory/schema/cross-artifact/SVG validation errors, and render only the
-project/status summary without network access or bundle writes.
+Implement Phase 11 validated SVG exploration: render preview.svg only after
+successful bundle admission, add layer visibility toggles and Finding-ID
+focus, and prove that interactions neither mutate nor re-evaluate review
+evidence.
 
 ## Recent Activity
+
+### 2026-07-30T22:45:40+08:00 — Codex — Phase 11 offline Viewer loader foundation
+
+- Role: primary implementation and verification agent
+- Task: Implement ADR 0006's first Phase 11 slice: exact six-artifact
+  offline admission, bounded validation, and a read-only project/status
+  summary, then update HANDOFF without expanding into SVG exploration.
+- Context inspected:
+  - `BOOTSTRAP.md`, `HANDOFF.md`, `PROJECT_SPEC.md`,
+    `IMPLEMENT_PCB_AGENT.md`, ADR 0006, the six public Schemas, Python
+    `validate_artifact_bundle`, canonical serializers and identifier helpers,
+    report/SVG/log validators, CI, dependency notices, the existing fixture
+    corpus, git/remote state, and the untracked private real-scale Bundle.
+- Actions performed:
+  - Added the locked Node/TypeScript toolchain and deterministic build that
+    compiles standalone Ajv validators, bundles a classic Worker and main
+    application into one tracked HTML file, inlines license notices, and
+    verifies exact CSP hashes and byte reproducibility.
+  - Implemented exact directory-selection normalization, viewer-policy 1.0,
+    fatal UTF-8 and bounded canonical JSON parsing, strict Schema and semantic
+    validation, Python-compatible stable-ID reconstruction, report/SVG/log
+    checks, and the public `admitBundle` contract.
+  - Implemented fresh Worker lifecycle management, transferable immutable
+    byte snapshots, stable non-leaking errors, neutral replacement behavior,
+    and the text-only summary UI without `innerHTML`, network, browser
+    storage, writable handles, review invocation, or bundle mutation.
+  - Added a shared TS/Python mutation corpus, unit/resource-boundary tests,
+    conditional private-scale admission, three-engine file:// E2E capability
+    probes, and independent Viewer CI jobs.
+  - Updated the English/Chinese README, capabilities matrix and resource
+    policy, and third-party notices without changing Python source, public
+    Schemas, `pyproject.toml`, or `uv.lock`.
+- Files modified:
+  - `.gitignore`, `.github/workflows/ci.yml`
+  - `viewer/`
+  - `README.md`, `README.zh-CN.md`, `docs/CAPABILITIES.md`,
+    `THIRD_PARTY_NOTICES.md`, `HANDOFF.md`
+- Findings:
+  - `[CONFIRMED]` Vitest 5 was not published in the resolved registry
+    (`npm` returned E404), so the lock uses exact Vitest 4.1.10 and matching
+    coverage provider; all requested coverage thresholds remain enforced.
+  - `[CONFIRMED]` WebKit file:// Workers cannot reliably read structured-cloned
+    File/Blob objects (`NotReadableError`); the main thread now snapshots each
+    already-size-checked File to ArrayBuffer and transfers ownership to the
+    fresh Worker under the same 60-second deadline.
+  - `[CONFIRMED]` String-form template replacement reinterpreted JavaScript
+    replacement tokens embedded in dependency code and could duplicate HTML
+    fragments. The build now uses callback replacement, escapes inline
+    `</script`, and checks for exactly one document/script/style plus matching
+    CSP hashes.
+  - `[CONFIRMED]` Final canonical-number audit found ten Rule Profile float
+    property names missing from the explicit Python-float spelling set; all
+    were added with individual regression cases.
+  - `[CONFIRMED]` Initial Actions run 30552876988 exposed Vitest's default
+    10-second asynchronous hook timeout while CI generated two Python fixture
+    bundles. Commit 9fcf6b2 gives that bounded setup an explicit 60-second
+    hook limit; replacement run 30553112414 passed.
+- Verification performed:
+  - `uv lock --check`; `uv sync --locked --all-groups`; Ruff format/check;
+    mypy; full pytest branch-coverage gate.
+  - `npm ci`; Biome format/lint; TypeScript; Vitest coverage; deterministic
+    build and CSP check; Playwright Chromium/Firefox/WebKit E2E.
+  - Final private-Bundle sequential Chromium/Firefox/WebKit admission and
+    summary comparison; `git diff --check`; public/default-branch and remote
+    ref checks; Actions runs 30552876988 and 30553112414.
+- Tests:
+  - Python: 559 passed; 89.69% branch coverage.
+  - Viewer unit/parity: 118 passed, one opt-in private-scale test skipped;
+    statements 92.14%, branches 87.01%, functions 97.69%, lines 92.02%.
+  - Viewer browser: 12 passed across Chromium, Firefox, and WebKit.
+  - Private approximately 225.6 MiB Bundle: 5.869/7.483/4.894 seconds with
+    identical summary hash and no remote request or console error.
+  - CI: run 30553112414 passed all eight jobs after the bounded hook fix.
+- Commits:
+  - `45f8f76 build(viewer): add reproducible offline toolchain`
+  - `7d4c5d7 feat(viewer): validate bounded review bundles`
+  - `ad88c44 feat(viewer): render validated review summary`
+  - `fd1fe8f ci(viewer): verify offline browsers and parity`
+  - `9fcf6b2 test(viewer): bound semantic fixture setup`
+  - Branch-tip documentation commit:
+    `docs(handoff): record viewer loader foundation`
+- Issues created or updated:
+  - No new issue. ISSUE-002 and ISSUE-005 remain low/non-blocking and
+    unaffected. ISSUE-007 remains open: run 30553112414 confirms the same
+    Node 20 deprecation annotations, now also including setup-node@v4 in
+    Viewer jobs.
+- Remaining uncertainty:
+  - SVG insertion, layer controls, Finding-ID focus, Markdown/Finding-list
+    presentation, and any HTTP/API/upload/persistence path remain outside
+    this slice. The private Bundle remains untracked.
+- Recommended next action: Implement Phase 11 validated SVG exploration as
+  the sole bounded Next Action above.
 
 ### 2026-07-30T16:55:00+08:00 — Claude — ADR 0006 consistency review
 

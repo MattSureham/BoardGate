@@ -22,6 +22,7 @@ approval.
 | Derived geometry | One deterministic review-scoped workspace caches geometry, spatial indexes, polarity composition, components, board material, and contributor queries | Versioned resource limits produce explicit coverage gaps; no Shapely object crosses a persistence or worker boundary |
 | Rule execution | Built-in rules run in a fresh spawned worker under the remaining review deadline | A timed-out, crashed, invalid, or oversized worker result is discarded and produces the six-artifact `ANALYSIS_FAILED` fallback |
 | Visualization | Static, script-free SVG with layers, outline, drills, and Finding IDs | Not a pixel-equivalent CAM renderer and never feeds rule evaluation |
+| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle and displays its original identity, status, counts, risk modes, and safe failure diagnostics | No upload, persistence, review trigger, evidence write-back, SVG/report rendering, Finding navigation, layer controls, or readiness reinterpretation |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
 
@@ -66,3 +67,44 @@ result is recovered from an unresponsive worker.
 Parser and rule limitations are also emitted in each `report.md`, including
 static v0.1 scope boundaries even when a particular input produces no dynamic
 parser diagnostic.
+
+## Offline viewer admission policy
+
+The Phase 11 loader is distributed separately as
+`viewer/boardgate-viewer.html`; it never becomes a seventh review artifact.
+Each directory selection is treated as a new immutable in-memory snapshot.
+The previous summary and validation worker are discarded before admission
+begins, and the viewer never requests a writable file-system handle, browser
+storage, network access, or a review-service channel.
+
+Admission requires exactly one each of `manifest.json`, `project.json`,
+`findings.json`, `report.md`, `preview.svg`, and `logs/run.jsonl`, with their
+case-sensitive safe POSIX paths intact. It validates canonical UTF-8 JSON,
+Draft 2020-12 schemas, model semantics, stable and cross-artifact identities,
+report/SVG Finding metadata, passive SVG/XML structure, and one ordered run
+log. Any inventory, resource, schema, semantic, identity, or active-content
+error fails closed before a project summary is displayed.
+
+Viewer resource policy 1.0 uses inclusive limits:
+
+| Resource | Limit |
+| --- | ---: |
+| `manifest.json` | 4 MiB |
+| `project.json` | 256 MiB |
+| `findings.json` | 256 MiB |
+| `report.md` | 32 MiB |
+| `preview.svg` | 128 MiB |
+| `logs/run.jsonl` | 16 MiB |
+| Complete bundle | 384 MiB |
+| JSON nesting depth | 64 |
+| JSON containers plus members/elements | 8,000,000 |
+| SVG elements | 250,000 |
+| SVG attributes | 2,000,000 |
+| One JSONL line | 1 MiB |
+| JSONL events | 10,000 |
+| Fresh validation-worker deadline | 60 seconds |
+
+Equality is accepted; the first event beyond a discrete limit is rejected.
+The current UI intentionally stops at a validated project/status summary:
+Markdown stays unrendered, SVG is never inserted into the DOM, and no Finding
+or rule result is recomputed.

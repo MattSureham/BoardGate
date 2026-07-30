@@ -229,6 +229,53 @@ For the exact supported input subsets and deliberate v0.1 boundaries (no
 netlist inference, no pad-registration claims, no macro-aperture exact
 checks, and so on), see [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 
+## Offline review viewer
+
+The separately distributed
+[`viewer/boardgate-viewer.html`](viewer/boardgate-viewer.html) opens directly
+from `file://` in current Chromium, Firefox, and WebKit browsers. It is not a
+seventh review artifact. Keep the viewer wherever you choose, open it, select
+one completed review output directory with the browser's directory chooser,
+and wait for **Bundle validation complete**.
+
+The viewer admits only an exact six-artifact bundle with these case-sensitive
+paths:
+
+```text
+manifest.json
+project.json
+findings.json
+report.md
+preview.svg
+logs/run.jsonl
+```
+
+Admission is offline, read-only, resource-bounded, and fail closed. The viewer
+checks the inventory, canonical JSON and schemas, semantic and cross-artifact
+identities, report metadata, safe SVG structure, and the run log before it
+shows any project conclusion. A missing, extra, malformed, inconsistent, or
+active-content artifact leaves the UI in a neutral **Review unavailable**
+state. The selected `File` objects live only as an in-memory snapshot for the
+current page: the viewer performs no upload, network request, storage write,
+review invocation, or bundle modification.
+
+This Phase 11 foundation displays only the validated project/profile identity,
+the original overall status, evidence counts, risk modes, and safe diagnostics
+for `ANALYSIS_FAILED`. It does not render the SVG or Markdown report, provide a
+Finding list, switch layers, or re-run/reinterpret any review rule.
+
+Developers need Node.js 22.12 or newer (but earlier than 25) to rebuild and
+test the tracked standalone file:
+
+```bash
+cd viewer
+npm ci
+npm run check
+npm run typecheck
+npm run test:coverage
+npm run build:check
+```
+
 ## Safety and scope
 
 All input files are treated as untrusted. A BoardGate report is engineering
