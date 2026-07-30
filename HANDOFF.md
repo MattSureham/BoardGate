@@ -435,7 +435,7 @@ project/status summary without network access or bundle writes.
   - `uv run python scripts/export_schemas.py` (schemas already current)
   - `uv run pytest -q`
 - Tests: 559 passed; Ruff format/check passed; working tree clean.
-- Commit: PENDING (this consistency-review commit)
+- Commit: `04a9bbf docs(handoff): verify ADR 0006 transport decision round`
 - Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
   ISSUE-007 — all low, non-blocking.
 - Remaining uncertainty: Viewer bundle-loader budgets and browser
