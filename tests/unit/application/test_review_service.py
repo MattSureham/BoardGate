@@ -27,6 +27,7 @@ from boardgate.application.parser_runner import (
     parse_job,
 )
 from boardgate.application.project_builder import (
+    ProjectBuildError,
     build_evidence_only_project,
     build_project,
 )
@@ -36,17 +37,18 @@ from boardgate.application.review_service import (
     ReviewPublicationError,
     ReviewService,
 )
+from boardgate.application.rule_runner import RuleExecution, RuleFailure
 from boardgate.config import load_rule_profile, profile_hash
 from boardgate.config.models import RuleProfile
 from boardgate.domain.diagnostic import AnalysisDiagnosticCategory, AnalysisStage
-from boardgate.domain.enums import ReviewStatus, Severity
+from boardgate.domain.enums import ReviewStatus, RiskMode, Severity
 from boardgate.domain.project import PCBProject
 from boardgate.domain.source import ProjectManifest
 from boardgate.ingestion import build_manifest, discover_inputs
 from boardgate.ingestion.discovery import DiscoveredProject
 from boardgate.parsers import ParserError
 from boardgate.reporting import compose_markdown_report
-from boardgate.rules import ReviewResult, RuleEngine
+from boardgate.rules import GeometryResourcePolicy, ReviewResult, RuleEngine
 from boardgate.rules.builtin import build_builtin_registry
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
@@ -156,6 +158,84 @@ def _raise_secret_error(*args: object, **kwargs: object) -> Never:
     )
 
 
+def test_exact_deadline_is_expired() -> None:
+    service = ReviewService(deadline_clock=lambda: 100.0)
+
+    with pytest.raises(review_service_module._PipelineUnavailableError) as captured:
+        service._require_time(100.0, AnalysisStage.RULE_EXECUTION)
+
+    assert captured.value.diagnostic.code == "REVIEW_TIMEOUT"
+    assert captured.value.diagnostic.stage is AnalysisStage.RULE_EXECUTION
+
+
+def test_project_timeout_is_preserved_as_review_timeout(tmp_path: Path) -> None:
+    def timed_out_builder(
+        discovered: DiscoveredProject,
+        manifest: ProjectManifest,
+        profile: RuleProfile,
+    ) -> PCBProject:
+        del discovered, profile
+        raise ProjectBuildError(
+            "PROJECT_TIMEOUT",
+            manifest.project_id,
+            "private parser timing detail",
+        )
+
+    output = tmp_path / "timeout"
+    ReviewService(
+        project_builder=timed_out_builder,
+        clock=_fixed_clock,
+        monotonic_clock=_fixed_monotonic_clock,
+        run_id_factory=_first_run_id,
+    ).inspect((VALID_PROJECT,), load_rule_profile(PROFILE_PATH), output)
+
+    review = validate_artifact_bundle(_artifact_bundle(output)).review
+    assert review.overall_status is ReviewStatus.ANALYSIS_FAILED
+    assert review.analysis_diagnostics[0].code == "REVIEW_TIMEOUT"
+    assert "private parser timing detail" not in "\n".join(
+        path.read_text(encoding="utf-8") for path in output.rglob("*") if path.is_file()
+    )
+
+
+def test_rule_worker_timeout_discards_normal_results_and_publishes_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def timed_out_rule_stage(*args: object, **kwargs: object) -> RuleExecution:
+        del args, kwargs
+        return RuleExecution(
+            failure=RuleFailure(
+                code="REVIEW_TIMEOUT",
+                detail="private worker timing detail",
+            )
+        )
+
+    monkeypatch.setattr(
+        review_service_module,
+        "run_rule_evaluation",
+        timed_out_rule_stage,
+    )
+    output = tmp_path / "rule-timeout"
+    run = ReviewService(
+        project_builder=_inline_project_builder,
+        clock=_fixed_clock,
+        monotonic_clock=_fixed_monotonic_clock,
+        run_id_factory=_first_run_id,
+    ).inspect((VALID_PROJECT,), load_rule_profile(PROFILE_PATH), output)
+
+    validated = validate_artifact_bundle(_artifact_bundle(output))
+    assert run.exit_code is ReviewExitCode.PIPELINE
+    assert run.fallback_used
+    assert validated.review.overall_status is ReviewStatus.ANALYSIS_FAILED
+    assert validated.review.rule_results == ()
+    assert validated.review.findings == ()
+    assert validated.review.analysis_diagnostics[0].code == "REVIEW_TIMEOUT"
+    assert _published_inventory(output) == tuple(sorted(COMPLETE_ARTIFACT_PATHS))
+    assert "private worker timing detail" not in "\n".join(
+        path.read_text(encoding="utf-8") for path in output.rglob("*") if path.is_file()
+    )
+
+
 def _fixed_clock() -> datetime:
     return FIXED_TIME
 
@@ -227,6 +307,49 @@ def test_review_service_publishes_exact_six_artifacts_with_stable_review_bytes(
         rule_event.skipped_rule_reasons["silkscreen_over_exposed_pad"]
         == "NOT_APPLICABLE"
     )
+
+
+def test_budget_limited_review_is_complete_and_byte_stable(tmp_path: Path) -> None:
+    run_ids = iter((FIRST_RUN_ID, SECOND_RUN_ID))
+
+    def evaluate_with_low_budget(
+        project: PCBProject,
+        profile: RuleProfile,
+    ) -> ReviewResult:
+        return RuleEngine(build_builtin_registry(require_complete=True)).evaluate(
+            project,
+            profile,
+            resource_policy=GeometryResourcePolicy(
+                max_primitives_per_layer=1,
+            ),
+        )
+
+    service = ReviewService(
+        project_builder=_inline_project_builder,
+        rule_evaluator=evaluate_with_low_budget,
+        clock=lambda: FIXED_TIME,
+        monotonic_clock=lambda: 100.0,
+        run_id_factory=lambda: next(run_ids),
+    )
+    profile = load_rule_profile(PROFILE_PATH)
+    first_output = tmp_path / "limited-first"
+    second_output = tmp_path / "limited-second"
+
+    service.inspect((VALID_PROJECT,), profile, first_output)
+    service.inspect((VALID_PROJECT,), profile, second_output)
+
+    first_bundle = _artifact_bundle(first_output)
+    second_bundle = _artifact_bundle(second_output)
+    first = validate_artifact_bundle(first_bundle)
+    second = validate_artifact_bundle(second_bundle)
+    assert first.review.coverage_gaps
+    assert RiskMode.ANALYSIS_LIMITATION in first.review.risk_modes
+    assert first.review == second.review
+    assert first_bundle.deterministic_bytes() == second_bundle.deterministic_bytes()
+    assert _published_inventory(first_output) == tuple(sorted(COMPLETE_ARTIFACT_PATHS))
+    assert "COMPUTATION_LIMIT" in first_bundle.report_markdown
+    assert "Coverage gap" in first_bundle.report_markdown
+    assert "SHA-256" in first_bundle.report_markdown
 
 
 def test_fail_on_blocker_changes_only_exit_code_not_review_artifacts(

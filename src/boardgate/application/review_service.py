@@ -35,9 +35,11 @@ from boardgate.application.output import (
     preflight_output,
 )
 from boardgate.application.project_builder import (
+    ProjectBuildError,
     build_evidence_only_project,
     build_project,
 )
+from boardgate.application.rule_runner import run_rule_evaluation
 from boardgate.config.models import RuleProfile
 from boardgate.domain.diagnostic import (
     AnalysisDiagnostic,
@@ -50,7 +52,7 @@ from boardgate.domain.source import ProjectManifest
 from boardgate.ingestion import build_manifest, discover_inputs
 from boardgate.ingestion.discovery import DiscoveredProject
 from boardgate.rendering import render_svg
-from boardgate.rules import ReviewResult, RuleEngine
+from boardgate.rules import ReviewResult
 from boardgate.rules.builtin import build_builtin_registry
 
 type ProjectBuilder = Callable[
@@ -456,7 +458,12 @@ class ReviewService:
                     ),
                     drill_count=len(project.drills) + len(project.drill_slots),
                 )
-                review = self._evaluate_rules(project, profile, plan)
+                review = self._evaluate_rules(
+                    project,
+                    profile,
+                    plan,
+                    deadline=deadline,
+                )
                 self._require_time(deadline, AnalysisStage.RULE_EXECUTION)
                 journal.record(
                     level=RunLogLevel.INFO,
@@ -589,6 +596,18 @@ class ReviewService:
             )
         except _PipelineUnavailableError:
             raise
+        except ProjectBuildError as error:
+            if error.code == "PROJECT_TIMEOUT":
+                raise _pipeline_failure(
+                    stage=AnalysisStage.PROJECT_CONSTRUCTION,
+                    code="REVIEW_TIMEOUT",
+                    summary="The review exceeded the total runtime limit.",
+                ) from error
+            raise _pipeline_failure(
+                stage=AnalysisStage.PROJECT_CONSTRUCTION,
+                code="PROJECT_CONSTRUCTION_FAILED",
+                summary="Project parsing or normalization did not complete.",
+            ) from error
         except Exception as error:
             raise _pipeline_failure(
                 stage=AnalysisStage.PROJECT_CONSTRUCTION,
@@ -601,7 +620,7 @@ class ReviewService:
         deadline: float,
         stage: AnalysisStage,
     ) -> None:
-        if self._deadline_clock() > deadline:
+        if self._deadline_clock() >= deadline:
             raise _pipeline_failure(
                 stage=stage,
                 code="REVIEW_TIMEOUT",
@@ -613,6 +632,8 @@ class ReviewService:
         project: PCBProject,
         profile: RuleProfile,
         plan: ReviewPlan,
+        *,
+        deadline: float,
     ) -> ReviewResult:
         try:
             if self._rule_evaluator is not None:
@@ -622,11 +643,24 @@ class ReviewService:
                 for task in plan.rule_tasks
                 if task.disposition is RulePlanDisposition.EXECUTE
             )
-            return RuleEngine(self._registry).evaluate(
+            execution = run_rule_evaluation(
                 project,
                 profile,
                 selected_rule_ids=selected_rule_ids,
+                deadline=deadline,
+                monotonic_clock=self._deadline_clock,
             )
+            if execution.failure is not None:
+                raise _pipeline_failure(
+                    stage=AnalysisStage.RULE_EXECUTION,
+                    code=execution.failure.code,
+                    summary=("The isolated deterministic rule stage did not complete."),
+                )
+            if execution.result is None:  # pragma: no cover - dataclass invariant
+                raise RuntimeError("isolated rule stage omitted its result")
+            return execution.result
+        except _PipelineUnavailableError:
+            raise
         except Exception as error:
             raise _pipeline_failure(
                 stage=AnalysisStage.RULE_EXECUTION,
