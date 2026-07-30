@@ -443,7 +443,8 @@ Acceptance criteria:
 - Evidence: Gate outputs above; verification bundle at
   `/Users/matthew/Projects/testruns/PCB/1-verify.review-output` (private,
   not committed).
-- Commit: PENDING (this consistency-review commit)
+- Commit: `e2ce101 docs(handoff): verify Codex geometry recovery and
+  retarget Phase 11`
 - Issues created or updated: None. Open set remains ISSUE-002 (low),
   ISSUE-005 (low), ISSUE-007 (low); none blocking.
 - Remaining uncertainty: ISSUE-007 action-runtime annotations depend on
