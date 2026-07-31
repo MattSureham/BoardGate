@@ -16,13 +16,13 @@
 
 ## Current State
 
-- Last updated: `2026-07-30T22:45:40+08:00`
+- Last updated: `2026-07-31T09:35:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified Viewer implementation parent 9fcf6b2
-  test(viewer): bound semantic fixture setup.`
+  state follows verified Viewer parent 9ab9d2a docs(handoff): record viewer
+  loader foundation.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
   identical at verified implementation parent 9fcf6b2 after normal,
   non-force pushes; the branch-tip documentation commit containing this state
@@ -247,6 +247,20 @@
     parent 9fcf6b2 for all eight jobs: Viewer quality/parity, three-engine
     file:// E2E, root quality, Python 3.12/3.14 tests, and Ubuntu/macOS/Windows
     complete CLI smokes.`
+  - `[CONFIRMED] Independent Claude verification on 2026-07-31 at 9ab9d2a:
+    Actions run 30553535887 passed all eight jobs and HEAD == origin/main ==
+    origin/HEAD; Python gates passed (559 tests, 89.69% branch coverage,
+    Ruff, schemas current); Vitest passed 118 tests with one opt-in
+    private-scale skip at 87.01% branch coverage inside the configured
+    thresholds; the deterministic build check passed; Playwright passed 12/12
+    across Chromium, Firefox, and WebKit after installing the missing local
+    chromium-headless-shell (environment gap, not a code failure); the
+    tracked boardgate-viewer.html carries a strict hash-pinned CSP with
+    connect-src 'none'; and a Claude-driven Chromium smoke admitted the real
+    private review bundle at
+    /Users/matthew/Projects/testruns/PCB/1-verify.review-output, displayed
+    the correct project ID and NOT_READY_FOR_FABRICATION summary with zero
+    remote requests and zero console errors.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -454,6 +468,67 @@ evidence.
 
 ## Recent Activity
 
+### 2026-07-31T09:35:00+08:00 — Claude — Viewer loader consistency review
+
+- Role: verification agent
+- Task: Independently verify the Codex Phase 11 viewer loader round
+  (commits 45f8f76..9ab9d2a) against repository evidence and update HANDOFF
+  per BOOTSTRAP.
+- Actions performed:
+  - Confirmed the round adds only the separately distributed `viewer/`
+    toolchain, CI jobs, and documentation — no Python source, Schema, or
+    six-artifact contract change; `viewer/boardgate-viewer.html` is not a
+    seventh artifact.
+  - Reviewed ADR 0006 compliance in source: fail-closed admission
+    (inventory → size preflight → UTF-8 → canonical JSON → Schema →
+    semantics → report/SVG/log → run-variance leak check), resource policy
+    1.0 budgets, fresh Worker per validation with a 60 s deadline and
+    terminate/revoke, textContent/createElement-only DOM, no
+    innerHTML/fetch/storage/network in hand-written source, and a strict
+    hash-pinned CSP (`default-src 'none'`, `connect-src 'none'`).
+  - Re-ran all gates locally (see Tests) and smoke-tested the tracked
+    standalone viewer in Chromium against the real private review bundle
+    from the 2026-07-30 reproduction run.
+  - Corrected one objectively incorrect reference in the Codex activity
+    entry below: it listed `PROJECT_SPEC.md` as inspected context, but the
+    file has never existed in this repository (verified by `ls` and
+    `git log --all -- PROJECT_SPEC.md`). Removed it per the protocol's
+    incorrect-reference exception; no other Codex content was altered.
+- Files modified:
+  - `HANDOFF.md`
+- Commands run:
+  - `git pull --ff-only` / `git diff --stat 8d4a43d..HEAD`
+  - `gh run view 30553535887` (all eight jobs success) and
+    `gh run view 30553112414` (success)
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `npm run test:coverage` / `npx vitest run` / `npm run build:check`
+  - `npx playwright install chromium` then `npm run test:e2e`
+  - One-off Playwright script admitting
+    `/Users/matthew/Projects/testruns/PCB/1-verify.review-output` via
+    `file://` with request/console monitoring
+- Tests:
+  - Python: 559 passed, 89.69% branch coverage — matches the Codex report.
+  - Viewer: 118 passed, 1 skipped (opt-in private-scale), 87.01% branch
+    coverage — matches; deterministic build check passed.
+  - E2E: 12/12 passed across Chromium, Firefox, and WebKit. An initial
+    4-failure chromium run was a local environment gap (missing
+    chromium-headless-shell-1234 binary), resolved by
+    `npx playwright install chromium`; not a code defect.
+  - Real-bundle smoke: admission succeeded with the correct
+    `prj-1c56cfbaab10d74b` / NOT_READY_FOR_FABRICATION summary, zero remote
+    requests, zero console errors.
+- Commit: PENDING (this consistency-review commit)
+- Issues created or updated: None. The Codex-reported 225.6 MiB
+  three-engine admission timings could not be independently reproduced (the
+  private bundle was not available to this reviewer) and are retained as
+  Codex evidence only. Open set remains ISSUE-002, ISSUE-005, ISSUE-007 —
+  all low, non-blocking.
+- Remaining uncertainty: SVG rendering, layer toggles, and Finding-ID focus
+  are intentionally unimplemented; the private-scale opt-in test requires a
+  large local bundle to run.
+- Recommended next action: Implement Phase 11 validated SVG exploration (see
+  Next Action).
+
 ### 2026-07-30T22:45:40+08:00 — Codex — Phase 11 offline Viewer loader foundation
 
 - Role: primary implementation and verification agent
@@ -461,7 +536,7 @@ evidence.
   offline admission, bounded validation, and a read-only project/status
   summary, then update HANDOFF without expanding into SVG exploration.
 - Context inspected:
-  - `BOOTSTRAP.md`, `HANDOFF.md`, `PROJECT_SPEC.md`,
+  - `BOOTSTRAP.md`, `HANDOFF.md`,
     `IMPLEMENT_PCB_AGENT.md`, ADR 0006, the six public Schemas, Python
     `validate_artifact_bundle`, canonical serializers and identifier helpers,
     report/SVG/log validators, CI, dependency notices, the existing fixture
