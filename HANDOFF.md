@@ -16,21 +16,22 @@
 
 ## Current State
 
-- Last updated: `2026-07-31T09:35:00+08:00`
+- Last updated: `2026-07-31T10:30:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified Viewer parent 9ab9d2a docs(handoff): record viewer
-  loader foundation.`
+  state follows verified implementation parent 31ed334 feat(viewer): render
+  validated SVG with layer toggles and Finding focus.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified implementation parent 9fcf6b2 after normal,
-  non-force pushes; the branch-tip documentation commit containing this state
-  follows that parent.`
+  identical at verified parent a2101bf before this round's normal, non-force
+  push; the branch-tip documentation commit containing this state follows
+  implementation parent 31ed334.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
-  static Viewer bundle-loader foundation is complete, while validated SVG
-  exploration remains unimplemented.`
+  static Viewer bundle-loader foundation and validated SVG exploration are
+  complete, while validated Markdown report rendering remains
+  unimplemented.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -172,11 +173,22 @@
     fresh validation Worker. Timeout, replacement, crash, and malformed
     responses terminate/revoke the Worker transport without storage, network,
     review execution, or bundle writes.`
-  - `[CONFIRMED] The Phase 11 foundation UI uses createElement/textContent to
-    display only the admitted project/profile identity, original overall
-    status, evidence counts, risk modes, disclaimer, and safe
-    ANALYSIS_FAILED diagnostics. It does not render SVG/Markdown, navigate
-    Findings, switch layers, or reinterpret readiness.`
+  - `[CONFIRMED] The Phase 11 UI uses createElement/textContent to display
+    the admitted project/profile identity, original overall status, evidence
+    counts, risk modes, disclaimer, and safe ANALYSIS_FAILED diagnostics.`
+  - `[CONFIRMED] Admission additionally extracts pcb-layer-%04d layer groups
+    and classifies Finding markers by spatial/non-spatial section, rejects
+    malformed or duplicate groups (SVG_LAYER_GROUP_INVALID), and cross-checks
+    group layer ID/role/side against project.json layers
+    (SVG_LAYER_MISMATCH).`
+  - `[CONFIRMED] After admission the viewer inserts the validated preview.svg
+    unchanged via DOMParser/importNode (rejecting parser errors, non-SVG
+    roots, or project-ID mismatch), renders per-layer visibility checkboxes,
+    and focuses the marker matching a selected Finding ID with aria-pressed
+    state. These interactions only toggle CSS visibility/classes on the
+    validated in-memory copy; they never mutate geometry, attributes, or
+    bundle bytes and never re-evaluate review evidence. Markdown report
+    rendering remains unimplemented.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -261,19 +273,30 @@
     /Users/matthew/Projects/testruns/PCB/1-verify.review-output, displayed
     the correct project ID and NOT_READY_FOR_FABRICATION summary with zero
     remote requests and zero console errors.`
+  - `[CONFIRMED] Claude implementation gates on 2026-07-31 for the validated
+    SVG exploration slice (31ed334): Biome check and TypeScript passed;
+    Vitest passed 124 tests with one opt-in private-scale skip at 92.33%
+    statements, 87.15% branches, 98.55% functions, and 92.22% lines, inside
+    the configured thresholds; the deterministic build check passed with
+    matching CSP hashes; Playwright passed 24/24 across Chromium, Firefox,
+    and WebKit including four new tests proving layer toggles leave every
+    path geometry attribute and bundle digest unchanged with zero remote
+    requests, spatial Finding focus moves between markers, legend Findings
+    focus non-spatial markers, and clean reviews render an empty Finding
+    list; Python gates passed (559 tests, 89.69% branch coverage, Ruff
+    format/check, mypy).`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
-    documented in docs/CAPABILITIES.md. The Phase 11 Viewer currently stops
-    after bundle admission and project/status summary; it does not insert
-    preview.svg, render report.md, expose Finding navigation, or provide any
-    API/upload/review/persistence channel.`
-- Working tree: `[CONFIRMED] The implementation is captured by the atomic
-  commit series 45f8f76, 7d4c5d7, ad88c44, fd1fe8f, and 9fcf6b2; the
-  branch-tip documentation commit containing this state captures the
-  remaining documentation changes.`
+    documented in docs/CAPABILITIES.md. The Phase 11 Viewer now renders the
+    validated preview.svg with layer toggles and Finding-ID focus, but still
+    does not render report.md and provides no API/upload/review/persistence
+    channel.`
+- Working tree: `[CONFIRMED] The validated SVG exploration slice is captured
+  by implementation commit 31ed334; the branch-tip documentation commit
+  containing this state captures the HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -461,12 +484,88 @@ the current capabilities.
 
 ## Next Action
 
-Implement Phase 11 validated SVG exploration: render preview.svg only after
-successful bundle admission, add layer visibility toggles and Finding-ID
-focus, and prove that interactions neither mutate nor re-evaluate review
-evidence.
+Implement Phase 11 validated Markdown report rendering: display report.md
+only after successful bundle admission without a Markdown parser or innerHTML
+(render the deterministic report structure as text or safely tokenized
+elements via createElement/textContent), keep evidence read-only, and prove
+with E2E that rendering never executes active content, mutates bundle bytes,
+or re-evaluates review evidence.
 
 ## Recent Activity
+
+### 2026-07-31T10:30:00+08:00 — Claude — Phase 11 validated SVG exploration
+
+- Role: primary implementation and verification agent
+- Task: Implement the standing Next Action left after the viewer loader
+  foundation round: render preview.svg only after successful bundle
+  admission, add layer visibility toggles and Finding-ID focus, and prove
+  that interactions neither mutate nor re-evaluate review evidence (Codex
+  was rate-limited, so Claude implemented this slice).
+- Context inspected:
+  - `BOOTSTRAP.md`, `HANDOFF.md`, ADR 0006, `docs/CAPABILITIES.md`,
+    `README.md`/`README.zh-CN.md`, `src/boardgate/rendering/svg.py` (layer
+    group ID/sort scheme and Finding marker sections), the existing viewer
+    validation/rendering stack, and real CLI output for the
+    `valid_minimal_board`, `copper_too_close_to_edge`, and `missing_drill`
+    fixtures.
+- Actions performed:
+  - Extended `viewer/src/contracts.ts` with `ViewerLayer`/`ViewerFinding`,
+    summary `layers`/`findings`, and a `previewSvg` success payload.
+  - Extended `viewer/src/validation/svg.ts` to extract well-formed
+    `pcb-layer-%04d` groups (rejecting missing metadata and duplicate group
+    or layer IDs with SVG_LAYER_GROUP_INVALID) and to classify Finding
+    markers by spatial/non-spatial section (rejecting strays and
+    duplicates); added both error codes to `errors.ts`.
+  - Extended `viewer/src/validation/semantics.ts` with layer/finding detail
+    projections and `admit.ts` to cross-check SVG layer groups against
+    project.json layers (SVG_LAYER_MISMATCH) and return sorted layers,
+    spatial-flagged findings, and the validated SVG payload.
+  - Implemented `renderPreview` in `viewer/src/main.ts`: DOMParser
+    `image/svg+xml` re-parse of the already validated payload with
+    parsererror/root/project-ID guards, `importNode` insertion, per-layer
+    visibility checkboxes (`style.visibility` only), and a Finding list that
+    moves a `finding-focus` class with `aria-pressed` state and
+    `scrollIntoView`; added matching styles in `style.css`.
+  - Added unit tests for layer-group extraction/rejection, Finding marker
+    classification, admission summary/preview exposure, and the three
+    SVG_LAYER_MISMATCH mutation cases; added four Playwright E2E tests per
+    engine covering toggle geometry immutability (path `d` attributes and
+    bundle digests unchanged, zero remote requests), spatial Finding focus,
+    legend Finding focus on `missing_drill`, and the empty Finding list.
+  - Updated the stale viewer claims in `README.md`, `README.zh-CN.md`, and
+    `docs/CAPABILITIES.md`, which previously stated the viewer never inserts
+    preview.svg or offers Finding navigation/layer controls.
+- Files modified:
+  - `viewer/src/contracts.ts`, `viewer/src/main.ts`, `viewer/src/style.css`,
+    `viewer/src/validation/admit.ts`, `viewer/src/validation/errors.ts`,
+    `viewer/src/validation/semantics.ts`, `viewer/src/validation/svg.ts`,
+    `viewer/tests/unit/admit.test.ts`, `viewer/tests/unit/log-svg.test.ts`,
+    `viewer/tests/e2e/global-setup.ts`, `viewer/tests/e2e/viewer.spec.ts`,
+    `viewer/boardgate-viewer.html` (rebuilt deterministic artifact),
+    `README.md`, `README.zh-CN.md`, `docs/CAPABILITIES.md`, `HANDOFF.md`
+- Commands run:
+  - `npm run format` / `npm run check` / `npm run typecheck`
+  - `npm run test:coverage` / `npm run build:check`
+  - `npm run test:e2e` (after build)
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `uv run ruff check .` / `uv run ruff format --check .` / `uv run mypy src`
+- Tests:
+  - Viewer: 124 passed, 1 skipped (opt-in private-scale); 92.33% statements,
+    87.15% branches, 98.55% functions, 92.22% lines — all thresholds met;
+    deterministic build check passed with matching CSP hashes.
+  - E2E: 24/24 passed across Chromium, Firefox, and WebKit, including the
+    four new interaction/immutability tests.
+  - Python: 559 passed, 89.69% branch coverage; Ruff format/check and mypy
+    passed.
+- Commit: `31ed334 feat(viewer): render validated SVG with layer toggles and
+  Finding focus` plus the branch-tip HANDOFF documentation commit.
+- Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
+  ISSUE-007 — all low, non-blocking.
+- Remaining uncertainty: The private-scale opt-in test still requires a large
+  local bundle to run; report.md rendering and any richer Finding navigation
+  remain unimplemented by design.
+- Recommended next action: Implement Phase 11 validated Markdown report
+  rendering (see Next Action).
 
 ### 2026-07-31T09:35:00+08:00 — Claude — Viewer loader consistency review
 
