@@ -517,7 +517,7 @@ evidence.
   - Real-bundle smoke: admission succeeded with the correct
     `prj-1c56cfbaab10d74b` / NOT_READY_FOR_FABRICATION summary, zero remote
     requests, zero console errors.
-- Commit: PENDING (this consistency-review commit)
+- Commit: `4ef4916 docs(handoff): verify viewer loader foundation round`
 - Issues created or updated: None. The Codex-reported 225.6 MiB
   three-engine admission timings could not be independently reproduced (the
   private bundle was not available to this reviewer) and are retained as
