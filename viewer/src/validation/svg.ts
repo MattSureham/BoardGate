@@ -28,9 +28,21 @@ function containsExternalReference(value: string): boolean {
   return false;
 }
 
+export interface SvgLayerGroup {
+  readonly groupId: string;
+  readonly layerId: string;
+  readonly role: string;
+  readonly side: string;
+}
+
 export interface SvgAdmission {
   readonly findingIds: ReadonlySet<string>;
+  readonly layerGroups: readonly SvgLayerGroup[];
+  readonly spatialFindingIds: ReadonlySet<string>;
+  readonly nonSpatialFindingIds: ReadonlySet<string>;
 }
+
+const LAYER_GROUP_ID = /^pcb-layer-\d{4}$/u;
 
 export function validateSvg(
   svg: string,
@@ -52,6 +64,12 @@ export function validateSvg(
   let rootSeen = false;
   let styleDepth = 0;
   const findingIds = new Set<string>();
+  let findingMarkerCount = 0;
+  const spatialFindingIds = new Set<string>();
+  const nonSpatialFindingIds = new Set<string>();
+  const layerGroups: SvgLayerGroup[] = [];
+  const layerGroupIds = new Set<string>();
+  const groupStack: string[] = [];
   const parser = new SaxesParser({ xmlns: false });
   parser.on("opentag", (tag) => {
     elementCount += 1;
@@ -74,6 +92,8 @@ export function validateSvg(
     if (tagName === "style") {
       styleDepth += 1;
     }
+    const elementId = tag.attributes.id;
+    groupStack.push(typeof elementId === "string" ? elementId : "");
     for (const [rawName, rawValue] of Object.entries(tag.attributes)) {
       attributeCount += 1;
       if (attributeCount > policy.maxSvgAttributes) {
@@ -93,9 +113,6 @@ export function validateSvg(
       ) {
         reject("SVG_EXTERNAL_REFERENCE_REJECTED");
       }
-      if (name === "data-finding-id") {
-        findingIds.add(value);
-      }
       if (
         elementCount === 1 &&
         ((name === "data-project-id" && value !== evidence.projectId) ||
@@ -111,8 +128,46 @@ export function validateSvg(
     ) {
       reject("SVG_REVIEW_ID_MISMATCH");
     }
+    if (typeof elementId === "string" && LAYER_GROUP_ID.test(elementId)) {
+      if (tagName !== "g") {
+        reject("SVG_LAYER_GROUP_INVALID");
+      }
+      const layerId = tag.attributes["data-layer-id"];
+      const role = tag.attributes["data-layer-role"];
+      const side = tag.attributes["data-layer-side"];
+      if (
+        typeof layerId !== "string" ||
+        layerId.length === 0 ||
+        typeof role !== "string" ||
+        role.length === 0 ||
+        typeof side !== "string" ||
+        side.length === 0 ||
+        layerGroupIds.has(elementId) ||
+        layerGroups.some((group) => group.layerId === layerId)
+      ) {
+        reject("SVG_LAYER_GROUP_INVALID");
+      }
+      layerGroupIds.add(elementId);
+      layerGroups.push({ groupId: elementId, layerId, role, side });
+    }
+    const findingId = tag.attributes["data-finding-id"];
+    if (findingId !== undefined) {
+      if (tagName !== "g" || typeof findingId !== "string" || findingId.length === 0) {
+        reject("SVG_FINDING_ID_MISMATCH");
+      }
+      findingMarkerCount += 1;
+      findingIds.add(findingId);
+      if (groupStack.includes("spatial-findings")) {
+        spatialFindingIds.add(findingId);
+      } else if (groupStack.includes("non-spatial-findings")) {
+        nonSpatialFindingIds.add(findingId);
+      } else {
+        reject("SVG_FINDING_ID_MISMATCH");
+      }
+    }
   });
   parser.on("closetag", (tag) => {
+    groupStack.pop();
     if (localName(tag.name) === "style") {
       styleDepth -= 1;
     }
@@ -138,10 +193,11 @@ export function validateSvg(
     reject("SVG_XML_INVALID");
   }
   if (
+    findingMarkerCount !== findingIds.size ||
     findingIds.size !== evidence.findingIds.size ||
     [...findingIds].some((findingId) => !evidence.findingIds.has(findingId))
   ) {
     reject("SVG_FINDING_ID_MISMATCH");
   }
-  return { findingIds };
+  return { findingIds, layerGroups, spatialFindingIds, nonSpatialFindingIds };
 }

@@ -327,3 +327,122 @@ test("terminates and revokes a worker that reaches its deadline", async ({ page 
     ),
   ).toEqual({ revoked: 1, terminated: 1 });
 });
+
+test("renders the validated preview with layer toggles and no geometry mutation", async ({
+  page,
+}) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_SPATIAL_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+
+  const remoteRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/^(?:https?|wss?):/u.test(request.url())) {
+      remoteRequests.push(request.url());
+    }
+  });
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+
+  const preview = page.locator(".preview-canvas svg.preview-svg");
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveAttribute("data-project-id", /^prj-[0-9a-f]{16}$/);
+
+  const geometryBefore = await preview
+    .locator("path")
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute("d")));
+
+  const layerGroups = preview.locator('g[id^="pcb-layer-"]');
+  const toggles = page.locator('.layer-toggles input[type="checkbox"]');
+  await expect(toggles).toHaveCount(await layerGroups.count());
+
+  const firstToggle = toggles.first();
+  const groupId = await firstToggle.getAttribute("data-layer-group");
+  expect(groupId).not.toBeNull();
+  const group = preview.locator(`#${groupId as string}`);
+  await expect(group).toBeVisible();
+  await firstToggle.uncheck();
+  await expect(group).toBeHidden();
+  await firstToggle.check();
+  await expect(group).toBeVisible();
+
+  const geometryAfter = await preview
+    .locator("path")
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute("d")));
+  expect(geometryAfter).toEqual(geometryBefore);
+  expect(remoteRequests).toEqual([]);
+  expect(bundleDigests(bundle)).toEqual(before);
+});
+
+test("focuses spatial Finding markers and moves focus between Findings", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_SPATIAL_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+
+  const buttons = page.locator(".finding-button");
+  await expect(buttons).toHaveCount(2);
+
+  const firstId = await buttons.nth(0).getAttribute("data-finding-id");
+  const secondId = await buttons.nth(1).getAttribute("data-finding-id");
+  expect(firstId).not.toBeNull();
+  expect(secondId).not.toBeNull();
+
+  const firstMarker = page.locator(
+    `.preview-canvas #spatial-findings [data-finding-id="${firstId as string}"]`,
+  );
+  const secondMarker = page.locator(
+    `.preview-canvas #spatial-findings [data-finding-id="${secondId as string}"]`,
+  );
+
+  await buttons.nth(0).click();
+  await expect(firstMarker).toHaveClass(/finding-focus/u);
+  await expect(buttons.nth(0)).toHaveAttribute("aria-pressed", "true");
+
+  await buttons.nth(1).click();
+  await expect(firstMarker).not.toHaveClass(/finding-focus/u);
+  await expect(secondMarker).toHaveClass(/finding-focus/u);
+  await expect(buttons.nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(buttons.nth(0)).toHaveAttribute("aria-pressed", "false");
+
+  expect(bundleDigests(bundle)).toEqual(before);
+});
+
+test("focuses legend Findings for non-spatial results", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_LEGEND_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+  await expect(page.locator(".review-status")).toHaveText("NOT_READY_FOR_FABRICATION");
+
+  const button = page.locator(".finding-button", { hasText: "drill_file_present" });
+  await expect(button).toHaveCount(1);
+  const findingId = await button.getAttribute("data-finding-id");
+  expect(findingId).not.toBeNull();
+
+  const legendMarker = page.locator(
+    `.preview-canvas #non-spatial-findings [data-finding-id="${findingId as string}"]`,
+  );
+  await button.click();
+  await expect(legendMarker).toHaveClass(/finding-focus/u);
+});
+
+test("renders an empty Finding list for a clean review", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+
+  await expect(page.locator(".preview-canvas svg.preview-svg")).toBeVisible();
+  await expect(page.locator('.layer-toggles input[type="checkbox"]')).toHaveCount(3);
+  await expect(page.locator(".finding-list")).toContainText("No findings recorded");
+});

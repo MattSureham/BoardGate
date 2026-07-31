@@ -259,10 +259,14 @@ state. The selected `File` objects live only as an in-memory snapshot for the
 current page: the viewer performs no upload, network request, storage write,
 review invocation, or bundle modification.
 
-This Phase 11 foundation displays only the validated project/profile identity,
+After admission, the viewer displays the validated project/profile identity,
 the original overall status, evidence counts, risk modes, and safe diagnostics
-for `ANALYSIS_FAILED`. It does not render the SVG or Markdown report, provide a
-Finding list, switch layers, or re-run/reinterpret any review rule.
+for `ANALYSIS_FAILED`. It also inserts the validated `preview.svg` exactly as
+authored, with per-layer visibility checkboxes and a Finding list that focuses
+the matching spatial or legend marker. These interactions only toggle CSS
+visibility and classes on the already validated in-memory copy: geometry,
+attributes, and bundle bytes are never mutated, and no review rule is re-run
+or reinterpreted. The viewer still does not render the Markdown report.
 
 Developers need Node.js 22.12 or newer (but earlier than 25) to rebuild and
 test the tracked standalone file:

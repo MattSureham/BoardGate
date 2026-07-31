@@ -55,6 +55,61 @@ describe("bundle admission", () => {
     expect(accepted.summary).not.toHaveProperty("review");
   });
 
+  it("exposes validated layer groups and Finding markers for presentation", async () => {
+    expect(accepted.ok).toBe(true);
+    if (!accepted.ok) {
+      return;
+    }
+    expect(accepted.summary.layers).toHaveLength(3);
+    expect(accepted.summary.layers[0]).toMatchObject({
+      groupId: "pcb-layer-0001",
+      role: "board_outline",
+      side: "not_applicable",
+    });
+    expect(accepted.summary.layers.map((layer) => layer.role)).toEqual([
+      "board_outline",
+      "bottom_copper",
+      "top_copper",
+    ]);
+    expect(accepted.summary.findings).toEqual([]);
+    expect(accepted.previewSvg).toContain(`data-project-id="${accepted.summary.projectId}"`);
+
+    const spatial = generateValidBundle("copper_too_close_to_edge");
+    try {
+      const result = await admitBundle(spatial.files, VIEWER_RESOURCE_POLICY);
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.summary.findings).toHaveLength(2);
+      for (const finding of result.summary.findings) {
+        expect(finding.spatial).toBe(true);
+        expect(result.previewSvg).toContain(`data-finding-id="${finding.findingId}"`);
+        expect(finding.ruleId).toBe("minimum_copper_to_edge");
+      }
+    } finally {
+      spatial.cleanup();
+    }
+  });
+
+  it.each([
+    [
+      "drops a layer group",
+      (payload: string) => payload.replace(/<g id="pcb-layer-0001"[^>]*>.*?<\/g>\s*/s, ""),
+    ],
+    [
+      "renames a layer id",
+      (payload: string) => payload.replace(/data-layer-id="([^"]+)"/, 'data-layer-id="lyr-0"'),
+    ],
+    [
+      "changes a layer role",
+      (payload: string) => payload.replace(/data-layer-role="([^"]+)"/, 'data-layer-role="X"'),
+    ],
+  ])("rejects a preview that %s with SVG_LAYER_MISMATCH", async (_label, mutate) => {
+    const files = await replaceText(bundle.files, "preview.svg", mutate);
+    expect(errorCode(await admitBundle(files, VIEWER_RESOURCE_POLICY))).toBe("SVG_LAYER_MISMATCH");
+  });
+
   it("admits transferred ArrayBuffer snapshots without Blob reads", async () => {
     const snapshots = new Map<string, ArrayBuffer>();
     for (const [path, blob] of bundle.files) {

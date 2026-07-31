@@ -200,6 +200,124 @@ button:focus-visible {
   font-style: italic;
 }
 
+.preview {
+  margin-top: 1.25rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid #cad8cf;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 0.9rem 2.4rem rgb(22 55 36 / 7%);
+}
+
+.preview[hidden] {
+  display: none;
+}
+
+.preview h2 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.preview h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.preview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.preview-canvas {
+  overflow: auto;
+  border: 1px solid #d9e2dc;
+  border-radius: 0.55rem;
+  background: #fff;
+}
+
+.preview-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.preview-panel {
+  min-width: 0;
+}
+
+.layer-toggles,
+.finding-list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer-toggles label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.finding-button {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #cad8cf;
+  background: #f2f7f3;
+  color: #17211c;
+  font-weight: 400;
+  text-align: left;
+}
+
+.finding-button:hover {
+  background: #e3eee7;
+}
+
+.finding-button[aria-pressed="true"] {
+  border-color: #246444;
+  background: #dcebe2;
+}
+
+.finding-button code {
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.finding-button span {
+  color: #45544b;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.finding-button[data-severity="BLOCKER"] code {
+  color: #9d2a22;
+}
+
+.finding-button[data-severity="HIGH"] code {
+  color: #815d10;
+}
+
+.finding-focus > circle {
+  stroke: #1d4ed8;
+  fill: #dbeafe;
+}
+
+.finding-focus > text {
+  font-weight: 700;
+  fill: #1d4ed8;
+}
+
 footer {
   padding: 1.3rem 0;
   color: #637069;
@@ -211,6 +329,10 @@ footer {
   #boardgate-viewer {
     width: min(100% - 1rem, 74rem);
     padding-top: 0.5rem;
+  }
+
+  .preview-layout {
+    grid-template-columns: 1fr;
   }
 
   .summary-grid {

@@ -22,7 +22,7 @@ approval.
 | Derived geometry | One deterministic review-scoped workspace caches geometry, spatial indexes, polarity composition, components, board material, and contributor queries | Versioned resource limits produce explicit coverage gaps; no Shapely object crosses a persistence or worker boundary |
 | Rule execution | Built-in rules run in a fresh spawned worker under the remaining review deadline | A timed-out, crashed, invalid, or oversized worker result is discarded and produces the six-artifact `ANALYSIS_FAILED` fallback |
 | Visualization | Static, script-free SVG with layers, outline, drills, and Finding IDs | Not a pixel-equivalent CAM renderer and never feeds rule evaluation |
-| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle and displays its original identity, status, counts, risk modes, and safe failure diagnostics | No upload, persistence, review trigger, evidence write-back, SVG/report rendering, Finding navigation, layer controls, or readiness reinterpretation |
+| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, and inserts the validated preview.svg with layer visibility toggles and Finding-ID focus | No upload, persistence, review trigger, evidence write-back, report rendering, or readiness reinterpretation; interactions only change CSS visibility/classes on the validated in-memory copy and never mutate or re-evaluate evidence |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
 
@@ -105,6 +105,9 @@ Viewer resource policy 1.0 uses inclusive limits:
 | Fresh validation-worker deadline | 60 seconds |
 
 Equality is accepted; the first event beyond a discrete limit is rejected.
-The current UI intentionally stops at a validated project/status summary:
-Markdown stays unrendered, SVG is never inserted into the DOM, and no Finding
-or rule result is recomputed.
+After admission the viewer inserts the validated `preview.svg` unchanged,
+offers per-layer visibility checkboxes, and focuses the marker matching a
+selected Finding ID. These controls only toggle CSS visibility and classes on
+the already validated in-memory copy; geometry, attributes, and bundle bytes
+are never mutated and no Finding or rule result is recomputed. Markdown stays
+unrendered.

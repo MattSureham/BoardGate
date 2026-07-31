@@ -1,8 +1,10 @@
 import {
-  VIEWER_PROTOCOL_VERSION,
   type ReviewSummary,
   type ValidationResult,
+  VIEWER_PROTOCOL_VERSION,
   type ViewerError,
+  type ViewerFinding,
+  type ViewerLayer,
   type ViewerWorkerResponse,
   type WorkerFile,
   type WorkerTransferFile,
@@ -36,6 +38,7 @@ export interface ViewerElements {
   readonly chooseButton: HTMLButtonElement;
   readonly status: HTMLElement;
   readonly summary: HTMLElement;
+  readonly preview: HTMLElement;
   readonly error: HTMLElement;
 }
 
@@ -147,6 +150,120 @@ export function renderSummary(container: HTMLElement, summary: ReviewSummary): v
   container.append(disclaimer);
 }
 
+function buildLayerToggles(canvas: HTMLElement, layers: readonly ViewerLayer[]): HTMLElement {
+  const list = document.createElement("ul");
+  list.className = "layer-toggles";
+  for (const layer of layers) {
+    const item = document.createElement("li");
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    checkbox.dataset.layerGroup = layer.groupId;
+    const text = document.createElement("span");
+    text.textContent = `${layer.role} · ${layer.side} · ${layer.layerId}`;
+    checkbox.addEventListener("change", () => {
+      const group = canvas.querySelector<SVGElement>(`#${CSS.escape(layer.groupId)}`);
+      if (group !== null) {
+        group.style.visibility = checkbox.checked ? "visible" : "hidden";
+      }
+    });
+    label.append(checkbox, text);
+    item.append(label);
+    list.append(item);
+  }
+  return list;
+}
+
+function buildFindingList(canvas: HTMLElement, findings: readonly ViewerFinding[]): HTMLElement {
+  const list = document.createElement("ul");
+  list.className = "finding-list";
+  if (findings.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "No findings recorded";
+    list.append(item);
+    return list;
+  }
+  for (const finding of findings) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "finding-button";
+    button.dataset.findingId = finding.findingId;
+    button.dataset.severity = finding.severity;
+    button.setAttribute("aria-pressed", "false");
+    const identifier = document.createElement("code");
+    identifier.textContent = finding.findingId;
+    const detail = document.createElement("span");
+    detail.textContent = `${finding.title} — ${finding.ruleId} · ${finding.severity} · ${
+      finding.spatial ? "spatial" : "legend"
+    }`;
+    button.append(identifier, detail);
+    button.addEventListener("click", () => {
+      for (const previous of canvas.querySelectorAll(".finding-focus")) {
+        previous.classList.remove("finding-focus");
+      }
+      for (const other of list.querySelectorAll(".finding-button")) {
+        other.setAttribute("aria-pressed", "false");
+      }
+      const target = canvas.querySelector<SVGElement>(
+        `[data-finding-id="${CSS.escape(finding.findingId)}"]`,
+      );
+      if (target !== null) {
+        target.classList.add("finding-focus");
+        target.scrollIntoView({ block: "nearest" });
+        button.setAttribute("aria-pressed", "true");
+      }
+    });
+    item.append(button);
+    list.append(item);
+  }
+  return list;
+}
+
+export function renderPreview(
+  section: HTMLElement,
+  previewSvg: string,
+  summary: ReviewSummary,
+): boolean {
+  const parsed = new DOMParser().parseFromString(previewSvg, "image/svg+xml");
+  const parsedRoot = parsed.documentElement;
+  if (
+    parsed.querySelector("parsererror") !== null ||
+    parsedRoot.localName !== "svg" ||
+    parsedRoot.getAttribute("data-project-id") !== summary.projectId
+  ) {
+    return false;
+  }
+  const svgElement = document.importNode(parsedRoot, true);
+  svgElement.setAttribute("class", "preview-svg");
+
+  const heading = document.createElement("h2");
+  heading.textContent = "Validated preview";
+  const layout = document.createElement("div");
+  layout.className = "preview-layout";
+  const canvas = document.createElement("div");
+  canvas.className = "preview-canvas";
+  canvas.append(svgElement);
+
+  const panel = document.createElement("aside");
+  panel.className = "preview-panel";
+  const layersHeading = document.createElement("h3");
+  layersHeading.textContent = "Layers";
+  const findingsHeading = document.createElement("h3");
+  findingsHeading.textContent = "Findings";
+  panel.append(
+    layersHeading,
+    buildLayerToggles(canvas, summary.layers),
+    findingsHeading,
+    buildFindingList(canvas, summary.findings),
+  );
+
+  layout.append(canvas, panel);
+  section.replaceChildren(heading, layout);
+  return true;
+}
+
 export class ViewerController {
   readonly #elements: ViewerElements;
   readonly #workerSource: string;
@@ -177,11 +294,15 @@ export class ViewerController {
   dispose(): void {
     this.#cancelActive();
     this.#elements.summary.replaceChildren();
+    this.#elements.preview.replaceChildren();
+    this.#elements.preview.hidden = true;
   }
 
   async load(files: Iterable<File>): Promise<void> {
     this.#cancelActive();
     this.#elements.summary.replaceChildren();
+    this.#elements.preview.replaceChildren();
+    this.#elements.preview.hidden = true;
     this.#elements.error.replaceChildren();
     this.#elements.error.hidden = true;
     this.#elements.status.textContent = "Validating selected bundle…";
@@ -226,7 +347,13 @@ export class ViewerController {
       }
       this.#finishActive();
       if (event.data.result.ok) {
-        renderSummary(this.#elements.summary, event.data.result.summary);
+        const { summary, previewSvg } = event.data.result;
+        renderSummary(this.#elements.summary, summary);
+        if (!renderPreview(this.#elements.preview, previewSvg, summary)) {
+          this.#showError(INTERNAL_ERROR);
+          return;
+        }
+        this.#elements.preview.hidden = false;
         this.#elements.status.textContent = "Bundle validation complete.";
         this.#elements.status.dataset.state = "ready";
       } else {
@@ -306,6 +433,8 @@ export class ViewerController {
 
   #showError(error: ViewerError): void {
     this.#elements.summary.replaceChildren();
+    this.#elements.preview.replaceChildren();
+    this.#elements.preview.hidden = true;
     this.#elements.status.textContent = "Review unavailable.";
     this.#elements.status.dataset.state = "error";
     const code = document.createElement("code");
@@ -372,12 +501,16 @@ export function createViewerApplication(root: HTMLElement): ViewerController {
   summary.className = "review-summary";
   state.append(status, error, summary);
 
+  const preview = document.createElement("section");
+  preview.className = "preview";
+  preview.hidden = true;
+
   const footer = document.createElement("footer");
   footer.textContent = `Viewer ${__BOARDGATE_VIEWER_VERSION__} · Evidence remains read-only.`;
 
-  root.append(header, controls, state, footer);
+  root.append(header, controls, state, preview, footer);
   const controller = new ViewerController(
-    { input, chooseButton, status, summary, error },
+    { input, chooseButton, status, summary, preview, error },
     __BOARDGATE_WORKER_SOURCE__,
   );
   controller.start();

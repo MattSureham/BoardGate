@@ -618,6 +618,19 @@ async function expectedFindingId(
   return sha256Prefix(payload, "fnd");
 }
 
+export interface LayerDetail {
+  readonly layerId: string;
+  readonly role: string;
+  readonly side: string;
+}
+
+export interface FindingDetail {
+  readonly findingId: string;
+  readonly ruleId: string;
+  readonly severity: string;
+  readonly title: string;
+}
+
 export interface CrossArtifactEvidence {
   readonly projectId: string;
   readonly profileId: string;
@@ -625,6 +638,8 @@ export interface CrossArtifactEvidence {
   readonly findingIds: ReadonlySet<string>;
   readonly sourceIds: ReadonlySet<string>;
   readonly layerIds: ReadonlySet<string>;
+  readonly layerDetails: readonly LayerDetail[];
+  readonly findingDetails: readonly FindingDetail[];
   readonly summary: ReviewSummary;
 }
 
@@ -707,6 +722,14 @@ export async function validateModels(
       string(record(value, "PROJECT_JSON_INVALID").layer_id, "PROJECT_JSON_INVALID"),
     ),
   );
+  const layerDetails: LayerDetail[] = layerValues.map((value) => {
+    const layer = record(value, "PROJECT_JSON_INVALID");
+    return {
+      layerId: string(layer.layer_id, "PROJECT_JSON_INVALID"),
+      role: string(layer.role, "PROJECT_JSON_INVALID"),
+      side: string(layer.side, "PROJECT_JSON_INVALID"),
+    };
+  });
   const layersById = new Map(
     layerValues.map((value) => {
       const layer = record(value, "PROJECT_JSON_INVALID");
@@ -719,6 +742,7 @@ export async function validateModels(
   const findings = array(review.findings, "FINDINGS_JSON_INVALID");
   const profileSha256 = string(review.profile_sha256, "FINDINGS_JSON_INVALID");
   const findingIds = new Set<string>();
+  const findingDetails: FindingDetail[] = [];
   for (let index = 0; index < findings.length; index += 1) {
     const finding = record(findings[index] as JsonValue, "FINDINGS_JSON_INVALID");
     const referencedLayers = new Set(
@@ -744,6 +768,12 @@ export async function validateModels(
       reject("FINDING_STABLE_ID_MISMATCH");
     }
     findingIds.add(actualId);
+    findingDetails.push({
+      findingId: actualId,
+      ruleId: string(finding.rule_id, "FINDINGS_JSON_INVALID"),
+      severity: string(finding.severity, "FINDINGS_JSON_INVALID"),
+      title: string(finding.title, "FINDINGS_JSON_INVALID"),
+    });
   }
 
   const reviewPolicy = record(
@@ -828,6 +858,8 @@ export async function validateModels(
     ),
     diagnostics,
     disclaimer: string(review.disclaimer, "FINDINGS_JSON_INVALID"),
+    layers: [],
+    findings: [],
   };
   return {
     projectId,
@@ -836,6 +868,8 @@ export async function validateModels(
     findingIds,
     sourceIds,
     layerIds,
+    layerDetails,
+    findingDetails,
     summary,
   };
 }

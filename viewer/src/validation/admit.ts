@@ -1,7 +1,13 @@
-import { type ArtifactPath, COMPLETE_ARTIFACT_PATHS, type ValidationResult } from "../contracts";
+import {
+  type ArtifactPath,
+  COMPLETE_ARTIFACT_PATHS,
+  type ValidationResult,
+  type ViewerFinding,
+  type ViewerLayer,
+} from "../contracts";
 import type { ViewerResourcePolicy } from "../policy";
 import { failureFrom, reject } from "./errors";
-import { parseCanonicalJson } from "./json";
+import { compareUnicodeCodePoints, parseCanonicalJson } from "./json";
 import { validateRunLog } from "./log";
 import { assertSchema } from "./schema";
 import { validateModels } from "./semantics";
@@ -128,7 +134,7 @@ async function admitPayloads(
 
     const evidence = await validateModels(parsedManifest, parsedProject, parsedReview);
     validateReport(reportPayload, evidence);
-    validateSvg(svgPayload, evidence, policy);
+    const svgAdmission = validateSvg(svgPayload, evidence, policy);
     const runLog = validateRunLog(logPayload, policy);
     if (runLog.projectId !== evidence.projectId) {
       reject("RUN_LOG_PROJECT_MISMATCH");
@@ -144,7 +150,47 @@ async function admitPayloads(
         reject("RUN_VARIANCE_LEAKED");
       }
     }
-    return { ok: true, summary: evidence.summary };
+
+    if (
+      svgAdmission.layerGroups.length !== evidence.layerDetails.length ||
+      evidence.layerDetails.some(
+        (detail) =>
+          !svgAdmission.layerGroups.some(
+            (group) =>
+              group.layerId === detail.layerId &&
+              group.role === detail.role &&
+              group.side === detail.side,
+          ),
+      )
+    ) {
+      reject("SVG_LAYER_MISMATCH");
+    }
+    const layers: ViewerLayer[] = svgAdmission.layerGroups
+      .map((group) => ({
+        groupId: group.groupId,
+        layerId: group.layerId,
+        role: group.role,
+        side: group.side,
+      }))
+      .sort((left, right) => {
+        const roleOrder = compareUnicodeCodePoints(left.role, right.role);
+        if (roleOrder !== 0) {
+          return roleOrder;
+        }
+        const sideOrder = compareUnicodeCodePoints(left.side, right.side);
+        return sideOrder === 0 ? compareUnicodeCodePoints(left.layerId, right.layerId) : sideOrder;
+      });
+    const findings: ViewerFinding[] = evidence.findingDetails
+      .map((detail) => ({
+        ...detail,
+        spatial: svgAdmission.spatialFindingIds.has(detail.findingId),
+      }))
+      .sort((left, right) => compareUnicodeCodePoints(left.findingId, right.findingId));
+    return {
+      ok: true,
+      summary: { ...evidence.summary, layers, findings },
+      previewSvg: svgPayload,
+    };
   } catch (error) {
     return failureFrom(error);
   }

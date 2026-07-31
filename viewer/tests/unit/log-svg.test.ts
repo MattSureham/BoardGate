@@ -13,6 +13,8 @@ const evidence: CrossArtifactEvidence = {
   findingIds: new Set(),
   sourceIds: new Set(),
   layerIds: new Set(),
+  layerDetails: [],
+  findingDetails: [],
   summary: {
     projectId: "prj-0000000000000000",
     profileId: "profile",
@@ -30,6 +32,8 @@ const evidence: CrossArtifactEvidence = {
     riskModes: [],
     diagnostics: [],
     disclaimer: "test",
+    layers: [],
+    findings: [],
   },
 };
 
@@ -100,6 +104,123 @@ describe("streaming SVG budgets", () => {
       validateSvg(
         svg('<g data-finding-id="fnd-0000000000000000"/>'),
         evidence,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/Finding identifiers/i);
+  });
+
+  it("extracts well-formed layer groups and rejects malformed or duplicate groups", () => {
+    const admission = validateSvg(
+      svg(
+        '<g id="pcb-layers">' +
+          '<g id="pcb-layer-0001" data-layer-id="lyr-aaaaaaaaaaaaaaaa" ' +
+          'data-layer-role="COPPER" data-layer-side="TOP"/>' +
+          '<g id="pcb-layer-0002" data-layer-id="lyr-bbbbbbbbbbbbbbbb" ' +
+          'data-layer-role="SOLDER_MASK" data-layer-side="BOTTOM"/>' +
+          "</g>",
+      ),
+      evidence,
+      VIEWER_RESOURCE_POLICY,
+    );
+    expect(admission.layerGroups).toEqual([
+      {
+        groupId: "pcb-layer-0001",
+        layerId: "lyr-aaaaaaaaaaaaaaaa",
+        role: "COPPER",
+        side: "TOP",
+      },
+      {
+        groupId: "pcb-layer-0002",
+        layerId: "lyr-bbbbbbbbbbbbbbbb",
+        role: "SOLDER_MASK",
+        side: "BOTTOM",
+      },
+    ]);
+    expect(() =>
+      validateSvg(
+        svg('<g id="pcb-layer-0001" data-layer-id="lyr-aaaaaaaaaaaaaaaa"/>'),
+        evidence,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/layer groups/i);
+    expect(() =>
+      validateSvg(
+        svg(
+          '<g id="pcb-layer-0001" data-layer-id="lyr-aaaaaaaaaaaaaaaa" ' +
+            'data-layer-role="COPPER" data-layer-side="TOP"/>' +
+            '<g id="pcb-layer-0001" data-layer-id="lyr-bbbbbbbbbbbbbbbb" ' +
+            'data-layer-role="COPPER" data-layer-side="BOTTOM"/>',
+        ),
+        evidence,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/layer groups/i);
+    expect(() =>
+      validateSvg(
+        svg(
+          '<g id="pcb-layer-0001" data-layer-id="lyr-aaaaaaaaaaaaaaaa" ' +
+            'data-layer-role="COPPER" data-layer-side="TOP"/>' +
+            '<g id="pcb-layer-0002" data-layer-id="lyr-aaaaaaaaaaaaaaaa" ' +
+            'data-layer-role="COPPER" data-layer-side="BOTTOM"/>',
+        ),
+        evidence,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/layer groups/i);
+  });
+
+  it("classifies Finding markers by section and rejects duplicates or strays", () => {
+    const withFindings: CrossArtifactEvidence = {
+      ...evidence,
+      findingIds: new Set(["fnd-0000000000000000", "fnd-1111111111111111"]),
+    };
+    const valid =
+      '<g id="spatial-findings"><g data-finding-id="fnd-0000000000000000"/></g>' +
+      '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>';
+    const admission = validateSvg(svg(valid), withFindings, VIEWER_RESOURCE_POLICY);
+    expect([...admission.spatialFindingIds]).toEqual(["fnd-0000000000000000"]);
+    expect([...admission.nonSpatialFindingIds]).toEqual(["fnd-1111111111111111"]);
+
+    expect(() =>
+      validateSvg(
+        svg(
+          '<g id="other"><g data-finding-id="fnd-0000000000000000"/></g>' +
+            '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>',
+        ),
+        withFindings,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/Finding identifiers/i);
+    expect(() =>
+      validateSvg(
+        svg(
+          '<g id="spatial-findings"><g data-finding-id="fnd-0000000000000000"/>' +
+            '<g data-finding-id="fnd-0000000000000000"/></g>' +
+            '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>',
+        ),
+        withFindings,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/Finding identifiers/i);
+    expect(() =>
+      validateSvg(
+        svg(
+          '<g id="spatial-findings"><g data-finding-id="fnd-0000000000000000"/></g>' +
+            '<g id="non-spatial-findings"><g data-finding-id="fnd-0000000000000000"/></g>' +
+            '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>',
+        ),
+        withFindings,
+        VIEWER_RESOURCE_POLICY,
+      ),
+    ).toThrow(/Finding identifiers/i);
+    expect(() =>
+      validateSvg(
+        svg(
+          '<circle data-finding-id="fnd-0000000000000000"/>' +
+            '<g id="spatial-findings"><g data-finding-id="fnd-0000000000000000"/></g>' +
+            '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>',
+        ),
+        withFindings,
         VIEWER_RESOURCE_POLICY,
       ),
     ).toThrow(/Finding identifiers/i);

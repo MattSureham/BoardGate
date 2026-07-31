@@ -41,6 +41,8 @@ const ERROR_SUMMARIES = {
   SVG_EXTERNAL_REFERENCE_REJECTED: "The preview attempts to load or link to an external resource.",
   SVG_REVIEW_ID_MISMATCH: "The preview metadata does not match the selected project and profile.",
   SVG_FINDING_ID_MISMATCH: "The preview Finding identifiers do not match findings.json.",
+  SVG_LAYER_GROUP_INVALID: "The preview layer groups are not well-formed unique layer groups.",
+  SVG_LAYER_MISMATCH: "The preview layer groups do not match the project layers.",
   RUN_LOG_TERMINATOR_MISSING: "The structured run log is missing its final newline.",
   RUN_LOG_LINE_INVALID: "The structured run log contains an invalid line.",
   RUN_LOG_EVENT_INVALID: "A structured run-log event does not satisfy its strict public contract.",

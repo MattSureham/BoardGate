@@ -16,6 +16,21 @@ export interface ViewerDiagnostic {
   readonly summary: string;
 }
 
+export interface ViewerLayer {
+  readonly groupId: string;
+  readonly layerId: string;
+  readonly role: string;
+  readonly side: string;
+}
+
+export interface ViewerFinding {
+  readonly findingId: string;
+  readonly ruleId: string;
+  readonly severity: string;
+  readonly title: string;
+  readonly spatial: boolean;
+}
+
 export interface ReviewSummary {
   readonly projectId: string;
   readonly profileId: string;
@@ -33,6 +48,8 @@ export interface ReviewSummary {
   readonly riskModes: readonly string[];
   readonly diagnostics: readonly ViewerDiagnostic[];
   readonly disclaimer: string;
+  readonly layers: readonly ViewerLayer[];
+  readonly findings: readonly ViewerFinding[];
 }
 
 export interface ViewerError {
@@ -44,6 +61,7 @@ export type ValidationResult =
   | {
       readonly ok: true;
       readonly summary: ReviewSummary;
+      readonly previewSvg: string;
     }
   | {
       readonly ok: false;
