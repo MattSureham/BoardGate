@@ -16,7 +16,7 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T01:50:00+08:00`
+- Last updated: `2026-08-03T02:10:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
@@ -309,6 +309,8 @@
     elements, hides HTML comment metadata, and leaves bundle digests and
     remote-request counts unchanged; Python gates passed (559 tests, 89.69%
     branch coverage, Ruff check).`
+  - `[CONFIRMED] GitHub Actions run 30759509309 succeeded at 1c80e61 for all
+    jobs, including viewer-quality and the three-engine viewer-browsers E2E.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -618,7 +620,7 @@ evidence.
   - Python: 559 passed, 89.69% branch coverage; Ruff check passed.
 - Commit: `2149f2d feat(viewer): render validated report with
   deterministic-subset tokenizer` plus the branch-tip HANDOFF documentation
-  commit.
+  commit `1c80e61`; GitHub Actions run 30759509309 succeeded for all jobs.
 - Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
   ISSUE-007, ISSUE-008 — all low, non-blocking.
 - Remaining uncertainty: Two filtered `npx playwright test -g` invocations
