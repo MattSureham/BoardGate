@@ -16,22 +16,22 @@
 
 ## Current State
 
-- Last updated: `2026-07-31T11:05:00+08:00`
+- Last updated: `2026-08-03T01:50:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified implementation parent 31ed334 feat(viewer): render
-  validated SVG with layer toggles and Finding focus.`
+  state follows verified implementation parent 2149f2d feat(viewer): render
+  validated report with deterministic-subset tokenizer.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified parent a2101bf before this round's normal, non-force
+  identical at verified parent 402fe50 before this round's normal, non-force
   push; the branch-tip documentation commit containing this state follows
-  implementation parent 31ed334.`
+  implementation parent 2149f2d.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
-  static Viewer bundle-loader foundation and validated SVG exploration are
-  complete, while validated Markdown report rendering remains
-  unimplemented.`
+  static Viewer is complete through bundle admission, project/status
+  summary, validated SVG exploration, and validated Markdown report
+  rendering.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -187,8 +187,18 @@
     and focuses the marker matching a selected Finding ID with aria-pressed
     state. These interactions only toggle CSS visibility/classes on the
     validated in-memory copy; they never mutate geometry, attributes, or
-    bundle bytes and never re-evaluate review evidence. Markdown report
-    rendering remains unimplemented.`
+    bundle bytes and never re-evaluate review evidence.`
+  - `[CONFIRMED] Viewer resource policy 1.0 additionally bounds report.md at
+    an inclusive 200,000 lines (ARTIFACT_RESOURCE_LIMIT on N+1) before
+    rendering.`
+  - `[CONFIRMED] After admission the viewer renders report.md through a
+    line-oriented tokenizer limited to the deterministic BoardGate report
+    subset (ATX headings up to level four, paragraphs, two-space nested
+    lists, **bold** inline segments, composer backslash escapes reversed);
+    unknown structures degrade to literal paragraphs, HTML comment metadata
+    is not displayed, and all DOM is built with createElement/textContent —
+    no Markdown library and no innerHTML — so report content cannot execute
+    active content.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -288,18 +298,29 @@
   - `[CONFIRMED] GitHub Actions run 30598805829 for commits 31ed334+a3a003b
     initially failed viewer-browsers on one WebKit test, then concluded
     success after a targeted re-run of the failed job; recorded as ISSUE-008.`
+  - `[CONFIRMED] Claude implementation gates on 2026-08-03 for the validated
+    Markdown report rendering slice (2149f2d): Biome check and TypeScript
+    passed; Vitest passed 132 tests with one opt-in private-scale skip at
+    92.66% statements, 87.43% branches, 98.60% functions, and 92.55% lines,
+    inside the configured thresholds; the deterministic build check passed;
+    Playwright passed 27/27 across Chromium, Firefox, and WebKit including a
+    new test proving the rendered report carries Finding IDs and bold status
+    text, contains no script/img/iframe/object/embed/a/form/input/video/audio
+    elements, hides HTML comment metadata, and leaves bundle digests and
+    remote-request counts unchanged; Python gates passed (559 tests, 89.69%
+    branch coverage, Ruff check).`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
-    documented in docs/CAPABILITIES.md. The Phase 11 Viewer now renders the
-    validated preview.svg with layer toggles and Finding-ID focus, but still
-    does not render report.md and provides no API/upload/review/persistence
-    channel.`
-- Working tree: `[CONFIRMED] The validated SVG exploration slice is captured
-  by implementation commit 31ed334; the branch-tip documentation commit
-  containing this state captures the HANDOFF update.`
+    documented in docs/CAPABILITIES.md. The Phase 11 Viewer renders the
+    validated summary, preview.svg, and report.md with layer toggles and
+    Finding-ID focus, but provides no cross-panel Finding navigation and no
+    API/upload/review/persistence channel.`
+- Working tree: `[CONFIRMED] The validated Markdown report rendering slice is
+  captured by implementation commit 2149f2d; the branch-tip documentation
+  commit containing this state captures the HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -523,14 +544,90 @@ the current capabilities.
 
 ## Next Action
 
-Implement Phase 11 validated Markdown report rendering: display report.md
-only after successful bundle admission without a Markdown parser or innerHTML
-(render the deterministic report structure as text or safely tokenized
-elements via createElement/textContent), keep evidence read-only, and prove
-with E2E that rendering never executes active content, mutates bundle bytes,
-or re-evaluates review evidence.
+Implement cross-panel Finding navigation in the offline viewer: activating a
+Finding-ID heading in the rendered report focuses the same preview marker as
+the preview Finding list (one shared selection state, aria-pressed kept in
+sync), preserving read-only evidence, with E2E proving interactions still
+never mutate bundle bytes, issue remote requests, or re-evaluate review
+evidence.
 
 ## Recent Activity
+
+### 2026-08-03T01:50:00+08:00 — Claude — Phase 11 validated report rendering
+
+- Role: primary implementation and verification agent
+- Task: Implement the standing Next Action: display report.md only after
+  successful bundle admission without a Markdown parser or innerHTML, keep
+  evidence read-only, and prove with E2E that rendering never executes active
+  content, mutates bundle bytes, or re-evaluates review evidence.
+- Context inspected:
+  - `BOOTSTRAP.md`, `HANDOFF.md`, ADR 0006, `docs/CAPABILITIES.md`,
+    `src/boardgate/reporting/markdown.py` and `src/boardgate/agent/narrative.py`
+    (the complete deterministic Markdown subset: ATX headings levels 1–4, two-
+    space nested lists, paragraphs, `**bold**` status/Finding lines, composer
+    backslash escapes, HTML comment metadata), the existing viewer validation
+    and UI stack, and a freshly generated copper_too_close_to_edge report
+    (whose overall status is READY_FOR_REVIEW because its findings are HIGH,
+    not BLOCKER).
+- Actions performed:
+  - Added `maxReportLines: 200_000` to viewer resource policy 1.0 (viewer-
+    internal policy; never serialized into artifacts) and enforced it
+    fail-closed in `validateReport` with ARTIFACT_RESOURCE_LIMIT on N+1,
+    counted without splitting the payload.
+  - Extended the validation success contract with `reportMarkdown` and wired
+    it through `admit.ts`; the worker passes results through unchanged.
+  - Added `viewer/src/report.ts`: a total, line-oriented tokenizer for the
+    deterministic report subset (headings 1–4, paragraphs, nested lists with
+    depth clamped to four, `**bold**` segments with balanced-marker
+    fail-safe, composer punctuation unescape); HTML comment lines and blank
+    lines produce no blocks; unknown structures become literal paragraphs.
+  - Added `renderReport` to `main.ts` (createElement/textContent only;
+    headings shifted one level under the section heading; bold as
+    `<strong>`), a hidden `report` section cleared on load/error/dispose,
+    and report styles in `style.css`.
+  - Added unit tests for the tokenizer and the report line budget, extended
+    admission tests for the `reportMarkdown` payload, and added a three-engine
+    E2E test proving the rendered report shows Finding IDs and bold status,
+    hides HTML comment metadata, contains zero
+    script/img/iframe/object/embed/a/form/input/video/audio elements, and
+    leaves bundle digests and remote-request counts unchanged.
+  - Updated the viewer claims in `README.md`, `README.zh-CN.md`, and
+    `docs/CAPABILITIES.md` (capability row, policy table, admission
+    epilogue).
+- Files modified:
+  - `viewer/src/policy.ts`, `viewer/src/contracts.ts`, `viewer/src/report.ts`,
+    `viewer/src/main.ts`, `viewer/src/style.css`,
+    `viewer/src/validation/admit.ts`, `viewer/src/validation/text.ts`,
+    `viewer/tests/unit/report.test.ts`, `viewer/tests/unit/log-svg.test.ts`,
+    `viewer/tests/unit/admit.test.ts`, `viewer/tests/e2e/viewer.spec.ts`,
+    `viewer/boardgate-viewer.html` (rebuilt deterministic artifact),
+    `README.md`, `README.zh-CN.md`, `docs/CAPABILITIES.md`, `HANDOFF.md`
+- Commands run:
+  - `npm run format` / `npm run check` / `npm run typecheck`
+  - `npm run test:coverage` / `npm run build` / `npm run build:check`
+  - `npm run test:e2e`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+  - `uv run ruff check .`
+  - `uv run pcb-review inspect tests/fixtures/copper_too_close_to_edge ...`
+    to verify real report markup before writing assertions
+- Tests:
+  - Viewer: 132 passed, 1 skipped (opt-in private-scale); 92.66% statements,
+    87.43% branches, 98.60% functions, 92.55% lines — all thresholds met;
+    deterministic build check passed with matching CSP hashes.
+  - E2E: 27/27 passed across Chromium, Firefox, and WebKit.
+  - Python: 559 passed, 89.69% branch coverage; Ruff check passed.
+- Commit: `2149f2d feat(viewer): render validated report with
+  deterministic-subset tokenizer` plus the branch-tip HANDOFF documentation
+  commit.
+- Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
+  ISSUE-007, ISSUE-008 — all low, non-blocking.
+- Remaining uncertainty: Two filtered `npx playwright test -g` invocations
+  failed during collection with a spurious schema-validators require error
+  while the full suite passed cleanly before and after; treated as a runner
+  invocation fluke, not product code. The private-scale opt-in test still
+  requires a large local bundle to run.
+- Recommended next action: Implement cross-panel Finding navigation (see Next
+  Action).
 
 ### 2026-07-31T11:05:00+08:00 — Claude — Recovery and CI flake triage
 
