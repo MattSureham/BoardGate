@@ -10,6 +10,7 @@ import {
   type WorkerTransferFile,
 } from "./contracts";
 import { VIEWER_RESOURCE_POLICY } from "./policy";
+import { type ReportInline, tokenizeReport } from "./report";
 import { normalizeSelectedFiles, SelectionError } from "./selection";
 import "./style.css";
 
@@ -39,6 +40,7 @@ export interface ViewerElements {
   readonly status: HTMLElement;
   readonly summary: HTMLElement;
   readonly preview: HTMLElement;
+  readonly report: HTMLElement;
   readonly error: HTMLElement;
 }
 
@@ -264,6 +266,47 @@ export function renderPreview(
   return true;
 }
 
+function appendInline(parent: HTMLElement, inline: readonly ReportInline[]): void {
+  for (const segment of inline) {
+    if (segment.bold) {
+      const strong = document.createElement("strong");
+      strong.textContent = segment.text;
+      parent.append(strong);
+    } else {
+      parent.append(document.createTextNode(segment.text));
+    }
+  }
+}
+
+export function renderReport(section: HTMLElement, reportMarkdown: string): void {
+  const heading = document.createElement("h2");
+  heading.textContent = "Validated report";
+  const content = document.createElement("div");
+  content.className = "report-content";
+  for (const block of tokenizeReport(reportMarkdown)) {
+    if (block.kind === "heading") {
+      const element = document.createElement(`h${Math.min(block.level + 1, 6)}`);
+      appendInline(element, block.inline);
+      content.append(element);
+    } else if (block.kind === "paragraph") {
+      const element = document.createElement("p");
+      appendInline(element, block.inline);
+      content.append(element);
+    } else {
+      const element = document.createElement("ul");
+      element.className = "report-list";
+      for (const item of block.items) {
+        const entry = document.createElement("li");
+        entry.className = `report-item-depth-${item.depth}`;
+        appendInline(entry, item.inline);
+        element.append(entry);
+      }
+      content.append(element);
+    }
+  }
+  section.replaceChildren(heading, content);
+}
+
 export class ViewerController {
   readonly #elements: ViewerElements;
   readonly #workerSource: string;
@@ -296,6 +339,8 @@ export class ViewerController {
     this.#elements.summary.replaceChildren();
     this.#elements.preview.replaceChildren();
     this.#elements.preview.hidden = true;
+    this.#elements.report.replaceChildren();
+    this.#elements.report.hidden = true;
   }
 
   async load(files: Iterable<File>): Promise<void> {
@@ -303,6 +348,8 @@ export class ViewerController {
     this.#elements.summary.replaceChildren();
     this.#elements.preview.replaceChildren();
     this.#elements.preview.hidden = true;
+    this.#elements.report.replaceChildren();
+    this.#elements.report.hidden = true;
     this.#elements.error.replaceChildren();
     this.#elements.error.hidden = true;
     this.#elements.status.textContent = "Validating selected bundle…";
@@ -347,13 +394,15 @@ export class ViewerController {
       }
       this.#finishActive();
       if (event.data.result.ok) {
-        const { summary, previewSvg } = event.data.result;
+        const { summary, previewSvg, reportMarkdown } = event.data.result;
         renderSummary(this.#elements.summary, summary);
         if (!renderPreview(this.#elements.preview, previewSvg, summary)) {
           this.#showError(INTERNAL_ERROR);
           return;
         }
+        renderReport(this.#elements.report, reportMarkdown);
         this.#elements.preview.hidden = false;
+        this.#elements.report.hidden = false;
         this.#elements.status.textContent = "Bundle validation complete.";
         this.#elements.status.dataset.state = "ready";
       } else {
@@ -435,6 +484,8 @@ export class ViewerController {
     this.#elements.summary.replaceChildren();
     this.#elements.preview.replaceChildren();
     this.#elements.preview.hidden = true;
+    this.#elements.report.replaceChildren();
+    this.#elements.report.hidden = true;
     this.#elements.status.textContent = "Review unavailable.";
     this.#elements.status.dataset.state = "error";
     const code = document.createElement("code");
@@ -505,12 +556,16 @@ export function createViewerApplication(root: HTMLElement): ViewerController {
   preview.className = "preview";
   preview.hidden = true;
 
+  const report = document.createElement("section");
+  report.className = "report";
+  report.hidden = true;
+
   const footer = document.createElement("footer");
   footer.textContent = `Viewer ${__BOARDGATE_VIEWER_VERSION__} · Evidence remains read-only.`;
 
-  root.append(header, controls, state, preview, footer);
+  root.append(header, controls, state, preview, report, footer);
   const controller = new ViewerController(
-    { input, chooseButton, status, summary, preview, error },
+    { input, chooseButton, status, summary, preview, report, error },
     __BOARDGATE_WORKER_SOURCE__,
   );
   controller.start();

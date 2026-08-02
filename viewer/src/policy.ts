@@ -10,6 +10,7 @@ export interface ViewerResourcePolicy {
   readonly maxSvgAttributes: number;
   readonly maxJsonlLineBytes: number;
   readonly maxJsonlEvents: number;
+  readonly maxReportLines: number;
   readonly workerDeadlineMs: number;
 }
 
@@ -32,5 +33,6 @@ export const VIEWER_RESOURCE_POLICY: ViewerResourcePolicy = Object.freeze({
   maxSvgAttributes: 2_000_000,
   maxJsonlLineBytes: 1 * MEBIBYTE,
   maxJsonlEvents: 10_000,
+  maxReportLines: 200_000,
   workerDeadlineMs: 60_000,
 });

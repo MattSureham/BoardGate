@@ -307,10 +307,28 @@ describe("untrusted report checks", () => {
       "<!-- boardgate-project-id: prj-0000000000000000 -->\n" +
       `<!-- boardgate-profile-sha256: ${"0".repeat(64)} -->\n` +
       "Finding fnd-0000000000000000\n";
-    expect(() => validateReport(report, withFinding)).not.toThrow();
+    expect(() => validateReport(report, withFinding, VIEWER_RESOURCE_POLICY)).not.toThrow();
     expect(() =>
-      validateReport(report.replace("fnd-0000000000000000", "omitted"), withFinding),
+      validateReport(
+        report.replace("fnd-0000000000000000", "omitted"),
+        withFinding,
+        VIEWER_RESOURCE_POLICY,
+      ),
     ).toThrow(/Finding identifiers/i);
-    expect(() => validateReport(`${report}\u0000`, withFinding)).toThrow(/metadata/i);
+    expect(() => validateReport(`${report}\u0000`, withFinding, VIEWER_RESOURCE_POLICY)).toThrow(
+      /metadata/i,
+    );
+  });
+
+  it("allows the exact line budget and rejects line N+1 before content checks", () => {
+    const budget = { ...VIEWER_RESOURCE_POLICY, maxReportLines: 3 };
+    const report =
+      "<!-- boardgate-project-id: prj-0000000000000000 -->\n" +
+      `<!-- boardgate-profile-sha256: ${"0".repeat(64)} -->\n`;
+    expect(() => validateReport(report, evidence, budget)).not.toThrow();
+    expect(() => validateReport(`${report}extra\n`, evidence, budget)).toThrow(/resource policy/i);
+    expect(() =>
+      validateReport(`${report}extra\n`, evidence, VIEWER_RESOURCE_POLICY),
+    ).not.toThrow();
   });
 });

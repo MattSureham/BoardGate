@@ -62,6 +62,7 @@ export type ValidationResult =
       readonly ok: true;
       readonly summary: ReviewSummary;
       readonly previewSvg: string;
+      readonly reportMarkdown: string;
     }
   | {
       readonly ok: false;

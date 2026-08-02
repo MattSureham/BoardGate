@@ -1,3 +1,4 @@
+import type { ViewerResourcePolicy } from "../policy";
 import { reject } from "./errors";
 import type { CrossArtifactEvidence } from "./semantics";
 
@@ -10,7 +11,24 @@ function matches(pattern: RegExp, value: string): string[] {
   return Array.from(value.matchAll(pattern), (match) => match[1] as string);
 }
 
-export function validateReport(report: string, evidence: CrossArtifactEvidence): void {
+function countLines(report: string): number {
+  let lines = report.length === 0 ? 0 : 1;
+  for (let index = 0; index < report.length; index += 1) {
+    if (report.charCodeAt(index) === 10) {
+      lines += 1;
+    }
+  }
+  return lines;
+}
+
+export function validateReport(
+  report: string,
+  evidence: CrossArtifactEvidence,
+  policy: ViewerResourcePolicy,
+): void {
+  if (countLines(report) > policy.maxReportLines) {
+    reject("ARTIFACT_RESOURCE_LIMIT");
+  }
   if (
     report.includes("\u0000") ||
     matches(REPORT_PROJECT_ID, report).length !== 1 ||

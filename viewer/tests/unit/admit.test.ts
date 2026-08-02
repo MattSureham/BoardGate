@@ -73,6 +73,10 @@ describe("bundle admission", () => {
     ]);
     expect(accepted.summary.findings).toEqual([]);
     expect(accepted.previewSvg).toContain(`data-project-id="${accepted.summary.projectId}"`);
+    expect(accepted.reportMarkdown).toContain("# PCB Manufacturing Review");
+    expect(accepted.reportMarkdown).toContain(
+      `<!-- boardgate-project-id: ${accepted.summary.projectId} -->`,
+    );
 
     const spatial = generateValidBundle("copper_too_close_to_edge");
     try {

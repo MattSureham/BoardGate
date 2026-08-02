@@ -446,3 +446,35 @@ test("renders an empty Finding list for a clean review", async ({ page }) => {
   await expect(page.locator('.layer-toggles input[type="checkbox"]')).toHaveCount(3);
   await expect(page.locator(".finding-list")).toContainText("No findings recorded");
 });
+
+test("renders the validated report as inert structured text", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_SPATIAL_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+
+  const remoteRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/^(?:https?|wss?):/u.test(request.url())) {
+      remoteRequests.push(request.url());
+    }
+  });
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+
+  const report = page.locator(".report-content");
+  await expect(page.getByRole("heading", { name: "Validated report" })).toBeVisible();
+  await expect(report.getByRole("heading", { name: "PCB Manufacturing Review" })).toBeVisible();
+  await expect(report.getByRole("heading", { name: "Blockers" })).toBeVisible();
+  await expect(report.locator("strong", { hasText: "READY_FOR_REVIEW" })).toHaveCount(1);
+  await expect(report.getByText(/fnd-[0-9a-f]{16}/u).first()).toBeVisible();
+  await expect(report.getByText(/boardgate-project-id/u)).toHaveCount(0);
+  expect(
+    await report
+      .locator("script, img, iframe, object, embed, a, form, input, video, audio")
+      .count(),
+  ).toBe(0);
+
+  expect(remoteRequests).toEqual([]);
+  expect(bundleDigests(bundle)).toEqual(before);
+});

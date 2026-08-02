@@ -28,6 +28,7 @@ function assertPolicy(policy: ViewerResourcePolicy): void {
     !Number.isSafeInteger(policy.maxSvgAttributes) ||
     !Number.isSafeInteger(policy.maxJsonlLineBytes) ||
     !Number.isSafeInteger(policy.maxJsonlEvents) ||
+    !Number.isSafeInteger(policy.maxReportLines) ||
     !Number.isSafeInteger(policy.workerDeadlineMs) ||
     Object.values(policy.maxArtifactBytes).some(
       (limit) => !Number.isSafeInteger(limit) || limit < 1,
@@ -40,6 +41,7 @@ function assertPolicy(policy: ViewerResourcePolicy): void {
       policy.maxSvgAttributes,
       policy.maxJsonlLineBytes,
       policy.maxJsonlEvents,
+      policy.maxReportLines,
       policy.workerDeadlineMs,
     ].some((limit) => limit < 1)
   ) {
@@ -133,7 +135,7 @@ async function admitPayloads(
     assertSchema("findings", parsedReview.value, "FINDINGS_JSON_INVALID");
 
     const evidence = await validateModels(parsedManifest, parsedProject, parsedReview);
-    validateReport(reportPayload, evidence);
+    validateReport(reportPayload, evidence, policy);
     const svgAdmission = validateSvg(svgPayload, evidence, policy);
     const runLog = validateRunLog(logPayload, policy);
     if (runLog.projectId !== evidence.projectId) {
@@ -190,6 +192,7 @@ async function admitPayloads(
       ok: true,
       summary: { ...evidence.summary, layers, findings },
       previewSvg: svgPayload,
+      reportMarkdown: reportPayload,
     };
   } catch (error) {
     return failureFrom(error);
