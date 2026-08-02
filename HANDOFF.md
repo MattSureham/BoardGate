@@ -16,7 +16,7 @@
 
 ## Current State
 
-- Last updated: `2026-07-31T10:30:00+08:00`
+- Last updated: `2026-07-31T11:05:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
@@ -285,6 +285,9 @@
     focus non-spatial markers, and clean reviews render an empty Finding
     list; Python gates passed (559 tests, 89.69% branch coverage, Ruff
     format/check, mypy).`
+  - `[CONFIRMED] GitHub Actions run 30598805829 for commits 31ed334+a3a003b
+    initially failed viewer-browsers on one WebKit test, then concluded
+    success after a targeted re-run of the failed job; recorded as ISSUE-008.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -303,6 +306,42 @@ how the repository reached that state and must not be required to understand
 the current capabilities.
 
 ## Active Issues
+
+### ISSUE-008 — WebKit E2E replacement-selection flake in CI
+
+- Status: OPEN
+- Severity: low
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: GitHub Actions run 30598805829 (validated SVG exploration push,
+  commits 31ed334+a3a003b) initially failed the viewer-browsers job: the
+  WebKit project of test "clears admitted evidence before rejecting a
+  replacement selection" exceeded the 90-second timeout waiting for the
+  "Review unavailable." status after a replacement directory selection, even
+  though the first admission inside that test had succeeded. 23/24 E2E tests
+  and all seven other jobs passed.
+- Evidence: Failed-job log shows `toBeVisible()` on "Review unavailable."
+  unresolved for the full 90 s; the failing path (SelectionError → showError)
+  is synchronous in `viewer/src/main.ts` and every error branch renders that
+  status, indicating the change handler likely never executed. No failure
+  artifacts were uploaded by the workflow.
+- Suspected cause: WebKit/Playwright runner flake under CI load (the same
+  job's first WebKit test took 4.8 s versus 418 ms on Chromium); not yet
+  reproduced as a code defect.
+- Attempted approaches: Locally re-ran the identical WebKit test 5 times
+  against the same build — all passed in ~0.4 s each; re-ran the failed CI
+  job via `gh run rerun 30598805829 --failed` — the job and run then
+  succeeded.
+- Current resolution state: Transient; CI run 30598805829 concludes success
+  after re-run. No code change applied. Recurrence should be treated as a
+  signal to investigate WebKit worker/change-event timing rather than
+  re-run blindly.
+- Remaining work: If the flake recurs, add workflow artifact upload for
+  Playwright failure context (trace/error-context) so the page state at
+  timeout is inspectable.
+- Relevant files: `viewer/tests/e2e/viewer.spec.ts`,
+  `viewer/src/main.ts`, `.github/workflows/ci.yml`
+- Blocking: No.
 
 ### ISSUE-001 — Gerbonara provenance granularity
 
@@ -492,6 +531,42 @@ with E2E that rendering never executes active content, mutates bundle bytes,
 or re-evaluates review evidence.
 
 ## Recent Activity
+
+### 2026-07-31T11:05:00+08:00 — Claude — Recovery and CI flake triage
+
+- Role: takeover implementation/review agent
+- Task: Recover project state per BOOTSTRAP, cross-check HANDOFF against the
+  repository, and resolve the CI signal from the previous round before new
+  implementation.
+- Actions performed:
+  - Read BOOTSTRAP.md and HANDOFF.md; confirmed PROJECT_SPEC.md has never
+    existed in this repository (`ls`, `git log --all -- PROJECT_SPEC.md`) and
+    that ADRs 0001–0006 plus docs/CAPABILITIES.md carry the specification
+    role.
+  - Verified working tree clean at a3a003b with main == origin/main;
+    spot-checked viewer source against HANDOFF Current State claims.
+  - Investigated failed Actions run 30598805829 viewer-browsers job (one
+    WebKit timeout on a pre-existing replacement-selection test): confirmed
+    the failing path is synchronous in main.ts, reproduced nothing locally
+    (5/5 WebKit passes against the same build), and re-ran the failed job —
+    run now concludes success.
+  - Recorded the flake as ISSUE-008 (low, non-blocking) with a remaining-work
+    note to upload Playwright failure artifacts if it recurs.
+- Files modified:
+  - `HANDOFF.md`
+- Commands run:
+  - `gh run view 30598805829 --log-failed`
+  - `npx playwright test --project=webkit -g "clears admitted evidence"
+    --repeat-each=5` (5 passed)
+  - `gh run rerun 30598805829 --failed` then `gh run watch` (success)
+- Tests: No code changed; local WebKit re-run 5/5 and CI re-run success are
+  the verification evidence.
+- Commit: the branch-tip documentation commit containing this entry.
+- Issues created or updated: ISSUE-008 created (OPEN, low).
+- Remaining uncertainty: Root cause of the WebKit stall is unproven; treated
+  as a runner flake pending recurrence.
+- Recommended next action: Implement Phase 11 validated Markdown report
+  rendering (see Next Action).
 
 ### 2026-07-31T10:30:00+08:00 — Claude — Phase 11 validated SVG exploration
 
