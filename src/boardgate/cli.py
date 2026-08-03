@@ -10,6 +10,10 @@ import click
 from boardgate import __version__
 from boardgate.application import (
     FailOn,
+    GenerationExecutionError,
+    GenerationPublicationError,
+    GenerationRun,
+    GenerationService,
     ModificationExecutionError,
     ModificationInputError,
     ModificationPublicationError,
@@ -26,6 +30,10 @@ from boardgate.application.output import (
     resolve_output_directory,
 )
 from boardgate.application.review_service import reject_output_input_overlap
+from boardgate.authoring.generation_request import (
+    GenerationRequestError,
+    load_generation_request,
+)
 from boardgate.authoring.request import (
     ModificationRequestError,
     load_modification_request,
@@ -56,6 +64,7 @@ def _raise_click_error(error: Exception) -> NoReturn:
         error,
         (
             IngestionError,
+            GenerationRequestError,
             ModificationInputError,
             ModificationRequestError,
             OutputError,
@@ -64,9 +73,9 @@ def _raise_click_error(error: Exception) -> NoReturn:
         ),
     ):
         raise _UserInputError(str(error)) from error
-    if isinstance(error, ModificationExecutionError):
+    if isinstance(error, (GenerationExecutionError, ModificationExecutionError)):
         raise _PipelineError(str(error)) from error
-    if isinstance(error, ModificationPublicationError):
+    if isinstance(error, (GenerationPublicationError, ModificationPublicationError)):
         raise _InternalError(str(error)) from error
     if isinstance(error, ReviewPublicationError):
         raise _InternalError(str(error)) from error
@@ -88,6 +97,14 @@ def _emit_modification_summary(run: ModificationRun) -> None:
     click.echo(
         f"Revision {run.revision_id}: {run.base_project_id} -> "
         f"{run.output_project_id}; validation {run.overall_status.value}; "
+        f"workspace written to {run.output_path}"
+    )
+
+
+def _emit_generation_summary(run: GenerationRun) -> None:
+    click.echo(
+        f"Generation {run.generation_id}: {run.output_project_id}; "
+        f"validation {run.overall_status.value}; "
         f"workspace written to {run.output_path}"
     )
 
@@ -281,5 +298,70 @@ def modify(
     except Exception as error:  # pragma: no cover - defensive CLI boundary
         _raise_click_error(error)
     _emit_modification_summary(run)
+    if run.exit_code is not ReviewExitCode.SUCCESS:
+        raise click.exceptions.Exit(run.exit_code)
+
+
+@main.command()
+@click.option(
+    "--request",
+    "request_path",
+    required=True,
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Strict JSON generation requirements for one supported generator.",
+)
+@click.option(
+    "--rules",
+    "rules_path",
+    required=True,
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Explicit YAML or JSON manufacturing rule profile for validation.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    required=True,
+    type=click.Path(path_type=Path, file_okay=False),
+    help="Atomic revision workspace; never contains the control files.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Atomically replace an existing non-empty revision workspace.",
+)
+def generate(
+    request_path: Path,
+    rules_path: Path,
+    output_path: Path,
+    *,
+    overwrite: bool,
+) -> None:
+    """Emit one supported deterministic design, then independently review it."""
+    try:
+        preflight_output(output_path, overwrite=overwrite)
+        reject_output_input_overlap(
+            (request_path, rules_path),
+            output_path,
+        )
+        request = load_generation_request(request_path)
+        profile = load_rule_profile(rules_path)
+        run = GenerationService().generate(
+            request,
+            profile,
+            output_path,
+            overwrite=overwrite,
+        )
+    except (
+        GenerationExecutionError,
+        GenerationPublicationError,
+        GenerationRequestError,
+        OSError,
+        OutputError,
+        RuleProfileError,
+    ) as error:
+        _raise_click_error(error)
+    except Exception as error:  # pragma: no cover - defensive CLI boundary
+        _raise_click_error(error)
+    _emit_generation_summary(run)
     if run.exit_code is not ReviewExitCode.SUCCESS:
         raise click.exceptions.Exit(run.exit_code)

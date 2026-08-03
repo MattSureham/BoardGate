@@ -8,12 +8,11 @@ import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from boardgate import __version__
 from boardgate.application.artifacts import (
     COMPLETE_ARTIFACT_PATHS,
-    CompleteArtifactBundle,
     validate_artifact_bundle,
 )
 from boardgate.application.modification_registry import (
@@ -35,6 +34,17 @@ from boardgate.application.review_service import (
     ReviewService,
     reject_output_input_overlap,
 )
+from boardgate.application.revision_workspace import (
+    DESIGN_DIRECTORY,
+    REQUEST_ARTIFACT,
+    RESULT_ARTIFACT,
+    VALIDATION_DIRECTORY,
+    canonical_artifact,
+    load_validation_bundle,
+    logical_destination,
+    parent_directories,
+    workspace_inventory,
+)
 from boardgate.authoring.excellon import (
     AuthoringOperationError,
     scan_excellon_tool_definitions,
@@ -55,16 +65,10 @@ from boardgate.config.models import RuleProfile
 from boardgate.domain.enums import FileType, ReviewStatus
 from boardgate.domain.identifiers import project_id, source_file_id
 from boardgate.domain.project import PCBProject
-from boardgate.domain.serialization import canonical_json
 from boardgate.domain.source import ProjectManifest, SourceFile
 from boardgate.ingestion import build_manifest, discover_inputs
 from boardgate.ingestion.discovery import DiscoveredFile, DiscoveredProject
 from boardgate.rules.models import ReviewResult
-
-DESIGN_DIRECTORY = "design"
-REQUEST_ARTIFACT = "evidence/request.json"
-RESULT_ARTIFACT = "evidence/result.json"
-VALIDATION_DIRECTORY = "validation"
 
 _AUTHORING_PAYLOAD_FILE_TYPES = frozenset(
     {
@@ -131,10 +135,6 @@ class ModificationRun:
     output_path: Path
 
 
-def _logical_destination(root: Path, logical_path: str) -> Path:
-    return root.joinpath(*PurePosixPath(logical_path).parts)
-
-
 def _source_by_path(manifest: ProjectManifest, logical_path: str) -> SourceFile:
     matches = tuple(
         source
@@ -174,7 +174,7 @@ def _copy_design(
     changed_payload: bytes,
 ) -> None:
     for item in discovered.files:
-        target = _logical_destination(destination, item.logical_path)
+        target = logical_destination(destination, item.logical_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         if item.logical_path == changed_path:
             target.write_bytes(changed_payload)
@@ -182,48 +182,9 @@ def _copy_design(
             shutil.copyfile(item.staged_path, target)
 
 
-def _load_validation_bundle(root: Path) -> CompleteArtifactBundle:
-    files: dict[str, str] = {}
-    for logical_path in COMPLETE_ARTIFACT_PATHS:
-        path = root / VALIDATION_DIRECTORY / logical_path
-        files[logical_path] = path.read_text(encoding="utf-8")
-    return CompleteArtifactBundle.from_files(files)
-
-
-def _canonical_artifact(model: ModificationRequest | ModificationResult) -> str:
-    return f"{canonical_json(model)}\n"
-
-
-def _workspace_inventory(root: Path) -> tuple[set[str], set[str]]:
-    if root.is_symlink() or not root.is_dir():
-        raise ValueError("revision workspace root must be a regular directory")
-    files: set[str] = set()
-    directories: set[str] = set()
-    for path in root.rglob("*"):
-        logical_path = path.relative_to(root).as_posix()
-        if path.is_symlink():
-            raise ValueError("revision workspace must not contain symbolic links")
-        if path.is_file():
-            files.add(logical_path)
-        elif path.is_dir():
-            directories.add(logical_path)
-        else:
-            raise ValueError("revision workspace contains a non-regular node")
-    return files, directories
-
-
-def _parent_directories(logical_paths: set[str]) -> set[str]:
-    return {
-        parent.as_posix()
-        for logical_path in logical_paths
-        for parent in PurePosixPath(logical_path).parents
-        if parent.as_posix() != "."
-    }
-
-
 def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
     """Validate exact revision inventory, hashes, identities, and nested review."""
-    actual_files, actual_directories = _workspace_inventory(root)
+    actual_files, actual_directories = workspace_inventory(root)
     if not {REQUEST_ARTIFACT, RESULT_ARTIFACT}.issubset(actual_files):
         raise ValueError("revision workspace is missing canonical evidence")
     request_path = root / REQUEST_ARTIFACT
@@ -234,9 +195,9 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
     result = ModificationResult.model_validate_json(
         result_path.read_text(encoding="utf-8")
     )
-    if request_path.read_text(encoding="utf-8") != _canonical_artifact(request):
+    if request_path.read_text(encoding="utf-8") != canonical_artifact(request):
         raise ValueError("request artifact is not canonical")
-    if result_path.read_text(encoding="utf-8") != _canonical_artifact(result):
+    if result_path.read_text(encoding="utf-8") != canonical_artifact(result):
         raise ValueError("result artifact is not canonical")
 
     expected_files = {
@@ -248,7 +209,7 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
             for logical_path in COMPLETE_ARTIFACT_PATHS
         ),
     }
-    if actual_files != expected_files or actual_directories != _parent_directories(
+    if actual_files != expected_files or actual_directories != parent_directories(
         expected_files
     ):
         raise ValueError("revision workspace inventory is inconsistent")
@@ -309,7 +270,7 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         raise ValueError("revision_id is inconsistent with canonical evidence")
 
     for item in result.payload_files:
-        path = _logical_destination(root / DESIGN_DIRECTORY, item.logical_path)
+        path = logical_destination(root / DESIGN_DIRECTORY, item.logical_path)
         payload = path.read_bytes()
         if len(payload) != item.after_size_bytes:
             raise ValueError("design payload size does not match result evidence")
@@ -334,7 +295,7 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     "operation token evidence does not match the design payload"
                 )
 
-    bundle = _load_validation_bundle(root)
+    bundle = load_validation_bundle(root)
     validate_artifact_bundle(bundle)
     validation_manifest = ProjectManifest.model_validate_json(bundle.manifest_json)
     validation_project = PCBProject.model_validate_json(bundle.project_json)
@@ -535,7 +496,7 @@ class ModificationService:
                             source.logical_path,
                             "independent review did not produce a trustworthy result",
                         )
-                    validation_bundle = _load_validation_bundle(staging)
+                    validation_bundle = load_validation_bundle(staging)
                     validation_review = ReviewResult.model_validate_json(
                         validation_bundle.findings_json
                     )
@@ -601,12 +562,12 @@ class ModificationService:
                     result_artifact = staging / RESULT_ARTIFACT
                     request_artifact.parent.mkdir(parents=True, exist_ok=True)
                     request_artifact.write_text(
-                        _canonical_artifact(request),
+                        canonical_artifact(request),
                         encoding="utf-8",
                         newline="\n",
                     )
                     result_artifact.write_text(
-                        _canonical_artifact(result),
+                        canonical_artifact(result),
                         encoding="utf-8",
                         newline="\n",
                     )
