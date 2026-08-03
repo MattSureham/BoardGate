@@ -132,6 +132,18 @@ by that run's explicit review profile rather than guaranteed by the writer;
 the revision workspace layout and publication rules are identical to
 modification.
 
+Authoring plans are strict JSON capped at an inclusive 1 MiB with a
+checked-in Draft 2020-12 Schema. An `AuthoringPlan` 1.0 names exactly one
+registered operation kind/version, carries the canonical request and
+structured-operation digests, and binds a separate authorization digest
+derived from the approver identity, the pinned non-guarantee statement, and
+the request digest. Deterministic admission recomputes every digest and
+performs no I/O: reworded instruction or rationale prose changes no admitted
+identity, unknown kind/version pairs are rejected without fallback, and an
+admitted plan executes only by passing its bound request through the
+unchanged modification or generation service with its fresh independent
+review.
+
 ## Offline viewer admission policy
 
 The Phase 11 loader is distributed separately as

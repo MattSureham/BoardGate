@@ -351,6 +351,17 @@ blocker 时如实发布并返回 1。
 如实产生 blocker。两个 coupon 操作都不支持槽孔、via、非圆孔、任意布线或
 通用 EDA authoring。
 
+## 类型化 Authoring Plan
+
+Agent 或工具可以用一份 `AuthoringPlan` 1.0 JSON 文档（带已检入的
+Draft 2020-12 Schema，上限为含边界的 1 MiB）绑定任一 authoring 能力。
+Plan 只命名一个已注册的操作 kind/version，携带规范化请求与结构化操作的
+digest，并要求一个由批准人、固定的不保证制造性声明文本与请求 digest
+共同派生的独立授权 digest。确定性的 admission 会重新计算全部 digest 且
+不执行任何 I/O：instruction 或 rationale 的措辞无法改变任何已承认的
+身份，未知的 kind/version 会被无回退地拒绝，已承认的 plan 只能经由上述
+未改写的服务及其全新的独立审查执行。
+
 ## 离线审查 Viewer
 
 独立分发的

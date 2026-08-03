@@ -380,6 +380,19 @@ them and may truthfully publish blockers. Slots, vias, non-round holes,
 arbitrary routing, and general-purpose EDA authoring remain outside both
 coupon operations.
 
+## Typed authoring plans
+
+An agent or tool may bind either authoring capability to an `AuthoringPlan`
+1.0 JSON document (checked-in Draft 2020-12 schema, inclusive 1 MiB cap). A
+plan names exactly one registered operation kind/version, carries the
+canonical request and structured-operation digests, and requires a separate
+authorization digest derived from the approver, a pinned non-guarantee
+statement, and the request digest. Deterministic admission recomputes every
+digest without performing I/O: instruction or rationale prose cannot change
+any admitted identity, unknown kind/version pairs are rejected without
+fallback, and an admitted plan executes only through the unchanged services
+above with their fresh independent review.
+
 ## Offline review viewer
 
 The separately distributed

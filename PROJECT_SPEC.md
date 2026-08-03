@@ -299,6 +299,14 @@ separate from deterministic evidence.
 - **Implemented:** the first exact registered extension,
   `generate_two_layer_coupon_with_npth/1.0`, adds separately emitted and
   validated plated and non-plated round-hole sets.
+- **Implemented:** the typed authoring-plan admission boundary admits exactly
+  one registered modification or generation kind/version through
+  `AuthoringPlan`/`PlanAuthorization` 1.0 contracts, a checked-in Draft
+  2020-12 Schema, bounded duplicate-safe plan JSON loading, and deterministic
+  admission that recomputes the request and structured-operation digests plus
+  a separate approver-bound authorization digest. Plan prose cannot execute,
+  alter operation fields, select unknown versions, suppress fresh review, or
+  write design bytes directly.
 - Add more registered operations and native EDA adapters only with round-trip
   evidence.
 - Permit agents to propose typed plans, with explicit approval and deterministic
