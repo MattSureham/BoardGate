@@ -16,17 +16,18 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T09:40:00+08:00`
+- Last updated: `2026-08-03T10:36:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified implementation parent eb4af61 feat(viewer):
-  synchronize Finding selection across report and preview.`
+  state follows verified implementation commits fcf6be3 fix(svg): enforce
+  passive preview vocabulary and 6360bb5 ci(viewer): retain Playwright
+  failure evidence.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified parent 01278d3 before this round's normal, non-force
-  push; the branch-tip documentation commit containing this state follows
-  implementation parent eb4af61.`
+  identical at verified implementation tip 6360bb5 after a normal,
+  non-force push; the branch-tip documentation commit containing this state
+  follows that implementation tip.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -165,9 +166,12 @@
   - `[CONFIRMED] Viewer admission requires the exact case-sensitive six-path
     inventory and validates fatal UTF-8, Python-compatible canonical JSON,
     strict standalone Draft 2020-12 Schemas, model semantics, stable IDs,
-    cross-artifact identities, report metadata, passive SVG/XML, and the
-    ordered run log. Admission errors expose only stable safe codes and no
-    partial project conclusion.`
+    cross-artifact identities, report metadata, namespace-correct passive
+    SVG/XML, and the ordered run log. SVG admission permits only the static
+    BoardGate renderer vocabulary plus unique local gradient paint servers;
+    animation, authored style, foreign namespaces, unsupported vocabulary,
+    and external or non-paint references fail closed with stable safe codes
+    and no partial project conclusion.`
   - `[CONFIRMED] Each directory selection clears prior evidence, snapshots
     read-only bytes, terminates any prior Worker, and transfers bytes to a
     fresh validation Worker. Timeout, replacement, crash, and malformed
@@ -181,13 +185,13 @@
     malformed or duplicate groups (SVG_LAYER_GROUP_INVALID), and cross-checks
     group layer ID/role/side against project.json layers
     (SVG_LAYER_MISMATCH).`
-  - `[CONFIRMED] After admission the viewer inserts the validated preview.svg
-    unchanged via DOMParser/importNode (rejecting parser errors, non-SVG
-    roots, or project-ID mismatch), renders per-layer visibility checkboxes,
-    and focuses the marker matching a selected Finding ID with aria-pressed
-    state. These interactions only toggle CSS visibility/classes on the
-    validated in-memory copy; they never mutate geometry, attributes, or
-    bundle bytes and never re-evaluate review evidence.`
+  - `[CONFIRMED] After admission the viewer imports preview.svg into a
+    presentation-only DOM copy via DOMParser/importNode, with a main-thread
+    defense that rejects parser errors, a non-SVG root, the wrong SVG
+    namespace, or project-ID mismatch. Layer and Finding interactions change
+    only trusted CSS visibility/class state on that copy; geometry-defining
+    attributes and selected Bundle bytes remain unchanged, and review
+    evidence is never re-evaluated.`
   - `[CONFIRMED] Viewer resource policy 1.0 additionally bounds report.md at
     an inclusive 200,000 lines (ARTIFACT_RESOURCE_LIMIT on N+1) before
     rendering.`
@@ -329,6 +333,35 @@
     marker as the preview Finding list with aria-pressed synchronized across
     both button sets, and that bundle digests and remote-request counts stay
     unchanged; Python gates passed (559 tests, 89.69% branch coverage).`
+  - `[CONFIRMED] Codex local gates on 2026-08-03 for fcf6be3+6360bb5 passed:
+    uv lock/sync, Ruff format/check (159 files), mypy (143 source files),
+    checked-in Schema currency, and 591 Python tests on both Python 3.12 and
+    isolated Python 3.14; the Python 3.12 coverage run reported 89.81% branch
+    coverage.`
+  - `[CONFIRMED] The same Viewer tree passed clean npm ci with zero reported
+    vulnerabilities, Biome format/lint, TypeScript, 165 Vitest tests with one
+    opt-in private-scale skip (92.84% statements, 87.54% branches, 98.65%
+    functions, 92.74% lines), deterministic standalone build comparison,
+    and 36/36 file:// Playwright tests across Chromium, Firefox, and WebKit.
+    The active-SVG E2E remained neutral, exposed no admitted summary/preview/
+    report, made zero remote requests, and left Bundle digests unchanged.`
+  - `[CONFIRMED] The untracked 225,636,102-byte private six-artifact Bundle
+    passed opt-in admission in 8.18 s and a full UI smoke in Chromium,
+    Firefox, and WebKit in 6.985 s, 10.327 s, and 7.074 s. Every engine
+    displayed NOT_READY_FOR_FABRICATION with the same summary SHA-256 prefix
+    77a1ca0ef67409a9, six layers, and five Findings; layer/Finding/report
+    interactions completed with zero remote requests or console errors and
+    unchanged input digests. No private input or output was committed.`
+  - `[CONFIRMED] GitHub Actions run 30777119202 at baseline a6a7f58 failed
+    only viewer-browsers: 29/30 tests passed, while WebKit test "terminates
+    and revokes an in-flight worker before validating a replacement" timed
+    out after 90 s waiting for Review unavailable. The other seven jobs
+    passed; trace.zip and error-context.md were generated but the workflow
+    retained zero artifacts.`
+  - `[CONFIRMED] GitHub Actions run 30779478703 at implementation tip
+    6360bb5 passed all eight jobs. The three-engine viewer-browsers job
+    passed, its failure-evidence upload step concluded skipped, and the run
+    retained zero artifacts as required on the success path.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -338,15 +371,58 @@
     validated summary, preview.svg, and report.md with layer toggles,
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-- Working tree: `[CONFIRMED] The cross-panel Finding navigation slice is
-  captured by implementation commit eb4af61; the branch-tip documentation
-  commit containing this state captures the HANDOFF update.`
+- Working tree: `[CONFIRMED] Passive SVG admission and CI failure-evidence
+  retention are captured by implementation commits fcf6be3 and 6360bb5;
+  the branch-tip documentation commit containing this state captures only
+  this HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
 the current capabilities.
 
 ## Active Issues
+
+### ISSUE-009 — SVG admission accepted animation and foreign namespaces
+
+- Status: RESOLVED
+- Severity: medium
+- Owner: Codex
+- State label: `[CONFIRMED]`
+- Context: Python `_validate_safe_svg` and Viewer `validateSvg` previously
+  treated element local names as sufficient and rejected a blacklist of
+  scripts, embedded documents, event handlers, and external references.
+  Declarative SVG mutation and elements outside the SVG namespace therefore
+  remained admissible, contrary to ADR 0006's fail-closed transport boundary.
+- Evidence: Repository inspection at a6a7f58 showed the Python validator
+  accepted any namespace sharing an allowed local root name, while the
+  Viewer parser ran with namespace processing disabled and its active-element
+  set omitted SMIL animation. Adversarial probes admitted both a wrong-
+  namespace SVG and `<animate attributeName="viewBox">`; the latter changed
+  the imported presentation under Chromium. New Python/TypeScript parity,
+  unit, and three-engine E2E regressions exercise wrong root/descendant/
+  attribute namespaces, every SVG animation form in scope, authored style,
+  unknown vocabulary, local/external references, and valid static gradients.
+- Suspected cause: Namespace-insensitive local-name normalization combined
+  with a blacklist cannot prove that an extensible XML vocabulary is passive.
+- Attempted approaches: Compared the generated renderer vocabulary and ADR
+  0002 gradient requirement with both admission implementations, then used
+  adversarial Python, Vitest, oracle, and browser cases. No parser dependency,
+  public Schema, artifact inventory, Viewer protocol, or ADR change was
+  required.
+- Current resolution state: Resolved by fcf6be3. Python and Viewer now require
+  the exact SVG namespace for every element, reject foreign ordinary
+  attributes, enforce per-element passive attribute allowlists, permit only
+  unique local `fill|stroke="url(#gradient)"` references to static linear or
+  radial gradients, and preserve specific active/external error precedence.
+  The main thread independently checks the DOMParser root namespace before
+  import. The deterministic standalone Viewer was rebuilt and all local and
+  CI gates passed.
+- Remaining work: None for ISSUE-009; future renderer-vocabulary additions
+  must update Python and TypeScript admission together with parity evidence.
+- Relevant files: `src/boardgate/application/artifacts.py`,
+  `viewer/src/validation/svg.ts`, `viewer/src/main.ts`,
+  `tests/unit/application/test_artifacts.py`, `viewer/tests/`
+- Blocking: No.
 
 ### ISSUE-008 — WebKit E2E replacement-selection flake in CI
 
@@ -360,26 +436,46 @@ the current capabilities.
   replacement selection" exceeded the 90-second timeout waiting for the
   "Review unavailable." status after a replacement directory selection, even
   though the first admission inside that test had succeeded. 23/24 E2E tests
-  and all seven other jobs passed.
-- Evidence: Failed-job log shows `toBeVisible()` on "Review unavailable."
-  unresolved for the full 90 s; the failing path (SelectionError → showError)
-  is synchronous in `viewer/src/main.ts` and every error branch renders that
-  status, indicating the change handler likely never executed. No failure
-  artifacts were uploaded by the workflow.
-- Suspected cause: WebKit/Playwright runner flake under CI load (the same
-  job's first WebKit test took 4.8 s versus 418 ms on Chromium); not yet
-  reproduced as a code defect.
-- Attempted approaches: Locally re-ran the identical WebKit test 5 times
-  against the same build — all passed in ~0.4 s each; re-ran the failed CI
-  job via `gh run rerun 30598805829 --failed` — the job and run then
-  succeeded.
-- Current resolution state: Transient; CI run 30598805829 concludes success
-  after re-run. No code change applied. Recurrence should be treated as a
-  signal to investigate WebKit worker/change-event timing rather than
-  re-run blindly.
-- Remaining work: If the flake recurs, add workflow artifact upload for
-  Playwright failure context (trace/error-context) so the page state at
-  timeout is inspectable.
+  and all seven other jobs passed. The issue recurred at a6a7f58 in Actions
+  run 30777119202 on the adjacent WebKit test "terminates and revokes an
+  in-flight worker before validating a replacement": 29/30 E2E tests and all
+  seven sibling jobs passed, but this test waited 90 seconds for the same
+  neutral status.
+- Evidence: Both failed-job logs show `toBeVisible()` on "Review unavailable."
+  unresolved for the full 90 s. In the first test the SelectionError →
+  `showError` path is synchronous and every error branch renders that status,
+  which originally indicated that the change handler likely never executed.
+  In the recurrence the replacement should first terminate and revoke a
+  synthetic in-flight Worker, then take that same inventory-error path. Run
+  30777119202 generated `trace.zip` and `error-context.md`, but the old
+  workflow uploaded nothing and its artifact API reports zero retained files.
+  The exact point at which WebKit stopped delivering progress remains
+  `[UNKNOWN]`.
+- Suspected cause: `[UNKNOWN]` WebKit/Playwright change-event or synthetic
+  Worker replacement timing under the GitHub Linux runner. The original
+  suspected cause was a runner-load flake because that job's first WebKit test
+  took 4.8 s versus 418 ms on Chromium and the defect did not reproduce
+  locally. The recurrence in a different replacement-selection test means
+  that transient-runner classification is insufficient; there is still no
+  evidence supporting a Viewer behavior change.
+- Attempted approaches: The original identical WebKit test passed five local
+  repeats in about 0.4 s each; `gh run rerun 30598805829 --failed` then made
+  the original job/run succeed without a code change. After the recurrence,
+  the expanded 36-test suite passed twice locally across all three engines,
+  and the private large-Bundle full UI smoke passed sequentially in Chromium,
+  Firefox, and WebKit. Commit 6360bb5 now retains only Playwright `trace.zip`
+  and `error-context.md` on an E2E-step failure through a SHA-pinned upload
+  action; a workflow contract test fixes the failure-only condition, minimal
+  path scope, seven-day retention, and `continue-on-error` behavior.
+- Current resolution state: Open and recurrent. Diagnostic retention is
+  implemented and verified on the success path: Actions run 30779478703
+  passed all jobs, skipped the upload step, and retained zero artifacts. The
+  failure path has not yet occurred with the new workflow, so no retained
+  Linux trace has been inspected and no Viewer behavior change is justified.
+- Remaining work: Reproduce only the two replacement-selection WebKit tests
+  in a temporary Playwright 1.62.0 Linux environment with repeat-each 20,
+  one worker, and retained traces; compare change-event delivery and Worker
+  terminate/revoke evidence before changing Viewer behavior.
 - Relevant files: `viewer/tests/e2e/viewer.spec.ts`,
   `viewer/src/main.ts`, `.github/workflows/ci.yml`
 - Blocking: No.
@@ -564,13 +660,113 @@ the current capabilities.
 
 ## Next Action
 
-Address the ISSUE-008 remaining work: upload Playwright failure context
-(trace.zip and error-context.md from viewer/test-results) as a
-workflow-artifact on viewer-browsers job failure in .github/workflows/ci.yml,
-so a future WebKit flake is diagnosable from CI evidence alone; verify the
-upload triggers only on failure and never changes job outcomes.
+Reproduce ISSUE-008 in a temporary Playwright 1.62.0 Linux environment by
+running only the two replacement-selection WebKit tests with
+`--repeat-each=20`, `--workers=1`, and retained traces; compare change-event
+delivery and Worker terminate/revoke evidence before changing Viewer
+behavior.
 
 ## Recent Activity
+
+### 2026-08-03T10:36:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
+
+- Role: recovery, primary implementation, security review, and verification
+  agent
+- Task: Recover the a6a7f58 repository state, repair ISSUE-009's SVG
+  evidence-integrity gap without changing the Viewer transport contract, then
+  implement ISSUE-008 failure-evidence retention and leave one bounded Linux
+  reproduction action.
+- Context inspected:
+  - `BOOTSTRAP.md` in full, `IMPLEMENT_PCB_AGENT.md`, ADR 0002/0003/0006,
+    `docs/CAPABILITIES.md`, `HANDOFF.md`, the Viewer/Python SVG admission and
+    rendering paths, test/build configuration, Git history/status/remotes,
+    public repository metadata, and Actions runs 30777119202 and 30779478703.
+  - `[CONFIRMED] PROJECT_SPEC.md is absent from the repository and history;
+    the operative project specification is IMPLEMENT_PCB_AGENT.md plus the
+    accepted ADRs. Baseline local HEAD, origin/main, and origin/HEAD were
+    clean and identical at a6a7f58 before implementation.`
+- Actions performed:
+  - `[CONFIRMED] Replaced namespace-insensitive SVG blacklists in Python and
+    TypeScript with exact SVG expanded-name checks and a renderer-derived,
+    per-element passive vocabulary. Added stable namespace/vocabulary error
+    codes and constrained internal URL use to one unique existing static
+    gradient paint server.`
+  - `[CONFIRMED] Preserved active/external error specificity, added the
+    main-thread DOMParser namespace defense, rebuilt the hash-pinned single
+    HTML Viewer deterministically, and documented the presentation-copy
+    boundary in English, Chinese, and CAPABILITIES.`
+  - `[CONFIRMED] Added Python/Viewer parity, unit, and E2E regressions for
+    namespace resets, foreign attributes, SMIL/declarative mutation, CSS,
+    unknown vocabulary, local/external references, static gradients, neutral
+    failure UI, zero network, and unchanged Bundle digests.`
+  - `[CONFIRMED] Gave the browser E2E step a stable ID and added a failure-only
+    SHA-pinned upload-artifact v7.0.1 step limited to Playwright trace.zip and
+    error-context.md, with seven-day retention, no overwrite/hidden files,
+    compression level zero, and continue-on-error. Added a parsed workflow
+    contract regression for every setting and step adjacency.`
+  - `[CONFIRMED] Pushed the two atomic implementation commits normally to
+    public main and waited for the complete implementation-tip CI result; no
+    force push, rebase, dependency update, Schema change, ADR change, artifact
+    protocol change, or private-file addition occurred.`
+- Files modified:
+  - SVG implementation/tests: `src/boardgate/application/artifacts.py`,
+    `tests/unit/application/test_artifacts.py`, `viewer/src/main.ts`,
+    `viewer/src/validation/errors.ts`, `viewer/src/validation/svg.ts`,
+    `viewer/tests/unit/admit.test.ts`, `viewer/tests/unit/log-svg.test.ts`,
+    `viewer/tests/unit/python-oracle.test.ts`,
+    `viewer/tests/e2e/global-setup.ts`, `viewer/tests/e2e/viewer.spec.ts`
+  - Distribution/docs: `viewer/boardgate-viewer.html`, `README.md`,
+    `README.zh-CN.md`, `docs/CAPABILITIES.md`
+  - CI/state: `.github/workflows/ci.yml`,
+    `tests/unit/test_ci_workflow.py`, `HANDOFF.md`
+- Commands run:
+  - `uv lock --check`; `uv sync --locked --all-groups`; Schema export/diff;
+    `uv run ruff format --check .`; `uv run ruff check .`;
+    `uv run mypy src tests`; Python 3.12 coverage suite; isolated Python 3.14
+    full suite
+  - clean `npm ci`; Biome format/lint; TypeScript; Vitest coverage;
+    deterministic build/build-check; two complete three-engine Playwright
+    file:// E2E runs
+  - opt-in private-scale admission and a one-off full Viewer UI smoke against
+    `/Users/matthew/Projects/testruns/PCB/1-verify.review-output`
+  - `gh run view`, failed-job log inspection, artifact API checks, normal
+    `git push origin main`, and implementation-tip Actions monitoring
+- Verification performed:
+  - `[CONFIRMED] Python 3.12: 591 tests passed with 89.81% branch coverage;
+    Python 3.14: the same 591 tests passed. Ruff, mypy, lock/sync, and Schema
+    currency passed.`
+  - `[CONFIRMED] Viewer: 165 tests passed with one opt-in skip and coverage
+    above every configured threshold; clean install, Biome, TypeScript, and
+    deterministic build passed. Playwright passed 36/36 in Chromium, Firefox,
+    and WebKit, twice locally.`
+  - `[CONFIRMED] Private 225,636,102-byte Bundle admission and full UI smokes
+    completed within the 60-second deadline in all engines with the same
+    summary, zero network/console errors, exercised SVG/report/Finding
+    navigation, and unchanged file digests; the Bundle remains untracked.`
+  - `[CONFIRMED] Actions run 30779478703 passed all eight jobs at 6360bb5;
+    Viewer E2E passed, the upload step was skipped, and the artifact API
+    returned zero success-path artifacts.`
+- Commits:
+  - `fcf6be3 fix(svg): enforce passive preview vocabulary`
+  - `6360bb5 ci(viewer): retain Playwright failure evidence`
+  - branch-tip `docs(handoff): record passive SVG and CI recovery` commit
+    containing this entry
+- Issues created or updated:
+  - ISSUE-009 created and resolved with adversarial, parity, browser, private-
+    scale, and CI evidence; it no longer blocks Viewer evidence-integrity
+    claims.
+  - ISSUE-008 remains open and low severity. Its recurrence in run
+    30777119202 is confirmed; diagnostics are now retained on a future
+    failure, but no Linux failure trace has yet been captured with the new
+    workflow. ISSUE-002, ISSUE-005, and ISSUE-007 remain open, low, and
+    non-blocking.
+- Remaining uncertainty: `[UNKNOWN]` Whether ISSUE-008 loses the replacement
+  input change event, stalls synthetic Worker termination/revocation, or
+  fails elsewhere under Playwright 1.62.0 WebKit on GitHub's Linux runner.
+  Success-path CI does not resolve that question, and no Viewer behavior was
+  changed speculatively.
+- Recommended next action: Run the bounded Linux WebKit reproduction stated
+  in Next Action and inspect retained traces before proposing a product fix.
 
 ### 2026-08-03T09:40:00+08:00 — Claude — Cross-panel Finding navigation
 
