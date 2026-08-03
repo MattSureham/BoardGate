@@ -317,7 +317,7 @@ def test_pad_circles_must_fit_inside_the_outline(x_mm: float, y_mm: float) -> No
         ("y2_mm", 15.000001),
     ),
 )
-def test_trace_endpoints_must_lie_inside_the_outline(
+def test_trace_footprint_must_lie_inside_the_outline(
     field: str,
     value: float,
 ) -> None:
@@ -333,21 +333,55 @@ def test_trace_endpoints_must_lie_inside_the_outline(
         admit(payload)
 
 
-def test_trace_endpoints_on_the_outline_edge_are_admitted() -> None:
+def test_trace_footprint_boundary_is_inclusive() -> None:
     payload = operation_payload()
     payload["traces"] = [
         {
             "schema_version": "1.0",
-            "x1_mm": 0.0,
-            "y1_mm": 0.0,
-            "x2_mm": 20.0,
-            "y2_mm": 15.0,
+            "x1_mm": 0.125,
+            "y1_mm": 0.125,
+            "x2_mm": 19.875,
+            "y2_mm": 14.875,
             "width_mm": 0.25,
             "copper_layers": "bottom",
         },
     ]
 
-    assert admit(payload).traces[0].x2_mm == 20.0
+    assert admit(payload).traces[0].x2_mm == 19.875
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("x1_mm", 0.124999),
+        ("x2_mm", 19.875001),
+        ("y1_mm", 0.124999),
+        ("y2_mm", 14.875001),
+    ),
+)
+def test_trace_footprint_rejects_one_quantum_beyond_the_boundary(
+    field: str,
+    value: float,
+) -> None:
+    payload = operation_payload()
+    traces = payload["traces"]
+    assert isinstance(traces, list)
+    trace = dict(traces[0])
+    assert isinstance(trace, dict)
+    trace.update(
+        {
+            "x1_mm": 0.125,
+            "y1_mm": 0.125,
+            "x2_mm": 19.875,
+            "y2_mm": 14.875,
+            "width_mm": 0.25,
+        }
+    )
+    trace[field] = value
+    payload["traces"] = [trace]
+
+    with pytest.raises(ValidationError, match="trace footprint"):
+        admit(payload)
 
 
 @pytest.mark.parametrize(
@@ -500,6 +534,12 @@ def test_identifier_derivation_is_stable_and_well_formed() -> None:
     admitted = request()
     operation_digest = generation_operation_sha256(admitted.operation)
 
+    assert generation_request_sha256(admitted) == (
+        "318d659c1b8edfa3303068bd8f6e43e4a891f577783a2e01601aecd474d911b7"
+    )
+    assert operation_digest == (
+        "080c066b6b0443719695fe4b230621527ff45832c748a7d5d266b79570cac610"
+    )
     assert generation_request_sha256(admitted) == generation_request_sha256(request())
     derived = generation_id(
         operation_digest=operation_digest,

@@ -55,6 +55,27 @@ def test_emission_is_byte_deterministic_with_the_fixed_payload_set() -> None:
     assert all(item.source_file_id for item in first)
 
 
+def test_version_one_payload_hashes_remain_frozen() -> None:
+    payloads = {
+        item.logical_path: item.sha256 for item in emit_coupon_payloads(operation())
+    }
+
+    assert payloads == {
+        "coupon-bottom-copper.gbl": (
+            "d379ba3ff07139a5943b1c182ba69c778840d8d0b4818ef73c4d1007926847f8"
+        ),
+        "coupon-outline.gko": (
+            "61ea46b5bf4bd829155771d806ce6566e8627e576432d2df55003493de1b5ee2"
+        ),
+        "coupon-plated.drl": (
+            "efa7acf2aa79b361c14e09130af056437ce6115f3b284acdf482717894c11e25"
+        ),
+        "coupon-top-copper.gtl": (
+            "0f767e78fc5b0a0a0cb519ab25467b74dcf1e82d2b344a7b978e30c6f148a41a"
+        ),
+    }
+
+
 def test_emission_payload_size_guard_is_enforced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

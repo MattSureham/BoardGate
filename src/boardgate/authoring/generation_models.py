@@ -164,6 +164,7 @@ class GenerateTwoLayerCoupon(VersionedModel):
                     msg = "drill circles must not overlap"
                     raise ValueError(msg)
         for trace in self.traces:
+            trace_width_nm = to_emission_nanometres(trace.width_mm)
             for coordinate, axis_nm in (
                 (trace.x1_mm, width_nm),
                 (trace.x2_mm, width_nm),
@@ -171,8 +172,14 @@ class GenerateTwoLayerCoupon(VersionedModel):
                 (trace.y2_mm, height_nm),
             ):
                 value_nm = to_emission_nanometres(coordinate)
-                if value_nm < 0 or value_nm > axis_nm:
-                    msg = "trace endpoints must lie inside the board outline"
+                if (
+                    2 * value_nm < trace_width_nm
+                    or 2 * value_nm + trace_width_nm > 2 * axis_nm
+                ):
+                    msg = (
+                        "each round-aperture trace footprint must fit inside "
+                        "the board outline"
+                    )
                     raise ValueError(msg)
         return self
 
