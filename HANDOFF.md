@@ -16,27 +16,30 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T16:00:15+08:00`
+- Last updated: `2026-08-03T16:47:34+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows trace-footprint correction 4ac7772 and local generation
-  contracts/implementation/documentation commits 4bd39bb, ec9ff16, and
-  d8aa07a, which follow authoring commits a935d58, dea742d, f3ddd6e,
-  61ea33a, and 85d1599.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD remain at recovery
-  baseline fec6795. The branch-tip HANDOFF commit is local and follows ten
-  unpushed atomic commits; no force push, rebase, or remote-history rewrite
-  occurred.`
+  follows mixed-drill implementation fd1030b and documentation 852065d,
+  which follow the published trace-footprint correction 4ac7772 and its
+  HANDOFF correction c841982.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at c841982 after
+  a normal fast-forward push. GitHub Actions run 30795786473 passed all eight
+  jobs for that published baseline. The mixed-drill implementation,
+  documentation, and this branch-tip HANDOFF commit remain local until the
+  final authorized normal push; no force push, rebase, or remote-history
+  rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
-  and cross-panel Finding navigation. Authoring Phases A-D now have an
+  and cross-panel Finding navigation. Authoring Phases A-D and the first
+  Phase E registered extension now have an
   accepted separate-subsystem architecture, strict public contracts, one
-  deterministic Excellon modification operation, one bounded deterministic
-  two-layer coupon generator, and independent review validation for both.`
+  deterministic Excellon modification operation, two bounded deterministic
+  two-layer coupon generation operations, and independent review validation
+  for every emitted design.`
 - Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
   INPUT... --request CHANGE.json --rules rules/default.yaml --output
@@ -249,24 +252,37 @@
     bounded duplicate-safe JSON admission, full request and prose-independent
     operation digests, stable gen- IDs, sorted unique payload evidence,
     pinned non-guarantee disclaimer text, and cross-evidence validators. The
-    generate_two_layer_coupon 1.0 operation bounds one metric rectangular
+    union preserves legacy plated-only Evidence that omitted its defaulted
+    kind, while the new mixed-drill branch requires an explicit unique kind
+    and operation version in both model and Schema.`
+  - `[CONFIRMED] generate_two_layer_coupon 1.0 bounds one metric rectangular
     two-layer coupon to 1.0-500.0 mm dimensions, explicit plated round holes
     with explicit pads, and explicit straight round-aperture traces at the
     exact 0.000001 mm emission quantum with inclusive 1,024-hole and
-    4,096-trace limits; pad containment, pairwise drill overlap, and complete
-    round-aperture trace-footprint containment are proved in exact integer
-    nanometres.`
+    4,096-trace limits. generate_two_layer_coupon_with_npth 1.0 requires at
+    least one plated hole and one NPTH hole, caps both populations together
+    at 1,024, emits no implicit NPTH copper pad, and shares the 4,096-trace
+    bound. Pad/NPTH-circle containment, all-drill non-overlap with tangency
+    allowed, and complete round-aperture trace-footprint containment are
+    proved in exact integer nanometres.`
   - `[CONFIRMED] The complete generation registry resolves exact kind/version
-    pairs without fallback. Its sole executor emits X2 top/bottom copper, a
-    rectangular outline, and a plated Excellon drill payload (each capped at
-    an inclusive 1 MiB), reparses all four with the unchanged bounded
-    parsers, and proves the exact requested rectangle, pads, traces, drills,
-    and plating before returning applied-generation evidence.`
+    pairs without fallback. The plated-only writer policy 1.0 emits four
+    files; mixed-drill writer policy 1.1 emits five, adding
+    coupon-non-plated.drl and keeping PTH/NPTH payloads explicitly marked
+    PLATED/NON_PLATED. Each payload has an inclusive 1 MiB cap. Both
+    executors reparse every emitted Gerber/Excellon file with the unchanged
+    bounded parsers and prove exact rectangle, pads, traces, drills, source
+    identities, diagnostics, slot absence, and plating before returning
+    operation-specific applied Evidence.`
   - `[CONFIRMED] GenerationService shares the extracted revision-workspace
     helpers with ModificationService, runs the unchanged ReviewService on the
     emitted design/ bytes, binds canonical request/result evidence to the
     nested exact six-artifact validation bundle, and publishes atomically
-    after full workspace validation. pcb-review generate maps request and
+    after full workspace validation. Validation re-emits the exact requested
+    operation to bind the complete sorted path/hash/size inventory, then
+    checks persisted drill IDs, geometry, plating, tool counts, and the
+    absence of slots against validation/project.json. pcb-review generate
+    maps request and
     admission failures to exit 2, capability/parser/validation failures to
     exit 3 with no publication, and completed blocker reviews to truthful
     publication with exit 1. CLI and service produce byte-identical
@@ -287,6 +303,24 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Mixed PTH/NPTH generation gates on 2026-08-03 passed on the
+    complete tree: uv lock --check and locked all-group sync; checked-in
+    Schema export/currency; Ruff format/check (189 files); mypy (171 source
+    files); and the Python 3.12 suite with 828 tests at 89.71% branch
+    coverage. The same 828 tests passed in an isolated Python 3.14
+    environment. Focused contract/writer/registry/integration gates passed
+    230 tests, including exact legacy admission compatibility, inclusive/N+1
+    limits, five-file determinism, PTH/NPTH reparse evidence, READY and
+    blocker reviews, and fail-closed workspace tampering.`
+  - `[CONFIRMED] The unchanged Viewer passed clean npm ci with zero reported
+    vulnerabilities, Biome format/lint, TypeScript, 165 Vitest tests with one
+    opt-in private-scale skip (92.84% statements, 87.54% branches, 98.65%
+    functions, 92.74% lines), and deterministic standalone build comparison.
+    The two generation Schemas do not widen the six-artifact Viewer input.`
+  - `[CONFIRMED] GitHub Actions run 30795786473 at published baseline c841982
+    passed all eight jobs after the trace-footprint correction. Its
+    viewer-browsers upload step was skipped and the run retained zero
+    artifacts, so ISSUE-008 did not recur on that push.`
   - `[CONFIRMED] Trace-footprint correction gates on 2026-08-03 passed:
     uv lock --check and locked all-group sync; checked-in Schema export/diff;
     Ruff format/check (185 files); mypy (167 source files); the complete
@@ -507,14 +541,15 @@
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
   - `[CONFIRMED] Authoring currently supports exactly one Excellon
-    tool-diameter operation and exactly one bounded two-layer coupon
-    generator; neither is arbitrary or lossless source editing, and neither
-    guarantees manufacturability. No native EDA writer, inferred circuit
-    intent, autorouter, free-form generation path, or autonomous
+    tool-diameter operation and exactly two bounded two-layer coupon
+    generation operations (plated-only and mixed PTH/NPTH). They are neither
+    arbitrary nor lossless source editing and do not guarantee
+    manufacturability. No slots, non-round holes, native EDA writer, inferred
+    circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after trace-footprint correction 4ac7772. It
-  remains ahead of origin/main=fec6795 until the authorized normal push is
+  leave a clean local main after fd1030b and 852065d. It remains linearly
+  ahead of origin/main=c841982 until the authorized final normal push is
   performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -731,6 +766,13 @@ the current capabilities.
   `;TYPE=PLATED` evidence and every protected drill/slot fact remain intact.
   This contains ISSUE-002 for the supported slice but does not resolve the
   upstream parser behavior or authorize broader Excellon rewriting.
+- Generation impact (2026-08-03): `[CONFIRMED]` The mixed coupon writer emits
+  separate `;TYPE=PLATED` and `;TYPE=NON_PLATED` files. Both reparse without a
+  caller plating hint, and postconditions reject swapped, UNKNOWN, or missing
+  explicit plating before publication; the nested review preserves the two
+  source identities and applies annular-ring checks only to PTH. This adds
+  bounded explicit-file Evidence but does not resolve Gerbonara's ignored
+  `plated=` argument or justify relying on that argument in future adapters.
 - Remaining work: Re-evaluate on dependency upgrades.
 - Relevant files: `src/boardgate/parsers/excellon.py`
 - Blocking: No.
@@ -876,17 +918,95 @@ the current capabilities.
 
 ## Next Action
 
-Implement Phase E's second registered deterministic operation as an explicit
-new kind/version: add a non-plated (NPTH) drill variant to the coupon
-generator (for example `generate_two_layer_coupon` 1.1 with an explicit
-non-plated Excellon payload alongside the plated one), keeping the frozen 1.0
-contract unchanged, and deliver the same evidence standard as the first
-generator — strict contract, bounded executor, reparse postconditions, fresh
-ReviewService validation, byte-stable evidence, inclusive bounds, and
-fail-closed tests — proving multi-operation registry discipline without
-widening the writer beyond round holes and round-aperture geometry.
+Implement Phase E's typed authoring-plan admission boundary: admit exactly one
+registered modification or generation kind/version with immutable request
+identities and a separate authorization digest, and prove that prose cannot
+execute, alter operation fields, select unknown versions, suppress fresh
+review, or write design bytes directly.
 
 ## Recent Activity
+
+### 2026-08-03T16:50:31+08:00 — Codex — Mixed PTH/NPTH coupon generation
+
+- Role: implementation, compatibility review, verification, and publication
+  agent
+- Task: Publish the corrected Phase D baseline, then implement the standing
+  bounded NPTH coupon operation without changing ReviewService, Viewer,
+  dependencies, workflows, ADRs, or the six-artifact review protocol.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, ADR 0007, Current State/Active
+    Issues/Next Action, both generation Schemas, models, request loader,
+    identifier derivation, writer, exact-version registry, GenerationService,
+    ReviewService, rule semantics, documentation, tests, git history, remote
+    refs, and live GitHub Actions evidence.
+  - `[CONFIRMED]` The earlier local Phase D history was a clean linear
+    fast-forward. Normal push through c841982 succeeded; Actions run
+    30795786473 passed all eight jobs, skipped the Playwright failure upload,
+    and retained zero artifacts.
+- Actions performed:
+  - `[CONFIRMED]` Added exact operation
+    `generate_two_layer_coupon_with_npth/1.0` with at least one PTH and one
+    NPTH, combined inclusive 1,024-hole and 4,096-trace bounds, 0.000001 mm
+    emission quantum, exact integer-nanometre containment/non-overlap proofs,
+    explicit operation-specific applied Evidence, and the existing two
+    regenerated public generation Schemas.
+  - `[CONFIRMED]` Preserved legacy plated-only omitted-kind admission while
+    requiring the new kind/version in both runtime and Schema. The existing
+    valid 1.0 request/operation digests and four payload hashes remain pinned
+    and unchanged.
+  - `[CONFIRMED]` Added mixed writer policy 1.1 with five deterministic design
+    files, separate explicit PLATED/NON_PLATED Excellon payloads, no implicit
+    NPTH pad, and exact reparse postconditions for all Gerber/Excellon files.
+    The complete registry now has exactly two generation keys and no fallback.
+  - `[CONFIRMED]` Kept GenerationService's unchanged fresh ReviewService run.
+    Workspace validation now deterministically re-emits the request to bind
+    all design path/hash/size Evidence, verifies PTH/NPTH drill IDs, geometry,
+    tool counts, plating, source identity, and rejects slots. A completed
+    undersized-NPTH review publishes the true blocker with exit 1; parser or
+    review failure publishes nothing and preserves prior output.
+  - `[CONFIRMED]` Added symmetric equality/N+1 and one-quantum geometry tests,
+    same/cross-population tangent/overlap tests, source/diagnostic/slot/plating
+    postconditions, Schema/model parity, CLI/service byte determinism,
+    minimum-drill coverage of PTH+NPTH, annular-ring exclusion of NPTH, and
+    coherent request/result/project/payload tamper regressions.
+  - `[CONFIRMED]` Updated PROJECT_SPEC, both READMEs, CAPABILITIES, and
+    architecture documentation with the exact implemented scope and non-goals.
+- Files modified: `src/boardgate/authoring/generation_models.py`,
+  `src/boardgate/authoring/coupon.py`,
+  `src/boardgate/authoring/identifiers.py`,
+  `src/boardgate/authoring/__init__.py`,
+  `src/boardgate/application/generation_registry.py`,
+  `src/boardgate/application/generation_service.py`, both generation Schemas,
+  authoring/generation tests, `PROJECT_SPEC.md`, `README.md`,
+  `README.zh-CN.md`, `docs/CAPABILITIES.md`, `docs/architecture.md`, and
+  `HANDOFF.md`.
+- Verification performed:
+  - `uv lock --check`; `uv sync --locked --all-groups`; generated Schema
+    currency; Ruff format/check; Ruff lint; mypy.
+  - Python 3.12: 828 tests passed at 89.71% branch coverage. Isolated Python
+    3.14: the same 828 tests passed. Focused authoring/generation gates passed
+    230 tests.
+  - Viewer: clean npm install with zero reported vulnerabilities; Biome
+    format/lint; TypeScript; 165 passing Vitest tests with one opt-in skip at
+    92.84% statements and 87.54% branches; deterministic build check.
+  - Independent read-only production and test audits found three pre-commit
+    blockers (legacy discriminator compatibility, Schema/runtime parity, and
+    full request/design Evidence binding); all were corrected and re-audited
+    closed before the implementation commit.
+- Commits: `fd1030b feat(authoring): validate mixed PTH NPTH coupon
+  generation`; `852065d docs(authoring): document mixed drill coupon
+  generation`; this HANDOFF update is the following branch-tip documentation
+  commit.
+- Issues created or updated: ISSUE-002 gained explicit mixed-writer plating
+  Evidence but remains OPEN, low, and upstream-dependent. ISSUE-005,
+  ISSUE-007, and ISSUE-008 remain OPEN, low, non-blocking, and unchanged;
+  ISSUE-008 did not recur in run 30795786473.
+- Remaining uncertainty: The mixed-drill commits and this HANDOFF commit are
+  not yet published or exercised by their own GitHub Actions run. If
+  viewer-browsers fails, inspect the retained ISSUE-008 trace before any rerun
+  or Viewer change.
+- Recommended next action: Implement the sole bounded typed authoring-plan
+  admission boundary above after final publication evidence is green.
 
 ### 2026-08-03T16:00:15+08:00 — Codex — Phase D trace-footprint evidence correction
 
