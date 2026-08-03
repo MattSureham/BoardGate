@@ -1,6 +1,7 @@
-# BoardGate v0.1 capability and limitation matrix
+# BoardGate capability and limitation matrix
 
-BoardGate v0.1 is an evidence-first review aid. Its Gerber interpretation
+BoardGate retains its v0.1 evidence-first review baseline and now includes one
+initial deterministic authoring operation. Its Gerber interpretation
 targets the RS-274X/X2 semantics documented by Ucamco's
 [Gerber Layer Format Specification, revision 2026.05](https://www.ucamco.com/en/guest/downloads/gerber-format).
 This target is not a claim of complete format conformance or fabrication
@@ -25,6 +26,8 @@ approval.
 | Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, imports a namespace-correct passive preview.svg into a presentation-only DOM copy with layer visibility toggles and Finding-ID focus, renders report.md through a deterministic-subset tokenizer built only with createElement/textContent, and keeps report Finding headings and the preview Finding list on one shared selection state | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions change only trusted CSS visibility/classes on the presentation copy, never geometry-defining attributes, selected bundle bytes, or review evidence |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
+| PCB modification | Exact `set_excellon_tool_diameter` 1.0 operation on one confirmed warning-free metric/absolute Excellon source; stale base/source identity, old diameter, target tool, and syntax are checked before one same-width token change; before/after parses prove the protected semantic delta; a separate atomic revision includes canonical evidence and a fresh six-artifact review | No in-place edits, raw/free-form patches, arbitrary Gerber/Excellon round trips, tools shared with slots, unsupported tool syntax, or inferred design intent; request/profile files and non-design siblings are rejected from v1 design inputs |
+| PCB generation | Versioned structured requirements and bounded deterministic writer adapters are specified by PROJECT_SPEC and ADR 0007 | No generator is implemented yet; no schematic synthesis, arbitrary placement/routing, native EDA authoring, or production release claim |
 
 ## Bounded derived geometry policy
 
@@ -67,6 +70,36 @@ result is recovered from an unresponsive worker.
 Parser and rule limitations are also emitted in each `report.md`, including
 static v0.1 scope boundaries even when a particular input produces no dynamic
 parser diagnostic.
+
+## Deterministic authoring policy
+
+Modification requests are strict JSON capped at an inclusive 1 MiB and must
+explicitly declare request and operation version 1.0. The operation registry
+has no version fallback. Stable revision identity uses only structured
+operation evidence, base/output project IDs, and content hashes; free-form
+instruction wording is retained in request evidence but cannot change the
+revision ID.
+
+The Excellon diameter adapter policy 1.0 admits at most 50 MiB, 1,000,000
+lines, 4,096 bytes per line, and 1,024 tool definitions. Equality is allowed;
+N+1 fails before emission. Only a plain `TnnC<fixed-width-decimal>` definition
+is patched, without changing source length or downstream byte spans. The
+changed file is reparsed and all non-target drill/slot facts are compared
+before the unchanged project review pipeline runs.
+
+The revision workspace contains exactly:
+
+```text
+design/                 confirmed fabrication/assembly payloads
+evidence/request.json   canonical admitted request
+evidence/result.json    before/after and validation evidence
+validation/             exact existing six-artifact review bundle
+```
+
+Symlinks, non-regular nodes, extra files/directories, digest/ID/span
+mismatches, `ANALYSIS_FAILED`, and invalid nested review evidence prevent
+publication. A completed blocker result is retained truthfully and returns
+exit 1; it is not called a repair or fabrication approval.
 
 ## Offline viewer admission policy
 

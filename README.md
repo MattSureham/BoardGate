@@ -2,10 +2,11 @@
 
 [中文说明](README.zh-CN.md)
 
-BoardGate is an evidence-first, deterministic PCB manufacturing review agent.
-It is designed to ingest fabrication and assembly files, normalize them into a
-versioned project model, run reproducible DFM checks, and produce structured
-findings, a Markdown report, and an SVG preview.
+BoardGate is an evidence-first, deterministic PCB review and authoring agent.
+It ingests fabrication and assembly files, runs reproducible DFM checks, and
+produces structured review evidence. Its separate authoring subsystem can now
+apply one narrowly supported PCB-file modification and validate the resulting
+design through a fresh run of the unchanged review pipeline.
 
 The project follows one hard boundary: parsers, measurements, and rule
 decisions are deterministic. Agent orchestration may organize and explain
@@ -14,9 +15,11 @@ production-readiness guarantee.
 
 ## Status
 
-BoardGate is under active development toward the v0.1 CLI MVP described in
-[`IMPLEMENT_PCB_AGENT.md`](IMPLEMENT_PCB_AGENT.md). Verified repository state
-and the exact next action are maintained in [`HANDOFF.md`](HANDOFF.md).
+The v0.1 review baseline is complete. The forward-looking review,
+modification, and generation contract is [`PROJECT_SPEC.md`](PROJECT_SPEC.md);
+the initial deterministic modification slice is implemented, while structured
+PCB generation remains planned. Verified repository state and the exact next
+action are maintained in [`HANDOFF.md`](HANDOFF.md).
 
 ## Development
 
@@ -31,12 +34,17 @@ uv run pcb-review --version
 uv run pytest
 ```
 
-The target review interface is:
+The review and modification interfaces are:
 
 ```bash
 pcb-review inspect INPUT... \
   --rules rules/default.yaml \
   --output artifacts/review
+
+pcb-review modify INPUT... \
+  --request change.json \
+  --rules rules/default.yaml \
+  --output artifacts/revision
 ```
 
 ## User walkthrough
@@ -229,6 +237,55 @@ For the exact supported input subsets and deliberate v0.1 boundaries (no
 netlist inference, no pad-registration claims, no macro-aperture exact
 checks, and so on), see [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 
+## Constrained PCB modification
+
+Modification is a separate deterministic capability, not a rule-engine side
+effect. The first operation changes one explicitly identified Excellon round
+drill tool from an expected diameter to a new diameter. It accepts only a
+confirmed, warning-free, metric/absolute source with a plain fixed-width
+`TnnC0.000` definition; tools shared with routed slots and unsupported syntax
+fail closed.
+
+First run `inspect` and take the base project/source IDs and SHA-256 from its
+validated `manifest.json`. For the original `drill_too_small` fixture, a
+request is:
+
+```json
+{
+  "schema_version": "1.0",
+  "base_project_id": "prj-843b23c76e645c40",
+  "operation": {
+    "schema_version": "1.0",
+    "kind": "set_excellon_tool_diameter",
+    "operation_version": "1.0",
+    "source_logical_path": "board-plated.drl",
+    "source_file_id": "src-2e142b0470b42176",
+    "source_sha256": "b0071583553477b42cad5a632756df8114e6e191d77ceef23568e6afceeaf76d",
+    "tool_code": "T01",
+    "expected_diameter_mm": 0.1,
+    "new_diameter_mm": 0.3,
+    "instruction": "Increase the explicitly selected T01 round-drill diameter."
+  }
+}
+```
+
+Save it as `change.json`, outside the project input directory, then run:
+
+```bash
+uv run pcb-review modify tests/fixtures/drill_too_small \
+  --request change.json \
+  --rules rules/default.yaml \
+  --output artifacts/drill-revision
+```
+
+The atomic revision workspace contains emitted design bytes under `design/`,
+canonical request/result evidence under `evidence/`, and an independent exact
+six-artifact review under `validation/`. The input is never changed. Stale or
+invalid requests exit 2 without publication; unsupported parsing/emission or
+failed validation exits 3 without publication. A completed review that still
+has blockers is published truthfully and exits 1—it is never described as a
+repair or fabrication approval.
+
 ## Offline review viewer
 
 The separately distributed
@@ -289,11 +346,12 @@ npm run build:check
 
 ## Safety and scope
 
-All input files are treated as untrusted. A BoardGate report is engineering
-review evidence, not a fabrication warranty. The initial MVP intentionally
-excludes native EDA projects, ODB++, IPC-2581, SI/PI analysis, automatic PCB
-modification, a web API, and network-backed LLM providers.
-The exact supported subsets and known v0.1 limits are listed in
+All input files are treated as untrusted. BoardGate evidence is not a
+fabrication warranty. The implemented authoring slice is not arbitrary or
+lossless Gerber/Excellon editing, and generation from structured requirements
+is not implemented yet. Native EDA authoring, ODB++, IPC-2581, SI/PI,
+autorouting, a web API, autonomous production release, and network-backed LLM
+providers remain out of scope. The exact supported subsets and limits are in
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 
 ## Collaboration

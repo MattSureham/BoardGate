@@ -2,17 +2,19 @@
 
 [English](README.md)
 
-BoardGate 是一个 Evidence-first、确定性的 PCB 投产审查 Agent。它将制造与
-装配文件安全导入并转换为版本化的统一项目模型，执行可复现的 DFM 检查，
-最终输出结构化 Findings、Markdown 报告和 SVG 预览。
+BoardGate 是一个 Evidence-first、确定性的 PCB 审查与 authoring Agent。
+它安全导入制造与装配文件，执行可复现的 DFM 检查并输出结构化审查证据。
+独立的 authoring 子系统现在还能执行一种严格受限的 PCB 文件修改，并把
+新设计交给未经改写的现有审查管线重新验证。
 
 项目遵守一条硬边界：文件解析、几何测量和规则判断必须由确定性代码完成。
 Agent 只能组织和解释这些结果，不得编造几何数据、设计意图或投产保证。
 
 ## 当前状态
 
-项目正在按照 [`IMPLEMENT_PCB_AGENT.md`](IMPLEMENT_PCB_AGENT.md) 实现 v0.1
-CLI MVP。已经验证的仓库状态和唯一下一步维护在
+v0.1 审查基线已经完成。面向未来的审查、修改与生成契约由
+[`PROJECT_SPEC.md`](PROJECT_SPEC.md) 定义；首个确定性修改纵向切片已实现，
+结构化 PCB 生成仍处于规划阶段。已经验证的仓库状态和唯一下一步维护在
 [`HANDOFF.md`](HANDOFF.md) 中。
 
 ## 开发
@@ -28,12 +30,17 @@ uv run pcb-review --version
 uv run pytest
 ```
 
-目标审查接口：
+审查与修改接口：
 
 ```bash
 pcb-review inspect INPUT... \
   --rules rules/default.yaml \
   --output artifacts/review
+
+pcb-review modify INPUT... \
+  --request change.json \
+  --rules rules/default.yaml \
+  --output artifacts/revision
 ```
 
 ## 使用 walkthrough
@@ -214,6 +221,51 @@ v0.1 精确的输入子集与刻意保留的边界（不做网络表推断、不
 对位、不对宏光圈做精确检查等）见
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)。
 
+## 受限 PCB 修改
+
+修改是独立的确定性能力，不是规则引擎的副作用。首个 operation 会把一个
+明确指定的 Excellon 圆孔刀具从预期旧直径改为新直径。它只接受已确认、
+无 warning/limitation、metric/absolute，且使用固定宽度普通
+`TnnC0.000` 定义的源文件；与 routed slot 共用的刀具或不支持的语法会
+fail closed。
+
+先运行 `inspect`，从已验证的 `manifest.json` 取得 base project/source ID
+与 SHA-256。仓库原创 `drill_too_small` fixture 对应的 request 为：
+
+```json
+{
+  "schema_version": "1.0",
+  "base_project_id": "prj-843b23c76e645c40",
+  "operation": {
+    "schema_version": "1.0",
+    "kind": "set_excellon_tool_diameter",
+    "operation_version": "1.0",
+    "source_logical_path": "board-plated.drl",
+    "source_file_id": "src-2e142b0470b42176",
+    "source_sha256": "b0071583553477b42cad5a632756df8114e6e191d77ceef23568e6afceeaf76d",
+    "tool_code": "T01",
+    "expected_diameter_mm": 0.1,
+    "new_diameter_mm": 0.3,
+    "instruction": "Increase the explicitly selected T01 round-drill diameter."
+  }
+}
+```
+
+将其保存为项目输入目录之外的 `change.json`，然后运行：
+
+```bash
+uv run pcb-review modify tests/fixtures/drill_too_small \
+  --request change.json \
+  --rules rules/default.yaml \
+  --output artifacts/drill-revision
+```
+
+原子 revision workspace 在 `design/` 保存输出设计字节，在 `evidence/`
+保存 canonical request/result Evidence，并在 `validation/` 保存一次独立的
+完整六产物审查。输入永不被修改。过期或非法 request 以退出码 2 拒绝且不
+发布；不支持的解析/输出或失败的验证以退出码 3 拒绝且不发布。若审查完成
+但仍有 blocker，则如实发布 revision 并返回 1，绝不会称其已修复或获准投产。
+
 ## 离线审查 Viewer
 
 独立分发的
@@ -268,10 +320,11 @@ npm run build:check
 
 ## 安全与范围
 
-所有输入文件都按不可信数据处理。BoardGate 报告是工程审查证据，不是板厂
-投产保证。初始 MVP 明确不实现原生 EDA 工程、ODB++、IPC-2581、SI/PI、
-自动修改 PCB、Web API 或需要联网的 LLM Provider。
-v0.1 的精确支持范围与已知限制见
+所有输入文件都按不可信数据处理。BoardGate Evidence 不是板厂投产保证。
+当前 authoring 切片不是任意或无损的 Gerber/Excellon 编辑；从结构化需求
+生成 PCB 也尚未实现。原生 EDA authoring、ODB++、IPC-2581、SI/PI、
+autorouting、Web API、自动投产发布和需要联网的 LLM Provider 仍不在范围内。
+精确支持范围与限制见
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)。
 
 ## 协作

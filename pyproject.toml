@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "boardgate"
 version = "0.1.0"
-description = "Evidence-first, deterministic PCB manufacturing review agent"
+description = "Evidence-first, deterministic PCB review and authoring agent"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
