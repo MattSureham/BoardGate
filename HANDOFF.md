@@ -16,22 +16,22 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T02:10:00+08:00`
+- Last updated: `2026-08-03T09:40:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified implementation parent 2149f2d feat(viewer): render
-  validated report with deterministic-subset tokenizer.`
+  state follows verified implementation parent eb4af61 feat(viewer):
+  synchronize Finding selection across report and preview.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified parent 402fe50 before this round's normal, non-force
+  identical at verified parent 01278d3 before this round's normal, non-force
   push; the branch-tip documentation commit containing this state follows
-  implementation parent 2149f2d.`
+  implementation parent eb4af61.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
-  summary, validated SVG exploration, and validated Markdown report
-  rendering.`
+  summary, validated SVG exploration, validated Markdown report rendering,
+  and cross-panel Finding navigation.`
 - Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output OUTPUT`
 - Implemented capabilities:
@@ -199,6 +199,12 @@
     is not displayed, and all DOM is built with createElement/textContent —
     no Markdown library and no innerHTML — so report content cannot execute
     active content.`
+  - `[CONFIRMED] Finding-ID headings in the rendered report are activatable
+    buttons; one shared controller selection state focuses the same preview
+    marker whether a Finding is activated from the report or the preview
+    Finding list, keeps aria-pressed in sync across both button sets, and
+    scrolls the counterpart into view. Selection remains CSS-only on the
+    validated in-memory copy.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -311,17 +317,29 @@
     branch coverage, Ruff check).`
   - `[CONFIRMED] GitHub Actions run 30759509309 succeeded at 1c80e61 for all
     jobs, including viewer-quality and the three-engine viewer-browsers E2E.`
+  - `[CONFIRMED] GitHub Actions run 30759616576 succeeded at 01278d3
+    (documentation-only tip).`
+  - `[CONFIRMED] Claude implementation gates on 2026-08-03 for the
+    cross-panel Finding navigation slice (eb4af61): Biome check and
+    TypeScript passed; Vitest passed 132 tests with one opt-in private-scale
+    skip at 92.66% statements, 87.43% branches, 98.60% functions, and 92.55%
+    lines; the deterministic build check passed; Playwright passed 30/30
+    across Chromium, Firefox, and WebKit including a new test proving that
+    activating a Finding from a report heading focuses the same preview
+    marker as the preview Finding list with aria-pressed synchronized across
+    both button sets, and that bundle digests and remote-request counts stay
+    unchanged; Python gates passed (559 tests, 89.69% branch coverage).`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
 - Known limitations:
   - `[CONFIRMED] The v0.1 supported subsets and deliberate boundaries are
     documented in docs/CAPABILITIES.md. The Phase 11 Viewer renders the
-    validated summary, preview.svg, and report.md with layer toggles and
-    Finding-ID focus, but provides no cross-panel Finding navigation and no
+    validated summary, preview.svg, and report.md with layer toggles,
+    Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-- Working tree: `[CONFIRMED] The validated Markdown report rendering slice is
-  captured by implementation commit 2149f2d; the branch-tip documentation
+- Working tree: `[CONFIRMED] The cross-panel Finding navigation slice is
+  captured by implementation commit eb4af61; the branch-tip documentation
   commit containing this state captures the HANDOFF update.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -546,14 +564,69 @@ the current capabilities.
 
 ## Next Action
 
-Implement cross-panel Finding navigation in the offline viewer: activating a
-Finding-ID heading in the rendered report focuses the same preview marker as
-the preview Finding list (one shared selection state, aria-pressed kept in
-sync), preserving read-only evidence, with E2E proving interactions still
-never mutate bundle bytes, issue remote requests, or re-evaluate review
-evidence.
+Address the ISSUE-008 remaining work: upload Playwright failure context
+(trace.zip and error-context.md from viewer/test-results) as a
+workflow-artifact on viewer-browsers job failure in .github/workflows/ci.yml,
+so a future WebKit flake is diagnosable from CI evidence alone; verify the
+upload triggers only on failure and never changes job outcomes.
 
 ## Recent Activity
+
+### 2026-08-03T09:40:00+08:00 — Claude — Cross-panel Finding navigation
+
+- Role: primary implementation and verification agent
+- Task: Implement the standing Next Action: make Finding-ID headings in the
+  rendered report focus the same preview marker as the preview Finding list
+  with one shared selection state and synchronized aria-pressed, preserving
+  read-only evidence with E2E proof.
+- Context inspected:
+  - `viewer/src/main.ts` (existing panel-only focus logic), the report
+    section structure from the 2149f2d round, the composer heading shapes
+    (`#### fnd-… — title` severity-group headings and `### fnd-…` Evidence
+    Index headings), and the existing spatial/legend E2E focus tests.
+- Actions performed:
+  - Replaced the panel-local click logic with a controller-owned
+    `#selectFinding(findingId, scrollReport)` that clears marker focus,
+    synchronizes aria-pressed across both `.finding-button` and
+    `.report-finding-button` sets, focuses and scrolls the preview marker,
+    and scrolls the report heading into view when activated from the panel.
+  - Threaded an `onFindingSelect` callback through `renderPreview`/
+    `buildFindingList` and `renderReport`; report headings whose text begins
+    with a stable Finding ID render as in-heading buttons carrying
+    `data-finding-id` and aria-pressed.
+  - Added `.report-finding-button` styles (inline heading-text appearance
+    with pressed-state highlight) and a three-engine E2E test proving
+    bidirectional selection sync with unchanged bundle digests and zero
+    remote requests.
+  - Updated viewer claims in `README.md`, `README.zh-CN.md`, and
+    `docs/CAPABILITIES.md`.
+- Files modified:
+  - `viewer/src/main.ts`, `viewer/src/style.css`,
+    `viewer/tests/e2e/viewer.spec.ts`,
+    `viewer/boardgate-viewer.html` (rebuilt deterministic artifact),
+    `README.md`, `README.zh-CN.md`, `docs/CAPABILITIES.md`, `HANDOFF.md`
+- Commands run:
+  - `npm run format` / `npm run check` / `npm run typecheck`
+  - `npx vitest run` / `npm run test:coverage`
+  - `npm run build` / `npm run build:check` / `npm run test:e2e`
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85`
+- Tests:
+  - Viewer: 132 passed, 1 skipped (opt-in private-scale); 92.66% statements,
+    87.43% branches, 98.60% functions, 92.55% lines — all thresholds met;
+    deterministic build check passed.
+  - E2E: 30/30 passed across Chromium, Firefox, and WebKit, including the
+    new cross-panel selection synchronization test.
+  - Python: 559 passed, 89.69% branch coverage.
+- Commit: `eb4af61 feat(viewer): synchronize Finding selection across report
+  and preview` plus the branch-tip HANDOFF documentation commit.
+- Issues created or updated: None. Open set remains ISSUE-002, ISSUE-005,
+  ISSUE-007, ISSUE-008 — all low, non-blocking; ISSUE-008's remaining work
+  becomes the Next Action.
+- Remaining uncertainty: The private-scale opt-in test still requires a large
+  local bundle to run; the full viewer UI has not been re-smoked against the
+  private real-scale bundle since the report and navigation rounds.
+- Recommended next action: Address the ISSUE-008 CI failure-artifact upload
+  (see Next Action).
 
 ### 2026-08-03T01:50:00+08:00 — Claude — Phase 11 validated report rendering
 
