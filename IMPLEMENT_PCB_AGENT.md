@@ -3,27 +3,32 @@
 Before starting work, read the following files in order:
 
 1. `BOOTSTRAP.md`
-2. `IMPLEMENT_PCB_AGENT.md`
-3. `HANDOFF.md`
-4. Existing repository documentation
+2. `PROJECT_SPEC.md`
+3. `IMPLEMENT_PCB_AGENT.md`
+4. `HANDOFF.md`
+5. Existing repository documentation
 
 Their responsibilities are:
 
 - `BOOTSTRAP.md` defines the repository-wide collaboration, evidence, commit,
   interruption-recovery, and HANDOFF maintenance protocol.
-- `IMPLEMENT_PCB_AGENT.md` defines the PCB Manufacturing Review Agent's
-  product scope, architecture, implementation phases, and acceptance criteria.
+- `PROJECT_SPEC.md` defines BoardGate's current forward-looking product scope,
+  including separate review, modification, and generation capabilities.
+- `IMPLEMENT_PCB_AGENT.md` defines the completed v0.1 PCB Manufacturing Review
+  Agent architecture, implementation phases, and acceptance criteria.
 - `HANDOFF.md` records the current verified repository state, active issues,
   recent activity, and the exact next action.
 
 When instructions conflict:
 
 1. Safety and preservation of existing user work take highest priority.
-2. Explicit project requirements in `IMPLEMENT_PCB_AGENT.md` override generic
-   workflow guidance in `BOOTSTRAP.md`.
-3. `HANDOFF.md` may refine the immediate next action, but it must not silently
+2. Accepted ADRs and explicit project requirements in `PROJECT_SPEC.md`
+   override the historical Initial MVP scope in this implementation protocol.
+3. This protocol continues to govern the v0.1 review implementation and its
+   evidence standard where `PROJECT_SPEC.md` does not expand product scope.
+4. `HANDOFF.md` may refine the immediate next action, but it must not silently
    override product requirements or architectural decisions.
-4. If a conflict cannot be resolved safely, record it as an Active Issue in
+5. If a conflict cannot be resolved safely, record it as an Active Issue in
    `HANDOFF.md` and choose the smallest reversible action.
 
 # PCB Manufacturing Review Agent — Implementation Protocol
@@ -105,6 +110,11 @@ When instructions conflict:
 * 完整板厂报价系统
 
 除非当前仓库已经可靠实现了其中部分功能，否则不要扩大 MVP 范围。
+
+> Scope evolution: this list remains the historical v0.1 review-MVP boundary.
+> `PROJECT_SPEC.md` and ADR 0007 now supersede the continued deferral of PCB
+> modification and generation for post-v0.1 phases. The existing review
+> pipeline and its evidence contracts remain unchanged and independent.
 
 ---
 
