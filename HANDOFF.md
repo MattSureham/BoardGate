@@ -16,18 +16,17 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T10:36:00+08:00`
+- Last updated: `2026-08-03T10:43:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified implementation commits fcf6be3 fix(svg): enforce
-  passive preview vocabulary and 6360bb5 ci(viewer): retain Playwright
-  failure evidence.`
+  state follows verified implementation commits fcf6be3 and 6360bb5 plus
+  documentation/evidence commit 77a9e38.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified implementation tip 6360bb5 after a normal,
-  non-force push; the branch-tip documentation commit containing this state
-  follows that implementation tip.`
+  identical at verified documentation tip 77a9e38 after a normal, non-force
+  push; the branch-tip documentation commit containing this state follows
+  that verified tip.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -362,6 +361,14 @@
     6360bb5 passed all eight jobs. The three-engine viewer-browsers job
     passed, its failure-evidence upload step concluded skipped, and the run
     retained zero artifacts as required on the success path.`
+  - `[CONFIRMED] GitHub Actions run 30779724086 at documentation tip 77a9e38
+    failed only viewer-browsers: WebKit's first complete-Bundle test timed out
+    while Playwright's directory `setInputFiles` call remained pending, even
+    though trace screenshots show the Viewer reached Bundle validation
+    complete about 1.6 s after input delivery. All other 35 browser tests and
+    seven sibling jobs passed. The new upload step succeeded and retained one
+    231,316-byte minimal artifact through 2026-08-10; its trace and error
+    context were downloaded and inspected before any further action.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -373,8 +380,9 @@
     API/upload/review/persistence channel.`
 - Working tree: `[CONFIRMED] Passive SVG admission and CI failure-evidence
   retention are captured by implementation commits fcf6be3 and 6360bb5;
-  the branch-tip documentation commit containing this state captures only
-  this HANDOFF update.`
+  documentation commit 77a9e38 records the first recovery state, and the
+  branch-tip documentation commit containing this state adds retained-trace
+  evidence from its post-push CI run.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -424,7 +432,7 @@ the current capabilities.
   `tests/unit/application/test_artifacts.py`, `viewer/tests/`
 - Blocking: No.
 
-### ISSUE-008 — WebKit E2E replacement-selection flake in CI
+### ISSUE-008 — WebKit directory-input Playwright hang in CI
 
 - Status: OPEN
 - Severity: low
@@ -440,7 +448,9 @@ the current capabilities.
   run 30777119202 on the adjacent WebKit test "terminates and revokes an
   in-flight worker before validating a replacement": 29/30 E2E tests and all
   seven sibling jobs passed, but this test waited 90 seconds for the same
-  neutral status.
+  neutral status. A third occurrence in run 30779724086 affected the first
+  complete-Bundle admission test instead of either replacement test: 35/36
+  E2E tests and all seven sibling jobs passed.
 - Evidence: Both failed-job logs show `toBeVisible()` on "Review unavailable."
   unresolved for the full 90 s. In the first test the SelectionError →
   `showError` path is synchronous and every error branch renders that status,
@@ -449,15 +459,23 @@ the current capabilities.
   synthetic in-flight Worker, then take that same inventory-error path. Run
   30777119202 generated `trace.zip` and `error-context.md`, but the old
   workflow uploaded nothing and its artifact API reports zero retained files.
-  The exact point at which WebKit stopped delivering progress remains
-  `[UNKNOWN]`.
-- Suspected cause: `[UNKNOWN]` WebKit/Playwright change-event or synthetic
-  Worker replacement timing under the GitHub Linux runner. The original
+  Run 30779724086 retained the next trace: Playwright began directory
+  `setInputFiles` at monotonic 23.836 s, delivered the input snapshot at
+  23.870 s, and did not complete that API call until context teardown at
+  113.235 s. In contrast, trace screenshots at 25.069 s and 25.440 s move
+  from the neutral page to "Bundle validation complete" with the full
+  summary, preview, and report; the timeout error-context snapshot also shows
+  that completed UI. Thus the page handled the change and completed Worker
+  validation about 1.6 s after input delivery while the Playwright driver
+  command remained pending for the full test timeout.
+- Suspected cause: `[INFERRED]` Playwright 1.62.0's WebKit directory
+  `setInputFiles` command/acknowledgement intermittently hangs on the GitHub
+  Linux runner after successfully delivering the files. The original
   suspected cause was a runner-load flake because that job's first WebKit test
   took 4.8 s versus 418 ms on Chromium and the defect did not reproduce
-  locally. The recurrence in a different replacement-selection test means
-  that transient-runner classification is insufficient; there is still no
-  evidence supporting a Viewer behavior change.
+  locally. The retained trace rules out a Viewer change-event or validation-
+  Worker stall for the third occurrence, but replacement-path behavior still
+  needs a bounded Linux reproduction before generalizing the cause.
 - Attempted approaches: The original identical WebKit test passed five local
   repeats in about 0.4 s each; `gh run rerun 30598805829 --failed` then made
   the original job/run succeed without a code change. After the recurrence,
@@ -466,12 +484,17 @@ the current capabilities.
   Firefox, and WebKit. Commit 6360bb5 now retains only Playwright `trace.zip`
   and `error-context.md` on an E2E-step failure through a SHA-pinned upload
   action; a workflow contract test fixes the failure-only condition, minimal
-  path scope, seven-day retention, and `continue-on-error` behavior.
+  path scope, seven-day retention, and `continue-on-error` behavior. On run
+  30779724086 that step succeeded; the retained 231,316-byte artifact was
+  downloaded to a temporary directory, and its JSONL trace, network record,
+  screenshots, and error context were inspected without re-running the job.
 - Current resolution state: Open and recurrent. Diagnostic retention is
   implemented and verified on the success path: Actions run 30779478703
-  passed all jobs, skipped the upload step, and retained zero artifacts. The
-  failure path has not yet occurred with the new workflow, so no retained
-  Linux trace has been inspected and no Viewer behavior change is justified.
+  passed all jobs, skipped the upload step, and retained zero artifacts. It is
+  also verified on the failure path: run 30779724086 preserved exactly the
+  intended trace/error-context evidence without changing the failed job
+  result. That evidence shows completed Viewer behavior behind a hung test-
+  driver command, so no Viewer behavior change is justified.
 - Remaining work: Reproduce only the two replacement-selection WebKit tests
   in a temporary Playwright 1.62.0 Linux environment with repeat-each 20,
   one worker, and retained traces; compare change-event delivery and Worker
@@ -668,7 +691,7 @@ behavior.
 
 ## Recent Activity
 
-### 2026-08-03T10:36:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
+### 2026-08-03T10:43:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
 
 - Role: recovery, primary implementation, security review, and verification
   agent
@@ -680,7 +703,8 @@ behavior.
   - `BOOTSTRAP.md` in full, `IMPLEMENT_PCB_AGENT.md`, ADR 0002/0003/0006,
     `docs/CAPABILITIES.md`, `HANDOFF.md`, the Viewer/Python SVG admission and
     rendering paths, test/build configuration, Git history/status/remotes,
-    public repository metadata, and Actions runs 30777119202 and 30779478703.
+    public repository metadata, and Actions runs 30777119202, 30779478703,
+    and 30779724086 plus the latter's retained Playwright artifact.
   - `[CONFIRMED] PROJECT_SPEC.md is absent from the repository and history;
     the operative project specification is IMPLEMENT_PCB_AGENT.md plus the
     accepted ADRs. Baseline local HEAD, origin/main, and origin/HEAD were
@@ -708,6 +732,14 @@ behavior.
     public main and waited for the complete implementation-tip CI result; no
     force push, rebase, dependency update, Schema change, ADR change, artifact
     protocol change, or private-file addition occurred.`
+  - `[CONFIRMED] When documentation-tip run 30779724086 reproduced the WebKit
+    failure, did not re-run it. Downloaded the newly retained minimal artifact
+    to an isolated temporary directory and inspected its error context,
+    JSONL trace timing, network record, and screenshots. The page completed
+    admission within about 1.6 seconds of input delivery while Playwright's
+    directory setInputFiles command stayed pending until the 90-second test
+    timeout/context teardown; this is evidence against changing Viewer
+    admission or Worker behavior.`
 - Files modified:
   - SVG implementation/tests: `src/boardgate/application/artifacts.py`,
     `tests/unit/application/test_artifacts.py`, `viewer/src/main.ts`,
@@ -730,7 +762,9 @@ behavior.
   - opt-in private-scale admission and a one-off full Viewer UI smoke against
     `/Users/matthew/Projects/testruns/PCB/1-verify.review-output`
   - `gh run view`, failed-job log inspection, artifact API checks, normal
-    `git push origin main`, and implementation-tip Actions monitoring
+    `git push origin main`, implementation/documentation-tip Actions
+    monitoring, `gh run download`, bounded ZIP listing/extraction, JSONL trace
+    queries, and visual inspection of the retained trace screenshots
 - Verification performed:
   - `[CONFIRMED] Python 3.12: 591 tests passed with 89.81% branch coverage;
     Python 3.14: the same 591 tests passed. Ruff, mypy, lock/sync, and Schema
@@ -746,25 +780,32 @@ behavior.
   - `[CONFIRMED] Actions run 30779478703 passed all eight jobs at 6360bb5;
     Viewer E2E passed, the upload step was skipped, and the artifact API
     returned zero success-path artifacts.`
+  - `[CONFIRMED] Actions run 30779724086 failed only one WebKit test at
+    77a9e38; 35/36 browser tests and all seven sibling jobs passed. The upload
+    step succeeded and retained exactly the scoped trace/error-context
+    artifact. Inspection proved the Viewer was complete while Playwright's
+    directory-input API call remained pending; no blind re-run occurred.`
 - Commits:
   - `fcf6be3 fix(svg): enforce passive preview vocabulary`
   - `6360bb5 ci(viewer): retain Playwright failure evidence`
-  - branch-tip `docs(handoff): record passive SVG and CI recovery` commit
-    containing this entry
+  - `77a9e38 docs(handoff): record passive SVG and CI recovery`
+  - branch-tip `docs(handoff): record retained WebKit trace evidence` commit
+    containing the post-push evidence update
 - Issues created or updated:
   - ISSUE-009 created and resolved with adversarial, parity, browser, private-
     scale, and CI evidence; it no longer blocks Viewer evidence-integrity
     claims.
   - ISSUE-008 remains open and low severity. Its recurrence in run
-    30777119202 is confirmed; diagnostics are now retained on a future
-    failure, but no Linux failure trace has yet been captured with the new
-    workflow. ISSUE-002, ISSUE-005, and ISSUE-007 remain open, low, and
-    non-blocking.
-- Remaining uncertainty: `[UNKNOWN]` Whether ISSUE-008 loses the replacement
-  input change event, stalls synthetic Worker termination/revocation, or
-  fails elsewhere under Playwright 1.62.0 WebKit on GitHub's Linux runner.
-  Success-path CI does not resolve that question, and no Viewer behavior was
-  changed speculatively.
+    30777119202 and again in 30779724086 is confirmed; the diagnostic upload
+    is proven on both success and failure paths. The latest retained trace
+    narrows the failure to a pending Playwright WebKit directory-input command
+    after successful page delivery. ISSUE-002, ISSUE-005, and ISSUE-007 remain
+    open, low, and non-blocking.
+- Remaining uncertainty: `[UNKNOWN]` Why Playwright 1.62.0 WebKit on GitHub's
+  Linux runner sometimes fails to acknowledge a completed directory
+  setInputFiles command, and whether the two replacement-test occurrences
+  share precisely that driver behavior. The trace does not support a Viewer
+  code change, so none was made speculatively.
 - Recommended next action: Run the bounded Linux WebKit reproduction stated
   in Next Action and inspect retained traces before proposing a product fix.
 
