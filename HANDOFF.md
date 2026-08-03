@@ -16,17 +16,17 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T10:43:00+08:00`
+- Last updated: `2026-08-03T10:51:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified implementation commits fcf6be3 and 6360bb5 plus
-  documentation/evidence commit 77a9e38.`
+  state follows verified implementation/test commits fcf6be3, 6360bb5, and
+  546aa99 plus documentation/evidence commits 77a9e38 and 21456e9.`
 - Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified documentation tip 77a9e38 after a normal, non-force
-  push; the branch-tip documentation commit containing this state follows
-  that verified tip.`
+  identical at verified test-fix tip 546aa99 after a normal, non-force push;
+  the branch-tip documentation commit containing this state follows that
+  verified tip.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -369,6 +369,22 @@
     seven sibling jobs passed. The new upload step succeeded and retained one
     231,316-byte minimal artifact through 2026-08-10; its trace and error
     context were downloaded and inspected before any further action.`
+  - `[CONFIRMED] GitHub Actions run 30780036747 at documentation tip 21456e9
+    passed 164/165 Viewer unit tests before the generated-fixture admission
+    test hit Vitest's default 5-second timeout at 5.023 s; every assertion
+    before/after it, deterministic build, 36/36 browser tests, Python gates,
+    and cross-platform smokes passed. Repository evidence showed synchronous
+    Python fixture generation occurred inside the timed test body.`
+  - `[CONFIRMED] Commit 546aa99 moved both generated admission fixtures into
+    a shared beforeAll hook with an explicit 60-second setup bound, matching
+    the existing semantics fixture pattern; no product or Viewer resource
+    deadline changed. Locally the affected test body fell to 1 ms, and the
+    full 165-test coverage suite, Biome, TypeScript, and deterministic build
+    passed.`
+  - `[CONFIRMED] GitHub Actions run 30780184522 at test-fix tip 546aa99 passed
+    all eight jobs, including Viewer coverage/deterministic build and 36/36
+    Chromium/Firefox/WebKit E2E. The failure-upload step was skipped and the
+    run retained zero artifacts.`
   - `[CONFIRMED] Each recovery commit was gate-verified on its own staged
     tree: b0ff240 (444 tests, 90.40%), 9d1de3d (471 tests, 90.57%), ccfb1a0
     (495 tests, 90.63%); checked-in schemas regenerated current.`
@@ -380,9 +396,10 @@
     API/upload/review/persistence channel.`
 - Working tree: `[CONFIRMED] Passive SVG admission and CI failure-evidence
   retention are captured by implementation commits fcf6be3 and 6360bb5;
-  documentation commit 77a9e38 records the first recovery state, and the
-  branch-tip documentation commit containing this state adds retained-trace
-  evidence from its post-push CI run.`
+  documentation commits 77a9e38 and 21456e9 preserve recovery/trace evidence,
+  and test fix 546aa99 bounds generated-fixture setup. The branch-tip
+  documentation commit containing this state records the final verified
+  recovery snapshot.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -430,6 +447,41 @@ the current capabilities.
 - Relevant files: `src/boardgate/application/artifacts.py`,
   `viewer/src/validation/svg.ts`, `viewer/src/main.ts`,
   `tests/unit/application/test_artifacts.py`, `viewer/tests/`
+- Blocking: No.
+
+### ISSUE-010 — Generated admission fixture exceeded Vitest's test-body timeout
+
+- Status: RESOLVED
+- Severity: low
+- Owner: Codex
+- State label: `[CONFIRMED]`
+- Context: Documentation-tip Actions run 30780036747 failed only
+  viewer-quality because `exposes validated layer groups and Finding markers
+  for presentation` exceeded Vitest's default 5-second per-test timeout.
+- Evidence: The failed log reports 164 passing tests, one opt-in skip, and the
+  single test timing out at 5.023 s. That test synchronously invoked
+  `generateValidBundle("copper_too_close_to_edge")`, which runs the complete
+  Python review CLI, inside the timed test body. A sibling semantics suite
+  already generates the same two fixtures in a 60-second beforeAll hook and
+  took 10.581 s on that runner. The same run's browser suite, build-independent
+  jobs, and all assertions outside the timed fixture generation passed.
+- Suspected cause: CI scheduling/runner variance pushed an integration-heavy
+  synchronous setup operation just beyond a unit test's generic 5-second
+  body deadline; this was not an admission assertion or resource-policy
+  failure.
+- Attempted approaches: Did not re-run the failed job. Moved both generated
+  fixtures and their admission into one explicitly 60-second-bounded
+  beforeAll hook, retained cleanup in afterAll, and kept the actual assertion
+  test synchronous and fast. No global timeout or product deadline was
+  increased.
+- Current resolution state: Resolved by 546aa99. The focused affected test
+  passed with a 1 ms body, the full local Viewer suite passed 165 tests with
+  configured coverage and deterministic build checks, and Actions run
+  30780184522 passed all eight jobs including viewer-quality.
+- Remaining work: None; keep external fixture/process setup outside generic
+  unit-test body deadlines and bound it explicitly.
+- Relevant files: `viewer/tests/unit/admit.test.ts`,
+  `viewer/tests/unit/fixture.ts`, `viewer/tests/unit/semantics.test.ts`
 - Blocking: No.
 
 ### ISSUE-008 — WebKit directory-input Playwright hang in CI
@@ -691,7 +743,7 @@ behavior.
 
 ## Recent Activity
 
-### 2026-08-03T10:43:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
+### 2026-08-03T10:51:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
 
 - Role: recovery, primary implementation, security review, and verification
   agent
@@ -704,7 +756,8 @@ behavior.
     `docs/CAPABILITIES.md`, `HANDOFF.md`, the Viewer/Python SVG admission and
     rendering paths, test/build configuration, Git history/status/remotes,
     public repository metadata, and Actions runs 30777119202, 30779478703,
-    and 30779724086 plus the latter's retained Playwright artifact.
+    30779724086, 30780036747, and 30780184522 plus the retained Playwright
+    artifact from 30779724086.
   - `[CONFIRMED] PROJECT_SPEC.md is absent from the repository and history;
     the operative project specification is IMPLEMENT_PCB_AGENT.md plus the
     accepted ADRs. Baseline local HEAD, origin/main, and origin/HEAD were
@@ -740,6 +793,12 @@ behavior.
     directory setInputFiles command stayed pending until the 90-second test
     timeout/context teardown; this is evidence against changing Viewer
     admission or Worker behavior.`
+  - `[CONFIRMED] Diagnosed the only failure in run 30780036747 rather than
+    re-running it: a test synchronously generated a full Python review fixture
+    inside Vitest's 5-second test-body deadline and crossed it by 23 ms. Moved
+    both generated admission fixtures into a shared, explicitly 60-second-
+    bounded beforeAll hook, matching the existing semantics test pattern;
+    kept assertions and product/resource deadlines unchanged.`
 - Files modified:
   - SVG implementation/tests: `src/boardgate/application/artifacts.py`,
     `tests/unit/application/test_artifacts.py`, `viewer/src/main.ts`,
@@ -764,7 +823,8 @@ behavior.
   - `gh run view`, failed-job log inspection, artifact API checks, normal
     `git push origin main`, implementation/documentation-tip Actions
     monitoring, `gh run download`, bounded ZIP listing/extraction, JSONL trace
-    queries, and visual inspection of the retained trace screenshots
+    queries, visual inspection of the retained trace screenshots, focused and
+    full Viewer regression runs, and test-fix-tip Actions monitoring
 - Verification performed:
   - `[CONFIRMED] Python 3.12: 591 tests passed with 89.81% branch coverage;
     Python 3.14: the same 591 tests passed. Ruff, mypy, lock/sync, and Schema
@@ -785,16 +845,26 @@ behavior.
     step succeeded and retained exactly the scoped trace/error-context
     artifact. Inspection proved the Viewer was complete while Playwright's
     directory-input API call remained pending; no blind re-run occurred.`
+  - `[CONFIRMED] Run 30780036747 isolated ISSUE-010 at 5.023 s while the other
+    164 Viewer tests, deterministic build, 36/36 browser tests, and all seven
+    sibling jobs passed. After 546aa99, the affected local test body took
+    1 ms; the 165-test coverage suite, Biome, TypeScript, and deterministic
+    build passed. Actions run 30780184522 then passed all eight jobs, skipped
+    the failure upload, and retained zero artifacts.`
 - Commits:
   - `fcf6be3 fix(svg): enforce passive preview vocabulary`
   - `6360bb5 ci(viewer): retain Playwright failure evidence`
   - `77a9e38 docs(handoff): record passive SVG and CI recovery`
-  - branch-tip `docs(handoff): record retained WebKit trace evidence` commit
-    containing the post-push evidence update
+  - `21456e9 docs(handoff): record retained WebKit trace evidence`
+  - `546aa99 test(viewer): prebuild generated admission fixtures`
+  - branch-tip `docs(handoff): finalize passive SVG recovery evidence` commit
+    containing this final verified state
 - Issues created or updated:
   - ISSUE-009 created and resolved with adversarial, parity, browser, private-
     scale, and CI evidence; it no longer blocks Viewer evidence-integrity
     claims.
+  - ISSUE-010 created and resolved by moving external fixture setup under its
+    own explicit bound; no product timeout was relaxed.
   - ISSUE-008 remains open and low severity. Its recurrence in run
     30777119202 and again in 30779724086 is confirmed; the diagnostic upload
     is proven on both success and failure paths. The latest retained trace
