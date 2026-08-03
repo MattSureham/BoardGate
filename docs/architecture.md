@@ -21,19 +21,24 @@ design document:
 
 ```text
 explicit versioned request
-  -> safe base-project reconstruction and identity checks
+  -> strict admission and applicable base-project identity checks
   -> exact operation registry lookup
   -> bounded deterministic executor/writer adapter
   -> immutable design/ payload
   -> fresh unchanged ReviewService validation
-  -> canonical revision evidence and atomic publication
+  -> canonical authoring evidence and atomic publication
 ```
 
-The first executor performs one same-width Excellon tool-diameter token
+The modification executor performs one same-width Excellon tool-diameter token
 replacement. It independently parses before and after emission and proves the
-protected drill/slot facts remained unchanged. Broader editing and structured
-generation must add their own versioned executors/writers; they cannot fall
-back to free-form source rewriting.
+protected drill/slot facts remained unchanged. The generation registry has two
+exact operations: `generate_two_layer_coupon/1.0` emits a plated-hole coupon,
+and `generate_two_layer_coupon_with_npth/1.0` emits distinct plated and
+non-plated drill files without creating NPTH copper pads. Both use bounded
+writers, prove operation-specific postconditions by reparsing their payloads,
+and send the immutable emitted bytes to the unchanged `ReviewService`. Broader
+editing or generation must add its own versioned executor/writer; no registry
+falls back to free-form source rewriting.
 
 ## Boundaries
 
@@ -46,13 +51,16 @@ back to free-form source rewriting.
 - `application` coordinates the complete review transaction.
 - `authoring` owns strict requests/results, operation-specific bounded
   transforms, semantic postconditions, and content-derived revision evidence.
-- the application-layer modification registry maps an exact operation kind
-  and version to one deterministic executor; missing versions never fall back.
+- application-layer modification and generation registries map exact operation
+  kinds and versions to deterministic executors; missing versions never fall
+  back.
 - `agent` organizes structured results but never replaces measurements.
 - `rendering` consumes domain results and is never a rule data source.
 
-Review still publishes exactly its established six artifacts. A modification
-publishes a separate `design/`, `evidence/`, and nested `validation/`
-workspace, never a seventh review artifact and never inside an input project.
-The Viewer remains read-only. The core must run without a network connection,
-an API key, or an LLM.
+Review still publishes exactly its established six artifacts. Modification and
+generation publish separate `design/`, `evidence/`, and nested `validation/`
+workspaces, never a seventh review artifact and never inside an input project.
+Generation establishes only its declared structural and geometric
+postconditions; clearances and readiness are evaluated by the explicit review
+profile in that nested unchanged review. The Viewer remains read-only. The
+core must run without a network connection, an API key, or an LLM.

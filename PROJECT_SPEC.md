@@ -176,19 +176,37 @@ pretending that unsupported electrical or mechanical intent was inferred. A
 generator declares its exact requirement schema, design semantics, emitted
 formats, resource policy, and validation coverage.
 
-The first planned generator is a constrained metric, rectangular two-layer
-fabrication project/coupon with explicit dimensions, supported standard
-apertures, optional round holes, and explicit manufacturing clearances. It
-must emit deterministic Gerber/Excellon through bounded writer adapters and be
-accepted as fresh input by the existing review pipeline.
+The first generator is implemented as a constrained metric, rectangular
+two-layer fabrication project/coupon with explicit dimensions, supported
+standard apertures, plated round holes, and straight traces. Exact operation
+`generate_two_layer_coupon/1.0` emits deterministic Gerber/Excellon through
+bounded writer adapters and is accepted as fresh input by the existing review
+pipeline.
+
+The exact registered extension
+`generate_two_layer_coupon_with_npth/1.0` adds a separate non-plated round-hole
+set. It requires at least one plated hole with an explicit copper-pad diameter
+and at least one non-plated hole without a pad, permits at most 1,024 holes in
+the two sets combined and at most 4,096 traces, and emits separate explicitly
+`PLATED` and `NON_PLATED` Excellon payloads. The generator proves its declared
+geometry and format semantics; manufacturing clearances and readiness remain
+decisions of the explicitly selected review profile in the subsequent
+unchanged `ReviewService` run.
 
 ### Expected inputs and outputs
 
 Inputs are strict structured requirements such as board dimensions, supported
-layer stack, explicit copper primitives, hole definitions, and manufacturing
-profile. Outputs use the same separated revision workspace shape as
-modification, with canonical generation requirements/plan evidence in place of
-a base-project change request.
+layer stack, explicit copper primitives, hole definitions, and the separate
+manufacturing profile used for review. The NPTH operation accepts
+`plated_holes` containing x/y position, drill diameter, and pad diameter, and
+`non_plated_holes` containing only x/y position and drill diameter. It does not
+infer or emit a copper pad for an NPTH hole.
+
+Outputs use the same separated revision workspace shape as modification, with
+canonical generation requirements/plan evidence in place of a base-project
+change request. The NPTH operation emits five design files: X2 top and bottom
+copper, a rectangular outline, a plated Excellon file, and
+`coupon-non-plated.drl` with explicit non-plated semantics.
 
 Every generated source and object receives new content-derived identity and
 generation provenance. Generated files are never injected into or represented
@@ -201,6 +219,7 @@ as an existing review bundle.
 - unconstrained autorouting, placement optimization, impedance, SI, or PI;
 - lossless editing of arbitrary Gerber, Excellon, KiCad, or Altium projects;
 - arbitrary aperture-macro synthesis, ODB++, or IPC-2581 authoring;
+- slots, vias, non-round holes, or general-purpose EDA authoring;
 - autonomous production release or fabricator submission; and
 - direct file writes by an LLM or network provider.
 
@@ -268,14 +287,18 @@ separate from deterministic evidence.
 
 ### Phase D — constrained structured generation
 
-- Define one narrow requirements schema and deterministic Gerber/Excellon
-  writer envelope.
-- Generate an original minimal two-layer rectangular project and validate it
-  through the existing review pipeline.
-- Add equality/boundary, reproducibility, and resource-limit evidence.
+- **Implemented:** one narrow requirements schema and deterministic
+  Gerber/Excellon writer envelope.
+- **Implemented:** generation of an original minimal two-layer rectangular
+  project followed by validation through the existing review pipeline.
+- **Implemented:** equality/boundary, reproducibility, and resource-limit
+  evidence for `generate_two_layer_coupon/1.0`.
 
 ### Phase E — broader agent-driven authoring
 
+- **Implemented:** the first exact registered extension,
+  `generate_two_layer_coupon_with_npth/1.0`, adds separately emitted and
+  validated plated and non-plated round-hole sets.
 - Add more registered operations and native EDA adapters only with round-trip
   evidence.
 - Permit agents to propose typed plans, with explicit approval and deterministic

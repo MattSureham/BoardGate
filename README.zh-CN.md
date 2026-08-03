@@ -5,7 +5,7 @@
 BoardGate 是一个 Evidence-first、确定性的 PCB 审查与 authoring Agent。
 它安全导入制造与装配文件，执行可复现的 DFM 检查并输出结构化审查证据。
 独立的 authoring 子系统现在还能执行一种严格受限的 PCB 文件修改，并能从
-结构化需求生成一种有边界的双面板 coupon 设计，两者都会把新设计交给
+结构化需求生成有边界的双面板 coupon 设计；每个新设计都会交给
 未经改写的现有审查管线重新验证。
 
 项目遵守一条硬边界：文件解析、几何测量和规则判断必须由确定性代码完成。
@@ -14,8 +14,8 @@ Agent 只能组织和解释这些结果，不得编造几何数据、设计意�
 ## 当前状态
 
 v0.1 审查基线已经完成。面向未来的审查、修改与生成契约由
-[`PROJECT_SPEC.md`](PROJECT_SPEC.md) 定义；首个确定性修改纵向切片与首个
-有边界的结构化生成器（双面板 coupon）均已实现。已经验证的仓库状态和
+[`PROJECT_SPEC.md`](PROJECT_SPEC.md) 定义；首个确定性修改纵向切片与两个
+精确注册的双面板 coupon 生成操作均已实现。已经验证的仓库状态和
 唯一下一步维护在 [`HANDOFF.md`](HANDOFF.md) 中。
 
 ## 开发
@@ -275,7 +275,8 @@ uv run pcb-review modify tests/fixtures/drill_too_small \
 ## 确定性 PCB 生成
 
 生成是第三个独立的确定性能力：输入结构化需求，输出一个有边界的设计，
-随后进行一次全新的独立审查。首个生成器输出公制矩形双面板 coupon，
+随后进行一次全新的独立审查。首个注册操作
+`generate_two_layer_coupon/1.0` 输出公制矩形双面板 coupon，
 包含显式的金属化圆孔（每个孔都有显式铜盘）和显式的圆形光圈直线走线。
 不存在自由形式的写入口径：需求先按含边界的上限校验（板尺寸 1.0–500.0
 mm，最多 1,024 个孔和 4,096 条走线，所有数值必须是 0.000001 mm 输出量
@@ -335,6 +336,21 @@ uv run pcb-review generate \
 输出、重新解析或验证失败以退出码 3 拒绝且不发布；审查完成但仍有
 blocker 时如实发布并返回 1。
 
+第二个精确操作 `generate_two_layer_coupon_with_npth/1.0` 在不改变或放宽
+首个契约的前提下，增加单独输出的 NPTH 钻孔文件。它要求
+`plated_holes` 与 `non_plated_holes` 均至少有一项；金属化孔项包含
+`x_mm`、`y_mm`、`drill_diameter_mm` 与 `pad_diameter_mm`，NPTH 项不含
+铜盘字段，也绝不会隐式生成铜盘。两组孔合计最多 1,024 个，走线最多
+4,096 条。它的 `design/` 恰有五个文件：X2 顶层和底层铜、矩形外形、
+金属化钻孔文件，以及 `coupon-non-plated.drl`。两个钻孔文件分别带有明确的
+`PLATED` 和 `NON_PLATED` 语义，并在未经改写的 `ReviewService` 验证整个
+生成设计前分别重新解析。
+
+生成器证明有界输出、板内包含、钻孔不重叠及请求语义精确匹配。制造间距
+并非生成器推断或保证的事实：它们由显式选择的 review profile 检查，并可
+如实产生 blocker。两个 coupon 操作都不支持槽孔、via、非圆孔、任意布线或
+通用 EDA authoring。
+
 ## 离线审查 Viewer
 
 独立分发的
@@ -391,7 +407,7 @@ npm run build:check
 
 所有输入文件都按不可信数据处理。BoardGate Evidence 不是板厂投产保证。
 当前 authoring 切片不是任意或无损的 Gerber/Excellon 编辑；已实现的生成器
-也只输出有边界的双面板 coupon 契约——两者都不保证可制造性。原生 EDA
+也只输出有边界的双面板 coupon 契约——这些能力都不保证可制造性。原生 EDA
 authoring、ODB++、IPC-2581、SI/PI、
 autorouting、Web API、自动投产发布和需要联网的 LLM Provider 仍不在范围内。
 精确支持范围与限制见

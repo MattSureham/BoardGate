@@ -5,8 +5,8 @@
 BoardGate is an evidence-first, deterministic PCB review and authoring agent.
 It ingests fabrication and assembly files, runs reproducible DFM checks, and
 produces structured review evidence. Its separate authoring subsystems can
-apply one narrowly supported PCB-file modification and generate one bounded
-two-layer coupon design from structured requirements, each validated through
+apply one narrowly supported PCB-file modification and generate bounded
+two-layer coupon designs from structured requirements, each validated through
 a fresh run of the unchanged review pipeline.
 
 The project follows one hard boundary: parsers, measurements, and rule
@@ -18,9 +18,9 @@ production-readiness guarantee.
 
 The v0.1 review baseline is complete. The forward-looking review,
 modification, and generation contract is [`PROJECT_SPEC.md`](PROJECT_SPEC.md);
-the initial deterministic modification slice and the first bounded structured
-generator (a two-layer coupon) are implemented. Verified repository state and
-the exact next action are maintained in [`HANDOFF.md`](HANDOFF.md).
+the initial deterministic modification slice and two exact registered coupon
+generation operations are implemented. Verified repository state
+and the exact next action are maintained in [`HANDOFF.md`](HANDOFF.md).
 
 ## Development
 
@@ -296,7 +296,8 @@ repair or fabrication approval.
 
 Generation is the third separate deterministic capability: structured
 requirements in, one bounded design out, then a fresh independent review. The
-first generator emits a metric rectangular two-layer coupon with explicit
+first registered operation, `generate_two_layer_coupon/1.0`, emits a metric
+rectangular two-layer coupon with explicit
 plated round holes (each with its explicit copper pad) and explicit straight
 round-aperture traces. There is no free-form writer path: the requirements
 are validated against inclusive bounds (1.0–500.0 mm boards, at most 1,024
@@ -358,6 +359,26 @@ guarantee manufacturability); `validation/` holds the independent
 six-artifact review. Invalid requirements exit 2 without publication;
 emission, reparse, or validation failures exit 3 without publication; a
 completed review with blockers is published truthfully and exits 1.
+
+The second exact operation,
+`generate_two_layer_coupon_with_npth/1.0`, adds a separately emitted NPTH drill
+file without changing or weakening the first contract. It requires at least
+one entry in each of `plated_holes` and `non_plated_holes`; plated entries have
+`x_mm`, `y_mm`, `drill_diameter_mm`, and `pad_diameter_mm`, while NPTH entries
+have no pad field and never create an implicit copper pad. The two lists may
+contain at most 1,024 holes in total, and the request may contain at most 4,096
+traces. Its `design/` inventory has five files: X2 top and bottom copper, the
+rectangular outline, a plated drill file, and `coupon-non-plated.drl`. The two
+drill payloads carry explicit `PLATED` and `NON_PLATED` semantics and are
+reparsed independently before the unchanged `ReviewService` validates the
+entire generated design.
+
+The generator proves bounded emission, board containment, drill non-overlap,
+and exact requested semantics. Manufacturing clearances are not inferred or
+guaranteed by generation: the explicitly selected review profile evaluates
+them and may truthfully publish blockers. Slots, vias, non-round holes,
+arbitrary routing, and general-purpose EDA authoring remain outside both
+coupon operations.
 
 ## Offline review viewer
 
@@ -421,8 +442,8 @@ npm run build:check
 
 All input files are treated as untrusted. BoardGate evidence is not a
 fabrication warranty. The implemented authoring slices are not arbitrary or
-lossless Gerber/Excellon editing, and the implemented generator emits only
-the bounded two-layer coupon contract—neither guarantees manufacturability.
+lossless Gerber/Excellon editing, and the implemented generators emit only
+the bounded two-layer coupon contracts—none guarantees manufacturability.
 Native EDA authoring, ODB++, IPC-2581, SI/PI,
 autorouting, a web API, autonomous production release, and network-backed LLM
 providers remain out of scope. The exact supported subsets and limits are in
