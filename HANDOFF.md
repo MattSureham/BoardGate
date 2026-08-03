@@ -16,31 +16,39 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T11:00:00+08:00`
+- Last updated: `2026-08-03T12:00:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
-- HEAD: `[CONFIRMED] The branch-tip documentation commit containing this
-  state follows verified recovery snapshot 26bb1e6 and implementation/test
-  commits fcf6be3, 6360bb5, and 546aa99 plus documentation/evidence commits
-  77a9e38 and 21456e9.`
-- Remote sync: `[CONFIRMED] local main, origin/main, and origin/HEAD were
-  identical at verified recovery snapshot 26bb1e6 after a normal, non-force
-  push; the branch-tip documentation commit containing this state follows
-  that verified snapshot.`
+- HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
+  follows local architecture/contracts/implementation/documentation commits
+  a935d58, dea742d, f3ddd6e, and 61ea33a.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD remain at recovery
+  baseline fec6795. The branch-tip HANDOFF commit is local and follows four
+  unpushed atomic commits; no force push, rebase, or remote-history rewrite
+  occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
-  and cross-panel Finding navigation.`
-- Entry point: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
-  rules/default.yaml --output OUTPUT`
+  and cross-panel Finding navigation. Authoring Phases A-C now have an
+  accepted separate-subsystem architecture, strict public contracts, one
+  deterministic Excellon modification operation, and independent review
+  validation; structured PCB generation is not yet implemented.`
+- Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
+  rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
+  INPUT... --request CHANGE.json --rules rules/default.yaml --output
+  REVISION_OUTPUT`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
   - `[CONFIRMED] Locked Python 3.12 development environment; Ubuntu CI
     asserts and tests the actual Python 3.12 and 3.14 interpreters, while
     Ubuntu, macOS, and Windows run a complete Python 3.12 CLI review smoke.`
   - `[CONFIRMED] Repository collaboration protocol and architecture boundary.`
+  - `[CONFIRMED] PROJECT_SPEC.md now defines review, modification, and
+    generation as separate capabilities; accepted ADR 0007 keeps the
+    immutable review pipeline and read-only Viewer unchanged while placing
+    deterministic authoring in a sibling subsystem.`
   - `[CONFIRMED] Strict, versioned Unit, Point, BoundingBox,
     CoordinateSystem, SourceSpan, and Provenance models.`
   - `[CONFIRMED] Canonical JSON serialization with six-decimal persisted
@@ -51,7 +59,7 @@
     helpers.`
   - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
     required layers, fabrication thresholds, tolerances, and review policy.`
-  - `[CONFIRMED] Restricted YAML/JSON loader and six checked-in Draft
+  - `[CONFIRMED] Restricted YAML/JSON loader and eight checked-in Draft
     2020-12 public JSON Schemas.`
   - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
     archives, and explicit regular files.`
@@ -209,11 +217,37 @@
     Finding list, keeps aria-pressed in sync across both button sets, and
     scrolls the counterpart into view. Selection remains CSS-only on the
     validated in-memory copy.`
+  - `[CONFIRMED] ModificationRequest/ModificationResult 1.0 are strict,
+    explicit-version public contracts with checked-in Draft 2020-12 Schemas,
+    complete ingestion-equivalent logical-path safety, full request and
+    structured-operation digests, stable wording-independent revision IDs,
+    fixed non-guarantee text, and cross-evidence validators.`
+  - `[CONFIRMED] The complete authoring operation registry resolves exact
+    kind/version pairs without fallback. Its first executor implements only
+    set_excellon_tool_diameter 1.0 for a confirmed metric/absolute,
+    warning-free Excellon source, using one same-width decimal-token patch,
+    isolated before/after parsing, protected drill/slot comparison, and
+    exact token-span evidence.`
+  - `[CONFIRMED] ModificationService safely rebuilds and binds the base
+    project, rejects control/non-design inputs and stale or unsupported
+    requests, emits a separate design/evidence/validation workspace, invokes
+    the unchanged ReviewService on emitted bytes, validates the exact outer
+    inventory and nested six-artifact bundle, and publishes atomically.
+    ANALYSIS_FAILED publishes no revision; completed blocker evidence is
+    retained with exit 1 and no readiness reinterpretation.`
+  - `[CONFIRMED] The original drill_too_small fixture proves the base review
+    has exactly one minimum_drill_diameter blocker at 0.100 mm; the explicit
+    T01 0.100 -> 0.300 mm revision changes only the intended token, produces
+    stable request/result/design/first-five validation bytes, and receives a
+    fresh READY_FOR_REVIEW result with that rule PASS/FULL and no new
+    Findings.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
   Excellon round hits/routed slots and Gerber analytic primitives are
-  normalized to millimetres.`
+  normalized to millimetres. The v1 modification path is deliberately
+  narrower: every project member must be a confirmed fabrication/assembly
+  payload, and request/profile control files must remain outside inputs.`
 - Implemented rules: `[CONFIRMED] required_layers_present and
   drill_file_present, board_outline_present, board_outline_closed, and
   multiple_outline_regions, gerber_drill_coordinate_alignment, and
@@ -223,6 +257,26 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Authoring implementation gates on 2026-08-03 passed:
+    uv lock --check; locked all-group sync; checked-in Schema export/diff;
+    Ruff format/check (174 files); mypy (156 source files); and the complete
+    Python 3.12 suite with 655 tests at 89.59% branch coverage. The same 655
+    tests passed under local CPython 3.14.4; the default environment was then
+    restored to Python 3.12.13.`
+  - `[CONFIRMED] A clean Viewer npm install reported zero vulnerabilities;
+    Biome, TypeScript, 165-test Vitest coverage with one opt-in skip (92.84%
+    statements, 87.54% branches, 98.65% functions, 92.74% lines), and the
+    deterministic standalone build check passed after the two authoring
+    Schemas were added. The Viewer still consumes exactly the original six
+    review artifacts.`
+  - `[CONFIRMED] Local file:// Playwright regression passed all 36 tests in
+    Chromium, Firefox, and WebKit. ISSUE-008 did not reproduce locally and
+    no Viewer behavior or test deadline changed.`
+  - `[CONFIRMED] The first Viewer coverage attempt was run accidentally
+    against the temporary Python 3.14 environment and its Python-oracle setup
+    crossed the existing 10-second hook at 10.428 s. Restoring the declared
+    Python 3.12 environment made the unchanged suite pass in 3.96 s; this was
+    treated as environment evidence, not a product or ISSUE-010 regression.`
   - `[CONFIRMED] gh repo view reported PUBLIC visibility.`
   - `[CONFIRMED] uv lock --check resolved 50 packages.`
   - `[CONFIRMED] uv run ruff format --check . passed (158 files).`
@@ -406,12 +460,15 @@
     validated summary, preview.svg, and report.md with layer toggles,
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-- Working tree: `[CONFIRMED] Passive SVG admission and CI failure-evidence
-  retention are captured by implementation commits fcf6be3 and 6360bb5;
-  documentation commits 77a9e38, 21456e9, and 26bb1e6 preserve recovery/trace
-  evidence, and test fix 546aa99 bounds generated-fixture setup. The
-  branch-tip documentation commit containing this state records the latest
-  inspected ISSUE-008 failure evidence.`
+  - `[CONFIRMED] Authoring currently supports exactly one Excellon
+    tool-diameter operation; it is not arbitrary or lossless source editing.
+    No PCB generator, native EDA writer, inferred circuit intent, autorouter,
+    or autonomous production-release path is implemented.`
+- Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
+  leave a clean local main after architecture commit a935d58, contracts commit
+  dea742d, validated modification commit f3ddd6e, and documentation commit
+  61ea33a. It remains ahead of origin/main=fec6795 until an explicitly
+  authorized normal push is performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -621,6 +678,12 @@ the current capabilities.
   API and inspected resulting object plating.
 - Current resolution state: BoardGate applies a confirmed caller hint only
   when parser object plating remains `None`; explicit file plating wins.
+- Authoring impact (2026-08-03): `[CONFIRMED]` The first modification
+  operation deliberately avoids Gerbonara whole-file writing. It replaces one
+  exact same-width tool token, reparses the result, and tests that explicit
+  `;TYPE=PLATED` evidence and every protected drill/slot fact remain intact.
+  This contains ISSUE-002 for the supported slice but does not resolve the
+  upstream parser behavior or authorize broader Excellon rewriting.
 - Remaining work: Re-evaluate on dependency upgrades.
 - Relevant files: `src/boardgate/parsers/excellon.py`
 - Blocking: No.
@@ -766,13 +829,132 @@ the current capabilities.
 
 ## Next Action
 
-Reproduce ISSUE-008 in a temporary Playwright 1.62.0 Linux environment by
-running only the two replacement-selection WebKit tests with
-`--repeat-each=20`, `--workers=1`, and retained traces; compare change-event
-delivery and Worker terminate/revoke evidence before changing Viewer
-behavior.
+Implement Phase D's first constrained structured generator: define and export
+an explicit-version `generate_two_layer_coupon` requirements/result contract,
+register one bounded deterministic executor that emits metric X2 top/bottom
+copper, rectangular outline, and plated Excellon drill payloads into the
+separate revision workspace, then prove fresh unchanged ReviewService
+validation, byte-stable generation evidence, inclusive resource bounds, and
+fail-closed invalid requirements without adding a free-form writer path.
 
 ## Recent Activity
+
+### 2026-08-03T12:00:00+08:00 — Codex — Separate PCB authoring foundation and first validated revision
+
+- Role: recovery, architecture, primary implementation, security review, and
+  verification agent
+- Task: Reassess the completed review-only boundary, make PCB modification
+  and generation explicit product capabilities without weakening review
+  evidence, and deliver the smallest deterministic modification that emits a
+  real PCB artifact and validates it through the existing pipeline.
+- Context inspected:
+  - `BOOTSTRAP.md` in full, the complete `HANDOFF.md`, the absent-at-baseline
+    `PROJECT_SPEC.md`, `IMPLEMENT_PCB_AGENT.md`, every ADR 0001-0006, review
+    application/worker/output paths, parser adapters and normalized domain,
+    Gerber/Excellon capabilities and fixtures, CLI/config/schema boundaries,
+    tests, CI, recent commits, branch/remotes, and open ISSUE-002/005/007/008.
+  - `[CONFIRMED]` Recovery baseline was clean local/remote main at fec6795.
+    No existing ADR prohibited authoring: the legacy specification deferred
+    it only for the initial review MVP. `PCBProject` is a content-addressed
+    review snapshot and lacks the lossless syntax/design intent needed to be
+    an editable authoring model.
+- Architectural decision:
+  - `[CONFIRMED]` Added forward-looking `PROJECT_SPEC.md` and accepted ADR
+    0007. Review, modification, and generation remain distinct. Authoring is
+    a sibling deterministic subsystem; emitted bytes enter the unchanged
+    ReviewService as fresh input. ADRs 0001-0006, the exact six-artifact
+    review bundle, and the read-only Viewer remain valid.
+  - `[CONFIRMED]` Rejected mutation of `PCBProject`, free-form LLM/source
+    writes, a seventh review artifact, and arbitrary Gerbonara round-trip
+    output. The first slice uses an operation-specific exact token adapter
+    because general Excellon rewriting cannot yet prove syntax/plating
+    preservation.
+- Actions performed:
+  - `[CONFIRMED]` Added explicit-version ModificationRequest/Result models,
+    two checked-in public Schemas, strict bounded duplicate-safe JSON
+    admission, full safe-path parity with ingestion, full request and
+    prose-independent operation digests, stable revision IDs, exact payload
+    inventory, normative disclaimer, and cross-evidence validation.
+  - `[CONFIRMED]` Added a complete exact-version operation registry. The sole
+    registered executor patches one plain fixed-width metric/absolute
+    Excellon TnnC diameter token, rejects warnings/limitations, ambiguous or
+    unsupported scope, slots sharing the tool, stale values, and resource
+    N+1; it reparses before/after and proves all protected drill/slot facts.
+  - `[CONFIRMED]` Added `pcb-review modify`. It rejects request/profile files
+    inside project inputs and non-design siblings, preserves all admitted
+    input bytes, emits `design/`, canonical `evidence/`, and a nested exact
+    six-artifact `validation/`, then validates symlink-free exact inventory,
+    hashes, IDs, token span, normalized output drills, and review identity
+    before atomic publication.
+  - `[CONFIRMED]` Fixed review findings during independent inspection:
+    revision identity no longer depends on instruction prose; executable
+    versions cannot default silently; public logical paths cannot express
+    values ingestion would reject; disclaimer/span evidence cannot be
+    fabricated; external symlinks/extra directories fail workspace
+    admission; request/precondition errors map to exit 2 while unsupported
+    parser/executor/postcondition failures map to exit 3.
+  - `[CONFIRMED]` Added the original `drill_too_small` fixture. Its baseline
+    review has exactly one drill-diameter blocker; the tested revision changes
+    only T01C0.100 to T01C0.300, resolves that Finding with PASS/FULL, adds no
+    Finding, and yields stable deterministic revision bytes. Tests also prove
+    stale/precondition/control/capability/parser/ANALYSIS_FAILED failures do
+    not publish, an existing output is preserved, and a completed blocker
+    review is published truthfully with exit 1.
+  - `[CONFIRMED]` Updated English/Chinese usage, architecture, capability
+    matrix, package description, and ISSUE-002 authoring impact. No network
+    provider, Viewer behavior, review Schema, dependency, API, native EDA
+    writer, or generator was added.
+- Files added or materially changed:
+  - Specification/architecture: `PROJECT_SPEC.md`,
+    `docs/adr/0007-separate-authoring-and-review-validation.md`,
+    `IMPLEMENT_PCB_AGENT.md`, `docs/architecture.md`,
+    `docs/CAPABILITIES.md`, `README.md`, `README.zh-CN.md`
+  - Contracts/implementation: `src/boardgate/authoring/`,
+    `src/boardgate/application/modification_registry.py`,
+    `src/boardgate/application/modification_service.py`,
+    `src/boardgate/cli.py`, `src/boardgate/schemas.py`,
+    `schemas/v1/modification-*.schema.json`
+  - Evidence/tests: `tests/unit/authoring/`,
+    `tests/integration/test_modify_revision.py`,
+    `tests/fixtures/drill_too_small/`
+- Commands and verification:
+  - `uv lock --check`; locked Python 3.12 all-group sync; Schema export and
+    clean diff; Ruff format/check; mypy; focused authoring/integration/schema
+    suite (70 passed); full Python 3.12 coverage suite (655 passed, 89.59%
+    branch); full CPython 3.14.4 suite (655 passed); default environment
+    restored to CPython 3.12.13.
+  - Clean `npm ci` (zero vulnerabilities), Biome, TypeScript, Vitest coverage
+    (165 passed, one opt-in skip, thresholds met), deterministic Viewer build,
+    and file:// Playwright 36/36 across Chromium/Firefox/WebKit. Added
+    authoring Schemas did not expand the Viewer's exact six-artifact protocol.
+  - The first Viewer coverage attempt inherited the temporary 3.14 virtual
+    environment and its Python-oracle hook took 10.428 s; after restoring the
+    declared 3.12 environment, the unchanged suite passed in 3.96 s. No
+    timeout or Viewer code was changed.
+- Commits:
+  - `a935d58 docs(architecture): define deterministic PCB authoring boundary`
+  - `dea742d feat(authoring): define deterministic revision contracts`
+  - `f3ddd6e feat(authoring): validate Excellon diameter revisions`
+  - `61ea33a docs(authoring): document constrained revision workflow`
+  - branch-tip `docs(handoff): record validated authoring foundation` commit
+    containing this collaboration state
+- Issues created or updated:
+  - No new defect issue. ISSUE-002 remains open upstream, low, and
+    non-blocking; the supported adapter avoids whole-file rewriting and proves
+    explicit plating survives. ISSUE-005, ISSUE-007, and ISSUE-008 remain
+    open, low, and unaffected. ISSUE-008 did not reproduce in the local 36/36
+    browser regression.
+- Remote/delivery state: `[CONFIRMED]` The four implementation/documentation
+  commits and this branch-tip HANDOFF commit are local on main, ahead of
+  origin/main=fec6795. The current request authorized repository changes and
+  coherent commits but did not request a push; no remote mutation was made.
+- Remaining uncertainty: `[CONFIRMED]` The current operation does not prove a
+  general Gerber/Excellon writer or lossless arbitrary edit path. Structured
+  generation still needs its own requirements model, bounded writer adapter,
+  generation evidence, and end-to-end validation; it must not reuse review
+  IR as mutable source truth.
+- Recommended next action: Implement the bounded Phase D two-layer coupon
+  generator stated in Next Action.
 
 ### 2026-08-03T11:00:00+08:00 — Codex — Passive SVG admission and CI diagnostics recovery
 
