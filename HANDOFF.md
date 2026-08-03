@@ -16,16 +16,17 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T13:30:00+08:00`
+- Last updated: `2026-08-03T16:00:15+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows local generation contracts/implementation/documentation commits
-  4bd39bb, ec9ff16, and d8aa07a, which follow authoring commits a935d58,
-  dea742d, f3ddd6e, 61ea33a, and 85d1599.`
+  follows trace-footprint correction 4ac7772 and local generation
+  contracts/implementation/documentation commits 4bd39bb, ec9ff16, and
+  d8aa07a, which follow authoring commits a935d58, dea742d, f3ddd6e,
+  61ea33a, and 85d1599.`
 - Remote sync: `[CONFIRMED] origin/main and origin/HEAD remain at recovery
-  baseline fec6795. The branch-tip HANDOFF commit is local and follows eight
+  baseline fec6795. The branch-tip HANDOFF commit is local and follows ten
   unpushed atomic commits; no force push, rebase, or remote-history rewrite
   occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
@@ -61,7 +62,7 @@
     helpers.`
   - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
     required layers, fabrication thresholds, tolerances, and review policy.`
-  - `[CONFIRMED] Restricted YAML/JSON loader and eight checked-in Draft
+  - `[CONFIRMED] Restricted YAML/JSON loader and ten checked-in Draft
     2020-12 public JSON Schemas.`
   - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
     archives, and explicit regular files.`
@@ -252,8 +253,9 @@
     two-layer coupon to 1.0-500.0 mm dimensions, explicit plated round holes
     with explicit pads, and explicit straight round-aperture traces at the
     exact 0.000001 mm emission quantum with inclusive 1,024-hole and
-    4,096-trace limits; pad containment, pairwise drill overlap, and trace
-    containment are proved in exact integer nanometres.`
+    4,096-trace limits; pad containment, pairwise drill overlap, and complete
+    round-aperture trace-footprint containment are proved in exact integer
+    nanometres.`
   - `[CONFIRMED] The complete generation registry resolves exact kind/version
     pairs without fallback. Its sole executor emits X2 top/bottom copper, a
     rectangular outline, and a plated Excellon drill payload (each capped at
@@ -285,6 +287,14 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Trace-footprint correction gates on 2026-08-03 passed:
+    uv lock --check and locked all-group sync; checked-in Schema export/diff;
+    Ruff format/check (185 files); mypy (167 source files); the complete
+    Python 3.12 suite with 731 tests at 89.56% branch coverage; and the same
+    731 tests under isolated Python 3.14. Viewer Biome, TypeScript, the
+    165-test Vitest coverage suite with one opt-in skip, and deterministic
+    build verification also passed. Exact old 1.0 request/operation and four
+    payload hashes are now pinned by regression tests.`
   - `[CONFIRMED] Generation implementation gates on 2026-08-03 passed on the
     full tree: Ruff format/check (167 files), mypy (167 source files), and
     the complete Python 3.12 suite with 726 tests at 89.56% branch coverage
@@ -503,10 +513,9 @@
     intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after generation contracts commit 4bd39bb,
-  validated generation commit ec9ff16, and documentation commit d8aa07a. It
-  remains ahead of origin/main=fec6795 until an explicitly authorized normal
-  push is performed.`
+  leave a clean local main after trace-footprint correction 4ac7772. It
+  remains ahead of origin/main=fec6795 until the authorized normal push is
+  performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -878,6 +887,56 @@ fail-closed tests — proving multi-operation registry discipline without
 widening the writer beyond round holes and round-aperture geometry.
 
 ## Recent Activity
+
+### 2026-08-03T16:00:15+08:00 — Codex — Phase D trace-footprint evidence correction
+
+- Role: recovery, verification, and implementation agent
+- Task: Confirm the unpushed Phase D delivery before publication, correct any
+  evidence mismatch, and establish a trustworthy baseline for the bounded
+  NPTH generator operation.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, all accepted ADR boundaries, Current
+    State/Active Issues/Next Action, the complete generation contracts,
+    writer, registry, service, tests, git history, live remote refs, and the
+    public Actions state.
+  - `[CONFIRMED]` Local main at 11edb20 was clean and a linear nine commits
+    ahead of live origin/main=fec6795; a normal push is a pure fast-forward.
+  - `[CONFIRMED]` Repository evidence showed 10 public Schemas rather than the
+    eight stated in Current State. It also showed that the generator admitted
+    finite-width traces centered on the outline while claiming complete trace
+    containment.
+- Actions performed:
+  - `[CONFIRMED]` Changed the 1.0 contract validator to prove complete
+    round-aperture trace-footprint containment with exact integer-nanometre
+    half-width inequalities. Equality is admitted and one emission quantum
+    beyond any board edge is rejected.
+  - `[CONFIRMED]` Pinned the existing valid 1.0 request digest, operation
+    digest, and all four emitted payload hashes, proving that the correction
+    does not alter admitted fixture bytes or identities.
+  - `[CONFIRMED]` Corrected Current State's Schema inventory and containment
+    wording. No Schema document, writer byte, dependency, workflow, Viewer,
+    review contract, or ADR was changed.
+- Files modified: `src/boardgate/authoring/generation_models.py`,
+  `tests/unit/authoring/test_generation_models.py`,
+  `tests/unit/authoring/test_coupon.py`, `HANDOFF.md`
+- Verification performed:
+  - `uv lock --check`; `uv sync --locked --all-groups`; Schema export and
+    clean diff; Ruff format/check; Ruff lint; mypy.
+  - Python 3.12: 731 tests passed with 89.56% branch coverage. Isolated Python
+    3.14: the same 731 tests passed.
+  - Viewer: clean npm install with zero vulnerabilities; Biome format/lint,
+    TypeScript, 165 passing Vitest tests with one opt-in skip and configured
+    coverage, and deterministic standalone build check.
+- Commit: `4ac7772 fix(authoring): prove coupon trace footprint containment`;
+  this HANDOFF update is the following branch-tip documentation commit.
+- Issues created or updated: No defect issue remains for the corrected
+  containment mismatch. ISSUE-002, ISSUE-005, ISSUE-007, and ISSUE-008 remain
+  open, low, non-blocking, and unchanged.
+- Remaining uncertainty: The local commits have not yet been published or
+  exercised by their own GitHub Actions run. If ISSUE-008 recurs, inspect its
+  retained trace before any rerun or Viewer change.
+- Recommended next action: Perform the authorized normal push, confirm all
+  eight CI jobs, then implement the sole bounded NPTH operation above.
 
 ### 2026-08-03T13:30:00+08:00 — Claude — Phase D bounded two-layer coupon generation
 
