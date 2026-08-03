@@ -2,6 +2,7 @@
 
 from boardgate.authoring.generation_models import GenerationRequest, GenerationResult
 from boardgate.authoring.models import ModificationRequest, ModificationResult
+from boardgate.authoring.plan_models import AuthoringPlan
 from boardgate.config.models import RuleProfile
 from boardgate.domain.base import StrictModel
 from boardgate.domain.diagnostic import RunLogEvent
@@ -11,6 +12,7 @@ from boardgate.domain.source import ProjectManifest
 from boardgate.rules.models import ReviewResult
 
 MODEL_SCHEMAS: tuple[tuple[str, type[StrictModel]], ...] = (
+    ("authoring-plan.schema.json", AuthoringPlan),
     ("generation-request.schema.json", GenerationRequest),
     ("generation-result.schema.json", GenerationResult),
     ("modification-request.schema.json", ModificationRequest),

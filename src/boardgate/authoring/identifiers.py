@@ -90,3 +90,24 @@ def generation_id(
     )
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
     return f"gen-{digest}"
+
+
+def plan_authorization_sha256(
+    *,
+    approver: str,
+    statement: str,
+    request_sha256: str,
+) -> str:
+    """Hash the explicit approval bound to one exact request digest."""
+    payload = json.dumps(
+        {
+            "approver": approver,
+            "request_sha256": request_sha256,
+            "statement": statement,
+        },
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "PlanAuthorization": {
+      "additionalProperties": false,
+      "description": "One explicit offline approval bound to an exact request digest.",
+      "properties": {
+        "approver": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Approver",
+          "type": "string"
+        },
+        "authorization_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Authorization Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "approver",
+        "statement",
+        "request_sha256",
+        "authorization_sha256"
+      ],
+      "title": "PlanAuthorization",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One typed, explicitly authorized proposal for one registered operation.",
+  "properties": {
+    "authorization": {
+      "$ref": "#/$defs/PlanAuthorization"
+    },
+    "kind": {
+      "const": "authoring_plan",
+      "default": "authoring_plan",
+      "title": "Kind",
+      "type": "string"
+    },
+    "operation_kind": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Operation Kind",
+      "type": "string"
+    },
+    "operation_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Operation Sha256",
+      "type": "string"
+    },
+    "operation_version": {
+      "maxLength": 50,
+      "minLength": 1,
+      "title": "Operation Version",
+      "type": "string"
+    },
+    "plan_version": {
+      "const": "1.0",
+      "title": "Plan Version",
+      "type": "string"
+    },
+    "rationale": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "request_kind": {
+      "enum": [
+        "modification",
+        "generation"
+      ],
+      "title": "Request Kind",
+      "type": "string"
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Request Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_version",
+    "request_kind",
+    "operation_kind",
+    "operation_version",
+    "request_sha256",
+    "operation_sha256",
+    "authorization"
+  ],
+  "title": "AuthoringPlan",
+  "type": "object"
+}

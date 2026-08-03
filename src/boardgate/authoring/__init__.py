@@ -21,6 +21,7 @@ from boardgate.authoring.identifiers import (
     generation_operation_sha256,
     generation_request_sha256,
     operation_sha256,
+    plan_authorization_sha256,
     request_sha256,
     revision_id,
 )
@@ -32,6 +33,21 @@ from boardgate.authoring.models import (
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
 )
+from boardgate.authoring.plan_admission import (
+    AdmittedAuthoringPlan,
+    PlanAdmissionError,
+    admit_authoring_plan,
+)
+from boardgate.authoring.plan_models import (
+    PLAN_AUTHORIZATION_STATEMENT,
+    AuthoringPlan,
+    PlanAuthorization,
+)
+from boardgate.authoring.plan_request import (
+    AuthoringPlanError,
+    load_authoring_plan,
+    load_authoring_plan_bytes,
+)
 from boardgate.authoring.request import (
     ModificationRequestError,
     load_modification_request,
@@ -39,9 +55,13 @@ from boardgate.authoring.request import (
 )
 
 __all__ = [
+    "PLAN_AUTHORIZATION_STATEMENT",
+    "AdmittedAuthoringPlan",
     "AppliedExcellonToolDiameterChange",
     "AppliedTwoLayerCouponGeneration",
     "AppliedTwoLayerCouponWithNpthGeneration",
+    "AuthoringPlan",
+    "AuthoringPlanError",
     "CouponHole",
     "CouponNpthHole",
     "GenerateTwoLayerCoupon",
@@ -54,16 +74,22 @@ __all__ = [
     "ModificationRequestError",
     "ModificationResult",
     "PayloadFileEvidence",
+    "PlanAdmissionError",
+    "PlanAuthorization",
     "RevisionValidationEvidence",
     "SetExcellonToolDiameter",
+    "admit_authoring_plan",
     "generation_id",
     "generation_operation_sha256",
     "generation_request_sha256",
+    "load_authoring_plan",
+    "load_authoring_plan_bytes",
     "load_generation_request",
     "load_generation_request_bytes",
     "load_modification_request",
     "load_modification_request_bytes",
     "operation_sha256",
+    "plan_authorization_sha256",
     "request_sha256",
     "revision_id",
 ]
