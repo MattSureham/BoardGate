@@ -16,29 +16,31 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T12:00:00+08:00`
+- Last updated: `2026-08-03T13:30:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows local architecture/contracts/implementation/documentation commits
-  a935d58, dea742d, f3ddd6e, and 61ea33a.`
+  follows local generation contracts/implementation/documentation commits
+  4bd39bb, ec9ff16, and d8aa07a, which follow authoring commits a935d58,
+  dea742d, f3ddd6e, 61ea33a, and 85d1599.`
 - Remote sync: `[CONFIRMED] origin/main and origin/HEAD remain at recovery
-  baseline fec6795. The branch-tip HANDOFF commit is local and follows four
+  baseline fec6795. The branch-tip HANDOFF commit is local and follows eight
   unpushed atomic commits; no force push, rebase, or remote-history rewrite
   occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
-  and cross-panel Finding navigation. Authoring Phases A-C now have an
+  and cross-panel Finding navigation. Authoring Phases A-D now have an
   accepted separate-subsystem architecture, strict public contracts, one
-  deterministic Excellon modification operation, and independent review
-  validation; structured PCB generation is not yet implemented.`
+  deterministic Excellon modification operation, one bounded deterministic
+  two-layer coupon generator, and independent review validation for both.`
 - Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
   INPUT... --request CHANGE.json --rules rules/default.yaml --output
-  REVISION_OUTPUT`
+  REVISION_OUTPUT; uv run pcb-review generate --request COUPON.json --rules
+  rules/default.yaml --output GENERATION_OUTPUT`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
   - `[CONFIRMED] Locked Python 3.12 development environment; Ubuntu CI
@@ -241,6 +243,32 @@
     stable request/result/design/first-five validation bytes, and receives a
     fresh READY_FOR_REVIEW result with that rule PASS/FULL and no new
     Findings.`
+  - `[CONFIRMED] GenerationRequest/GenerationResult 1.0 are strict,
+    explicit-version public contracts with checked-in Draft 2020-12 Schemas,
+    bounded duplicate-safe JSON admission, full request and prose-independent
+    operation digests, stable gen- IDs, sorted unique payload evidence,
+    pinned non-guarantee disclaimer text, and cross-evidence validators. The
+    generate_two_layer_coupon 1.0 operation bounds one metric rectangular
+    two-layer coupon to 1.0-500.0 mm dimensions, explicit plated round holes
+    with explicit pads, and explicit straight round-aperture traces at the
+    exact 0.000001 mm emission quantum with inclusive 1,024-hole and
+    4,096-trace limits; pad containment, pairwise drill overlap, and trace
+    containment are proved in exact integer nanometres.`
+  - `[CONFIRMED] The complete generation registry resolves exact kind/version
+    pairs without fallback. Its sole executor emits X2 top/bottom copper, a
+    rectangular outline, and a plated Excellon drill payload (each capped at
+    an inclusive 1 MiB), reparses all four with the unchanged bounded
+    parsers, and proves the exact requested rectangle, pads, traces, drills,
+    and plating before returning applied-generation evidence.`
+  - `[CONFIRMED] GenerationService shares the extracted revision-workspace
+    helpers with ModificationService, runs the unchanged ReviewService on the
+    emitted design/ bytes, binds canonical request/result evidence to the
+    nested exact six-artifact validation bundle, and publishes atomically
+    after full workspace validation. pcb-review generate maps request and
+    admission failures to exit 2, capability/parser/validation failures to
+    exit 3 with no publication, and completed blocker reviews to truthful
+    publication with exit 1. CLI and service produce byte-identical
+    design/evidence bytes and identical deterministic validation artifacts.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -257,6 +285,14 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Generation implementation gates on 2026-08-03 passed on the
+    full tree: Ruff format/check (167 files), mypy (167 source files), and
+    the complete Python 3.12 suite with 726 tests at 89.56% branch coverage
+    including checked-in Schema currency. A two-run CLI smoke of the
+    documented two-hole/two-trace coupon produced the same gen-/prj- IDs,
+    READY_FOR_REVIEW validation, and byte-identical design/evidence
+    artifacts; only the nested validation logs/run.jsonl differed by
+    run ID, timestamps, and elapsed milliseconds, as contracted.`
   - `[CONFIRMED] Authoring implementation gates on 2026-08-03 passed:
     uv lock --check; locked all-group sync; checked-in Schema export/diff;
     Ruff format/check (174 files); mypy (156 source files); and the complete
@@ -461,14 +497,16 @@
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
   - `[CONFIRMED] Authoring currently supports exactly one Excellon
-    tool-diameter operation; it is not arbitrary or lossless source editing.
-    No PCB generator, native EDA writer, inferred circuit intent, autorouter,
-    or autonomous production-release path is implemented.`
+    tool-diameter operation and exactly one bounded two-layer coupon
+    generator; neither is arbitrary or lossless source editing, and neither
+    guarantees manufacturability. No native EDA writer, inferred circuit
+    intent, autorouter, free-form generation path, or autonomous
+    production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after architecture commit a935d58, contracts commit
-  dea742d, validated modification commit f3ddd6e, and documentation commit
-  61ea33a. It remains ahead of origin/main=fec6795 until an explicitly
-  authorized normal push is performed.`
+  leave a clean local main after generation contracts commit 4bd39bb,
+  validated generation commit ec9ff16, and documentation commit d8aa07a. It
+  remains ahead of origin/main=fec6795 until an explicitly authorized normal
+  push is performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -829,15 +867,140 @@ the current capabilities.
 
 ## Next Action
 
-Implement Phase D's first constrained structured generator: define and export
-an explicit-version `generate_two_layer_coupon` requirements/result contract,
-register one bounded deterministic executor that emits metric X2 top/bottom
-copper, rectangular outline, and plated Excellon drill payloads into the
-separate revision workspace, then prove fresh unchanged ReviewService
-validation, byte-stable generation evidence, inclusive resource bounds, and
-fail-closed invalid requirements without adding a free-form writer path.
+Implement Phase E's second registered deterministic operation as an explicit
+new kind/version: add a non-plated (NPTH) drill variant to the coupon
+generator (for example `generate_two_layer_coupon` 1.1 with an explicit
+non-plated Excellon payload alongside the plated one), keeping the frozen 1.0
+contract unchanged, and deliver the same evidence standard as the first
+generator — strict contract, bounded executor, reparse postconditions, fresh
+ReviewService validation, byte-stable evidence, inclusive bounds, and
+fail-closed tests — proving multi-operation registry discipline without
+widening the writer beyond round holes and round-aperture geometry.
 
 ## Recent Activity
+
+### 2026-08-03T13:30:00+08:00 — Claude — Phase D bounded two-layer coupon generation
+
+- Role: recovery, primary implementation, and verification agent
+- Task: Recover repository state after a context reset, confirm HANDOFF
+  matches the repository, then implement the recorded Next Action: Phase D's
+  first constrained structured generator with fresh unchanged ReviewService
+  validation, byte-stable evidence, inclusive bounds, and fail-closed
+  requirements, without a free-form writer path.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, ADR 0007, the complete Current State
+    and Next Action of `HANDOFF.md`, the authoring models/request/identifiers,
+    modification registry/service, revision output and artifact validation,
+    parser runner, rules engine status precedence, schemas exporter, and the
+    modification integration test suite.
+  - `[CONFIRMED]` Recovery found local main at 85d1599 exactly matching the
+    recorded HANDOFF state: five unpushed commits ahead of origin/main
+    fec6795, clean tree, and no conflicting specifications. A RECOVERY
+    REPORT was issued before implementation began.
+  - `[CONFIRMED]` Live Gerbonara probes before writing the writer confirmed
+    the working emission formats: FSLAX46Y46 metric Gerber with X2
+    FileFunction/SameCoordinates attributes, and `M48`/`METRIC,TZ` Excellon
+    with six-decimal coordinates and `;TYPE=PLATED`.
+  - `[CONFIRMED]` A hand-built coupon review de-risked review semantics:
+    with no traces the required readiness-affecting minimum_trace_width rule
+    reports SKIPPED and the overall status becomes INSUFFICIENT_INFORMATION,
+    and padless plated holes produce annular-ring blockers. The contract
+    therefore requires explicit traces and explicit per-hole pad diameters.
+- Actions performed:
+  - `[CONFIRMED]` Added GenerateTwoLayerCoupon/GenerationRequest/
+    GenerationResult 1.0 contracts: inclusive 1.0-500.0 mm board bounds,
+    feature bounds, 1,024-hole and 4,096-trace maxima, an exact 0.000001 mm
+    emission quantum enforced through Decimal integrality, exact integer
+    nanometre proofs for pad containment, pairwise drill non-overlap
+    (tangent admitted), and trace containment, plus pinned normative
+    disclaimer text and sorted unique payload evidence.
+  - `[CONFIRMED]` Added bounded duplicate-safe generation-request JSON
+    admission (inclusive 1 MiB, BOM/duplicate-key/non-finite rejection)
+    mirroring the modification request boundary, and content-derived
+    generation request/operation digests and gen- IDs that exclude
+    instruction prose from operation identity.
+  - `[CONFIRMED]` Added the bounded coupon writer: deterministic sorted
+    emission of X2 top/bottom copper, rectangular outline, and plated
+    Excellon payloads with an inclusive 1 MiB per-payload cap, plus reparse
+    postconditions that prove source identity, metric/absolute metadata,
+    zero warnings/limitations, and exact requested rectangle/pads/traces/
+    drills/plating.
+  - `[CONFIRMED]` Added the exact-version generation registry (no fallback,
+    import-time completeness validation against the model-admitted key set)
+    and GenerationService, which runs the unchanged ReviewService on the
+    emitted design bytes and atomically publishes the shared
+    design/evidence/validation workspace only after full revalidation.
+    Shared workspace helpers were extracted into revision_workspace.py; the
+    modification service refactor is import-only with unchanged behavior.
+  - `[CONFIRMED]` Added `pcb-review generate` with control-file/output
+    overlap rejection and exit mapping: admission/request failures 2,
+    capability/parser/validation failures 3 without publication, completed
+    blocker reviews published truthfully with 1.
+  - `[CONFIRMED]` Exported the two checked-in generation Schemas; the
+    existing currency test asserts they match the models.
+  - `[CONFIRMED]` Added 62 unit tests (contracts, admission, registry,
+    writer) and 7 integration tests proving CLI/service publish identical
+    workspaces, byte-stable design/evidence/deterministic-validation
+    artifacts, schema validity of published evidence, inclusive bounds at N
+    and rejection at N+1, invalid requirements exit 2 with no workspace,
+    overwrite preservation, blocker exit 1 with truthful publication,
+    failed validation and parser failures publish nothing and preserve prior
+    output, and the workspace validator rejects tampered evidence, symlinks,
+    and extra directories.
+  - `[CONFIRMED]` Updated docs/CAPABILITIES.md (generation row and
+    deterministic authoring policy) and both READMEs (status, interfaces,
+    bilingual generation walkthroughs, safety scope). No Viewer, review
+    Schema, dependency, or network-provider change was made.
+- Files added or materially changed:
+  - Contracts: `src/boardgate/authoring/generation_models.py`,
+    `src/boardgate/authoring/generation_request.py`,
+    `src/boardgate/authoring/identifiers.py`, `src/boardgate/schemas.py`,
+    `schemas/v1/generation-request.schema.json`,
+    `schemas/v1/generation-result.schema.json`
+  - Implementation: `src/boardgate/authoring/coupon.py`,
+    `src/boardgate/application/generation_registry.py`,
+    `src/boardgate/application/generation_service.py`,
+    `src/boardgate/application/revision_workspace.py`,
+    `src/boardgate/application/modification_service.py`,
+    `src/boardgate/cli.py`, package `__init__.py` exports
+  - Evidence/tests: `tests/unit/authoring/test_generation_models.py`,
+    `tests/unit/authoring/test_generation_request.py`,
+    `tests/unit/authoring/test_generation_registry.py`,
+    `tests/unit/authoring/test_coupon.py`,
+    `tests/integration/test_generate_revision.py`
+  - Documentation: `docs/CAPABILITIES.md`, `README.md`, `README.zh-CN.md`
+- Commands and verification:
+  - `uv run ruff format --check src tests` (167 files), `uv run ruff check
+    src tests`, and `uv run mypy src tests` (167 source files) all passed.
+  - `uv run pytest --cov=boardgate --cov-branch --cov-fail-under=85` passed
+    the complete suite: 726 tests, 89.56% branch coverage; the checked-in
+    Schema currency test passed.
+  - Two consecutive `uv run pcb-review generate` runs of the documented
+    two-hole/two-trace coupon produced identical gen-d7e5e84e3a261e50 /
+    prj-617f50c90bf61324 IDs and READY_FOR_REVIEW validation; `diff -r`
+    showed only validation/logs/run.jsonl differing (run ID, timestamps,
+    elapsed ms), as contracted for the sixth artifact.
+- Commits:
+  - `4bd39bb feat(authoring): define deterministic generation contracts`
+  - `ec9ff16 feat(authoring): validate two-layer coupon generations`
+  - `d8aa07a docs(authoring): document deterministic coupon generation`
+  - branch-tip `docs(handoff)` commit containing this collaboration state
+- Issues created or updated:
+  - No new defect issue. ISSUE-002, ISSUE-005, ISSUE-007, and ISSUE-008
+    remain open, low, and unaffected; no Viewer code was touched, so
+    ISSUE-008's browser CI behavior is unchanged.
+- Remote/delivery state: `[CONFIRMED]` The three implementation/documentation
+  commits and this branch-tip HANDOFF commit are local on main, now eight
+  commits ahead of origin/main=fec6795 together with the earlier authoring
+  commits. The standing request did not authorize a push; no remote mutation
+  was made.
+- Remaining uncertainty: `[CONFIRMED]` The generator proves only the bounded
+  coupon envelope (round plated holes, round-aperture straight traces,
+  rectangular outline); it is not evidence for slots, vias, NPTH, non-round
+  apertures, or arbitrary geometry. Per-commit staged-tree gate runs were not
+  performed; gates were run on the full tree containing all three commits.
+- Recommended next action: Implement the Phase E second registered operation
+  (NPTH coupon variant) stated in Next Action.
 
 ### 2026-08-03T12:00:00+08:00 — Codex — Separate PCB authoring foundation and first validated revision
 
