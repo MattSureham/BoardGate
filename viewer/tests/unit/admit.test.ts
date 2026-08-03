@@ -7,14 +7,21 @@ import { type GeneratedBundle, generateValidBundle, replaceText } from "./fixtur
 
 let bundle: GeneratedBundle;
 let accepted: ValidationResult;
+let spatialBundle: GeneratedBundle;
+let spatialAccepted: ValidationResult;
 
 beforeAll(async () => {
   bundle = generateValidBundle();
-  accepted = await admitBundle(bundle.files, VIEWER_RESOURCE_POLICY);
-});
+  spatialBundle = generateValidBundle("copper_too_close_to_edge");
+  [accepted, spatialAccepted] = await Promise.all([
+    admitBundle(bundle.files, VIEWER_RESOURCE_POLICY),
+    admitBundle(spatialBundle.files, VIEWER_RESOURCE_POLICY),
+  ]);
+}, 60_000);
 
 afterAll(() => {
   bundle.cleanup();
+  spatialBundle.cleanup();
 });
 
 function errorCode(result: ValidationResult): string | undefined {
@@ -55,7 +62,7 @@ describe("bundle admission", () => {
     expect(accepted.summary).not.toHaveProperty("review");
   });
 
-  it("exposes validated layer groups and Finding markers for presentation", async () => {
+  it("exposes validated layer groups and Finding markers for presentation", () => {
     expect(accepted.ok).toBe(true);
     if (!accepted.ok) {
       return;
@@ -78,21 +85,15 @@ describe("bundle admission", () => {
       `<!-- boardgate-project-id: ${accepted.summary.projectId} -->`,
     );
 
-    const spatial = generateValidBundle("copper_too_close_to_edge");
-    try {
-      const result = await admitBundle(spatial.files, VIEWER_RESOURCE_POLICY);
-      expect(result.ok).toBe(true);
-      if (!result.ok) {
-        return;
-      }
-      expect(result.summary.findings).toHaveLength(2);
-      for (const finding of result.summary.findings) {
-        expect(finding.spatial).toBe(true);
-        expect(result.previewSvg).toContain(`data-finding-id="${finding.findingId}"`);
-        expect(finding.ruleId).toBe("minimum_copper_to_edge");
-      }
-    } finally {
-      spatial.cleanup();
+    expect(spatialAccepted.ok).toBe(true);
+    if (!spatialAccepted.ok) {
+      return;
+    }
+    expect(spatialAccepted.summary.findings).toHaveLength(2);
+    for (const finding of spatialAccepted.summary.findings) {
+      expect(finding.spatial).toBe(true);
+      expect(spatialAccepted.previewSvg).toContain(`data-finding-id="${finding.findingId}"`);
+      expect(finding.ruleId).toBe("minimum_copper_to_edge");
     }
   });
 
