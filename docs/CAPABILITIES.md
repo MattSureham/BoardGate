@@ -22,7 +22,7 @@ approval.
 | Derived geometry | One deterministic review-scoped workspace caches geometry, spatial indexes, polarity composition, components, board material, and contributor queries | Versioned resource limits produce explicit coverage gaps; no Shapely object crosses a persistence or worker boundary |
 | Rule execution | Built-in rules run in a fresh spawned worker under the remaining review deadline | A timed-out, crashed, invalid, or oversized worker result is discarded and produces the six-artifact `ANALYSIS_FAILED` fallback |
 | Visualization | Static, script-free SVG with layers, outline, drills, and Finding IDs | Not a pixel-equivalent CAM renderer and never feeds rule evaluation |
-| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, inserts the validated preview.svg with layer visibility toggles and Finding-ID focus, renders report.md through a deterministic-subset tokenizer built only with createElement/textContent, and keeps report Finding headings and the preview Finding list on one shared selection state | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions only change CSS visibility/classes on the validated in-memory copy and never mutate or re-evaluate evidence |
+| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, imports a namespace-correct passive preview.svg into a presentation-only DOM copy with layer visibility toggles and Finding-ID focus, renders report.md through a deterministic-subset tokenizer built only with createElement/textContent, and keeps report Finding headings and the preview Finding list on one shared selection state | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions change only trusted CSS visibility/classes on the presentation copy, never geometry-defining attributes, selected bundle bytes, or review evidence |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
 
@@ -81,9 +81,13 @@ Admission requires exactly one each of `manifest.json`, `project.json`,
 `findings.json`, `report.md`, `preview.svg`, and `logs/run.jsonl`, with their
 case-sensitive safe POSIX paths intact. It validates canonical UTF-8 JSON,
 Draft 2020-12 schemas, model semantics, stable and cross-artifact identities,
-report/SVG Finding metadata, passive SVG/XML structure, and one ordered run
-log. Any inventory, resource, schema, semantic, identity, or active-content
-error fails closed before a project summary is displayed.
+report/SVG Finding metadata, a namespace-correct passive SVG/XML vocabulary,
+and one ordered run log. The SVG subset contains BoardGate's static renderer
+elements plus bounded local gradient paint definitions; declarative animation,
+authored CSS, foreign namespaces, unsupported elements or attributes, and
+external or non-paint references are rejected. Any inventory, resource,
+schema, semantic, identity, or active-content error fails closed before a
+project summary is displayed.
 
 Viewer resource policy 1.0 uses inclusive limits:
 
@@ -106,18 +110,19 @@ Viewer resource policy 1.0 uses inclusive limits:
 | Fresh validation-worker deadline | 60 seconds |
 
 Equality is accepted; the first event beyond a discrete limit is rejected.
-After admission the viewer inserts the validated `preview.svg` unchanged,
-offers per-layer visibility checkboxes, and focuses the marker matching a
-selected Finding ID. It also renders `report.md` through a small line-oriented
-tokenizer limited to the deterministic BoardGate report subset (ATX headings
-up to level four, paragraphs, two-space nested lists, and `**bold**` inline
-segments) with composer backslash escapes reversed; unknown structures fall
-back to literal paragraphs and HTML comment metadata is not displayed. All DOM
-is built with createElement/textContent — no Markdown library, no innerHTML —
-so report content cannot execute, navigate, or embed active content. Finding-ID
-headings in the rendered report are activatable buttons: selecting a Finding
-from the report or from the preview Finding list focuses the same preview
-marker and keeps the pressed state of both button sets in sync. These
-controls only toggle CSS visibility and classes on the already validated
-in-memory copy; geometry, attributes, and bundle bytes are never mutated and
-no Finding or rule result is recomputed.
+After admission the viewer imports the validated `preview.svg` into a
+presentation-only DOM copy, offers per-layer visibility checkboxes, and
+focuses the marker matching a selected Finding ID. It also renders `report.md`
+through a small line-oriented tokenizer limited to the deterministic
+BoardGate report subset (ATX headings up to level four, paragraphs, two-space
+nested lists, and `**bold**` inline segments) with composer backslash escapes
+reversed; unknown structures fall back to literal paragraphs and HTML comment
+metadata is not displayed. All DOM is built with createElement/textContent —
+no Markdown library, no innerHTML — so report content cannot execute,
+navigate, or embed active content. Finding-ID headings in the rendered report
+are activatable buttons: selecting a Finding from the report or from the
+preview Finding list focuses the same preview marker and keeps the pressed
+state of both button sets in sync. These controls change only trusted CSS
+visibility and class state on the presentation copy; geometry-defining
+attributes and selected bundle bytes remain unchanged, and no Finding or rule
+result is recomputed.

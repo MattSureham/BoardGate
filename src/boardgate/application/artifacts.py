@@ -65,6 +65,193 @@ _REPORT_PROFILE_SHA = re.compile(
 )
 _URL_SCHEME = re.compile(r"(?i)(?:https?|ftp|file|javascript|data):")
 _CSS_URL = re.compile(r"(?i)url\(\s*([^)]+?)\s*\)")
+_CSS_URL_FUNCTION = re.compile(r"(?i)url\s*\(")
+_LOCAL_PAINT_REFERENCE = re.compile(r"url\(#([A-Za-z_][A-Za-z0-9_.-]*)\)")
+_SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+_SVG_ACTIVE_ELEMENTS = frozenset(
+    {
+        "animate",
+        "animatecolor",
+        "animatemotion",
+        "animatetransform",
+        "discard",
+        "embed",
+        "foreignobject",
+        "iframe",
+        "mpath",
+        "object",
+        "set",
+    }
+)
+_SVG_ALLOWED_ATTRIBUTES: Mapping[str, frozenset[str]] = {
+    "svg": frozenset(
+        {
+            "version",
+            "viewBox",
+            "data-project-id",
+            "data-profile-sha256",
+            "role",
+            "aria-labelledby",
+        }
+    ),
+    "title": frozenset({"id"}),
+    "desc": frozenset({"id"}),
+    "g": frozenset(
+        {
+            "id",
+            "data-coordinate-system",
+            "data-layer-id",
+            "data-layer-role",
+            "data-layer-side",
+            "data-finding-id",
+            "data-finding-severity",
+            "transform",
+            "color",
+            "fill",
+        }
+    ),
+    "path": frozenset(
+        {
+            "data-contour-id",
+            "data-contour-kind",
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "data-slot-id",
+            "data-slot-kind",
+            "data-plating",
+            "d",
+            "fill",
+            "fill-rule",
+            "stroke",
+            "stroke-width",
+            "stroke-linecap",
+            "stroke-dasharray",
+            "opacity",
+        }
+    ),
+    "line": frozenset(
+        {
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "fill",
+            "stroke",
+            "stroke-width",
+            "stroke-linecap",
+            "stroke-dasharray",
+            "opacity",
+        }
+    ),
+    "rect": frozenset(
+        {
+            "id",
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "x",
+            "y",
+            "width",
+            "height",
+            "rx",
+            "fill",
+            "opacity",
+            "transform",
+        }
+    ),
+    "circle": frozenset(
+        {
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "data-drill-id",
+            "data-plating",
+            "cx",
+            "cy",
+            "r",
+            "fill",
+            "stroke",
+            "stroke-width",
+            "opacity",
+        }
+    ),
+    "ellipse": frozenset(
+        {
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "cx",
+            "cy",
+            "rx",
+            "ry",
+            "fill",
+            "stroke",
+            "stroke-width",
+            "stroke-dasharray",
+            "opacity",
+            "transform",
+        }
+    ),
+    "polygon": frozenset(
+        {
+            "data-primitive-id",
+            "data-kind",
+            "data-polarity",
+            "data-aperture-shape",
+            "points",
+            "fill",
+            "opacity",
+        }
+    ),
+    "text": frozenset(
+        {
+            "x",
+            "y",
+            "font-family",
+            "font-size",
+            "font-weight",
+            "fill",
+        }
+    ),
+    "defs": frozenset(),
+    "linearGradient": frozenset(
+        {
+            "id",
+            "x1",
+            "y1",
+            "x2",
+            "y2",
+            "gradientUnits",
+            "gradientTransform",
+            "spreadMethod",
+        }
+    ),
+    "radialGradient": frozenset(
+        {
+            "id",
+            "cx",
+            "cy",
+            "r",
+            "fx",
+            "fy",
+            "fr",
+            "gradientUnits",
+            "gradientTransform",
+            "spreadMethod",
+        }
+    ),
+    "stop": frozenset({"offset", "stop-color", "stop-opacity"}),
+}
+_SVG_GRADIENT_ELEMENTS = frozenset({"linearGradient", "radialGradient"})
 _REVIEW_DISCLAIMER = (
     "BoardGate provides deterministic evidence for engineer review; it does not "
     "guarantee manufacturability or replace fabricator approval."
@@ -298,6 +485,13 @@ def _local_name(name: str) -> str:
     return name.rsplit("}", maxsplit=1)[-1].casefold()
 
 
+def _expanded_name(name: str) -> tuple[str | None, str]:
+    if name.startswith("{"):
+        namespace, _, local_name = name[1:].partition("}")
+        return namespace, local_name
+    return None, name
+
+
 def _contains_external_reference(value: str) -> bool:
     stripped = value.strip().strip("\"'")
     if stripped.startswith("//") or _URL_SCHEME.search(stripped):
@@ -307,6 +501,107 @@ def _contains_external_reference(value: str) -> bool:
         if not reference.startswith("#"):
             return True
     return False
+
+
+def _reject_active_svg_content(elements: tuple[ElementTree.Element, ...]) -> None:
+    for element in elements:
+        _, local_name = _expanded_name(element.tag)
+        tag = local_name.casefold()
+        if tag == "script":
+            raise ArtifactContractError(
+                "SVG_SCRIPT_REJECTED",
+                "The preview must not contain script elements.",
+            )
+        if tag == "style":
+            style_text = "".join(element.itertext())
+            if "@import" in style_text.casefold() or _contains_external_reference(
+                style_text
+            ):
+                raise ArtifactContractError(
+                    "SVG_EXTERNAL_REFERENCE_REJECTED",
+                    "The preview must not load external style resources.",
+                )
+        if tag in _SVG_ACTIVE_ELEMENTS:
+            raise ArtifactContractError(
+                "SVG_ACTIVE_ELEMENT_REJECTED",
+                "The preview must not contain active or mutating elements.",
+            )
+        for raw_name, value in element.attrib.items():
+            name = _local_name(raw_name)
+            if name.startswith("on"):
+                raise ArtifactContractError(
+                    "SVG_EVENT_HANDLER_REJECTED",
+                    "The preview must not contain event-handler attributes.",
+                )
+            if _contains_external_reference(value) or (
+                name in {"href", "src"} and not value.strip().startswith("#")
+            ):
+                raise ArtifactContractError(
+                    "SVG_EXTERNAL_REFERENCE_REJECTED",
+                    "The preview must not load or link to an external resource.",
+                )
+            if name == "style":
+                raise ArtifactContractError(
+                    "SVG_ACTIVE_ELEMENT_REJECTED",
+                    "The preview must not contain active style attributes.",
+                )
+        if tag == "style":
+            raise ArtifactContractError(
+                "SVG_ACTIVE_ELEMENT_REJECTED",
+                "The preview must not contain active style elements.",
+            )
+
+
+def _validate_svg_vocabulary(elements: tuple[ElementTree.Element, ...]) -> None:
+    identifiers: dict[str, int] = {}
+    gradient_identifiers: set[str] = set()
+    paint_references: list[str] = []
+    for element in elements:
+        namespace, local_name = _expanded_name(element.tag)
+        if namespace != _SVG_NAMESPACE:
+            raise ArtifactContractError(
+                "SVG_NAMESPACE_INVALID",
+                "Every preview element must use the SVG namespace.",
+            )
+        allowed_attributes = _SVG_ALLOWED_ATTRIBUTES.get(local_name)
+        if allowed_attributes is None:
+            raise ArtifactContractError(
+                "SVG_VOCABULARY_REJECTED",
+                "The preview contains an element outside the passive vocabulary.",
+            )
+        for raw_name, value in element.attrib.items():
+            attribute_namespace, name = _expanded_name(raw_name)
+            if attribute_namespace is not None:
+                raise ArtifactContractError(
+                    "SVG_NAMESPACE_INVALID",
+                    "Preview attributes must not use a foreign namespace.",
+                )
+            if name not in allowed_attributes:
+                raise ArtifactContractError(
+                    "SVG_VOCABULARY_REJECTED",
+                    "The preview contains an attribute outside the passive vocabulary.",
+                )
+            if name == "id":
+                identifiers[value] = identifiers.get(value, 0) + 1
+                if local_name in _SVG_GRADIENT_ELEMENTS:
+                    gradient_identifiers.add(value)
+            if _CSS_URL_FUNCTION.search(value):
+                paint_reference = _LOCAL_PAINT_REFERENCE.fullmatch(value.strip())
+                if name not in {"fill", "stroke"} or paint_reference is None:
+                    raise ArtifactContractError(
+                        "SVG_VOCABULARY_REJECTED",
+                        "The preview contains an unsupported internal reference.",
+                    )
+                paint_references.append(paint_reference.group(1))
+
+    if any(
+        reference not in gradient_identifiers or identifiers.get(reference) != 1
+        for reference in paint_references
+    ):
+        raise ArtifactContractError(
+            "SVG_VOCABULARY_REJECTED",
+            "Every internal paint reference must resolve to one unique gradient.",
+        )
 
 
 def _validate_safe_svg(svg: str) -> ElementTree.Element:
@@ -330,46 +625,16 @@ def _validate_safe_svg(svg: str) -> ElementTree.Element:
             "SVG_XML_INVALID",
             "The preview is not a well-formed SVG document.",
         ) from error
-    if _local_name(root.tag) != "svg":
+    _, root_local_name = _expanded_name(root.tag)
+    if root_local_name != "svg":
         raise ArtifactContractError(
             "SVG_ROOT_INVALID",
             "The preview document root must be an SVG element.",
         )
-    for element in root.iter():
-        tag = _local_name(element.tag)
-        if tag == "script":
-            raise ArtifactContractError(
-                "SVG_SCRIPT_REJECTED",
-                "The preview must not contain script elements.",
-            )
-        if tag in {"embed", "foreignobject", "iframe", "object"}:
-            raise ArtifactContractError(
-                "SVG_ACTIVE_ELEMENT_REJECTED",
-                "The preview must not contain embedded active document elements.",
-            )
-        if tag == "style":
-            style_text = element.text or ""
-            if "@import" in style_text.casefold() or _contains_external_reference(
-                style_text
-            ):
-                raise ArtifactContractError(
-                    "SVG_EXTERNAL_REFERENCE_REJECTED",
-                    "The preview must not load external style resources.",
-                )
-        for raw_name, value in element.attrib.items():
-            name = _local_name(raw_name)
-            if name.startswith("on"):
-                raise ArtifactContractError(
-                    "SVG_EVENT_HANDLER_REJECTED",
-                    "The preview must not contain event-handler attributes.",
-                )
-            if _contains_external_reference(value) or (
-                name in {"href", "src"} and not value.strip().startswith("#")
-            ):
-                raise ArtifactContractError(
-                    "SVG_EXTERNAL_REFERENCE_REJECTED",
-                    "The preview must not load or link to an external resource.",
-                )
+
+    elements = tuple(root.iter())
+    _reject_active_svg_content(elements)
+    _validate_svg_vocabulary(elements)
     return root
 
 

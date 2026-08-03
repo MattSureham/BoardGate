@@ -26,6 +26,7 @@ const RESOURCE_ERROR: ViewerError = Object.freeze({
   code: "ARTIFACT_RESOURCE_LIMIT",
   summary: "The selected bundle exceeds the offline viewer resource policy.",
 });
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 interface ActiveWorker {
   readonly worker: Worker;
@@ -224,6 +225,7 @@ export function renderPreview(
   if (
     parsed.querySelector("parsererror") !== null ||
     parsedRoot.localName !== "svg" ||
+    parsedRoot.namespaceURI !== SVG_NAMESPACE ||
     parsedRoot.getAttribute("data-project-id") !== summary.projectId
   ) {
     return false;

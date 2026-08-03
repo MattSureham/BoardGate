@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ export default function globalSetup(): () => void {
   const temporaryDirectory = mkdtempSync(join(tmpdir(), "boardgate-viewer-e2e-"));
   const output = join(temporaryDirectory, "valid-ready");
   const invalidOutput = join(temporaryDirectory, "invalid-inventory");
+  const activeSvgOutput = join(temporaryDirectory, "active-svg");
   const spatialOutput = join(temporaryDirectory, "spatial-findings");
   const legendOutput = join(temporaryDirectory, "legend-findings");
 
@@ -39,9 +40,21 @@ export default function globalSetup(): () => void {
   inspect("copper_too_close_to_edge", spatialOutput);
   inspect("missing_drill", legendOutput);
 
+  cpSync(output, activeSvgOutput, { recursive: true });
+  const activePreview = join(activeSvgOutput, "preview.svg");
+  writeFileSync(
+    activePreview,
+    readFileSync(activePreview, "utf8").replace(
+      "</svg>",
+      '<animate attributeName="viewBox" dur="1s" repeatCount="indefinite"/></svg>',
+    ),
+    "utf8",
+  );
+
   process.env.BOARDGATE_VIEWER_E2E_BUNDLE = output;
   process.env.BOARDGATE_VIEWER_E2E_SPATIAL_BUNDLE = spatialOutput;
   process.env.BOARDGATE_VIEWER_E2E_LEGEND_BUNDLE = legendOutput;
+  process.env.BOARDGATE_VIEWER_E2E_ACTIVE_SVG_BUNDLE = activeSvgOutput;
   mkdirSync(invalidOutput);
   writeFileSync(join(invalidOutput, "manifest.json"), "{}\n", "utf8");
   process.env.BOARDGATE_VIEWER_E2E_INVALID_BUNDLE = invalidOutput;

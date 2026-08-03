@@ -245,12 +245,29 @@ describe("bundle admission", () => {
       (svg: string) => svg.replace("</svg>", "<foreignObject/></svg>"),
     ],
     [
+      "SVG_ACTIVE_ELEMENT_REJECTED",
+      (svg: string) => svg.replace("</svg>", '<animate attributeName="viewBox" dur="1s"/></svg>'),
+    ],
+    [
+      "SVG_ACTIVE_ELEMENT_REJECTED",
+      (svg: string) => svg.replace("</svg>", "<style>@keyframes pulse {}</style></svg>"),
+    ],
+    [
       "SVG_EVENT_HANDLER_REJECTED",
       (svg: string) => svg.replace("<svg ", '<svg onload="alert(1)" '),
     ],
     [
       "SVG_EXTERNAL_REFERENCE_REJECTED",
       (svg: string) => svg.replace("</svg>", '<image href="https://invalid.example/x"/></svg>'),
+    ],
+    [
+      "SVG_NAMESPACE_INVALID",
+      (svg: string) => svg.replace("</svg>", '<g xmlns="urn:not-boardgate-svg"/></svg>'),
+    ],
+    ["SVG_VOCABULARY_REJECTED", (svg: string) => svg.replace("</svg>", "<metadata/></svg>")],
+    [
+      "SVG_ACTIVE_ELEMENT_REJECTED",
+      (svg: string) => svg.replace("<svg ", '<svg style="animation: pulse 1s" '),
     ],
     ["SVG_ACTIVE_XML_REJECTED", (svg: string) => `<!DOCTYPE svg>${svg}`],
   ])("rejects active SVG content with %s", async (code, mutate) => {

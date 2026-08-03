@@ -252,28 +252,28 @@ logs/run.jsonl
 
 Admission is offline, read-only, resource-bounded, and fail closed. The viewer
 checks the inventory, canonical JSON and schemas, semantic and cross-artifact
-identities, report metadata, safe SVG structure, and the run log before it
-shows any project conclusion. A missing, extra, malformed, inconsistent, or
-active-content artifact leaves the UI in a neutral **Review unavailable**
-state. The selected `File` objects live only as an in-memory snapshot for the
-current page: the viewer performs no upload, network request, storage write,
-review invocation, or bundle modification.
+identities, report metadata, a namespace-correct passive SVG vocabulary, and
+the run log before it shows any project conclusion. A missing, extra,
+malformed, inconsistent, or active-content artifact leaves the UI in a
+neutral **Review unavailable** state. The selected `File` objects live only
+as an in-memory snapshot for the current page: the viewer performs no upload,
+network request, storage write, review invocation, or bundle modification.
 
 After admission, the viewer displays the validated project/profile identity,
 the original overall status, evidence counts, risk modes, and safe diagnostics
-for `ANALYSIS_FAILED`. It also inserts the validated `preview.svg` exactly as
-authored, with per-layer visibility checkboxes and a Finding list that focuses
-the matching spatial or legend marker. Finally, it renders `report.md` through
-a small line-oriented tokenizer limited to the deterministic BoardGate report
-subset (headings, paragraphs, nested lists, and `**bold**` status/Finding
-lines), built exclusively with createElement/textContent — no Markdown
-library, no innerHTML, and HTML comment metadata is not displayed. Finding-ID
-headings in the report are activatable: selecting a Finding from the report
-or from the preview Finding list focuses the same preview marker and keeps
-both buttons' pressed state in sync. These
-interactions only toggle CSS visibility and classes on the already validated
-in-memory copy: geometry, attributes, and bundle bytes are never mutated, and
-no review rule is re-run or reinterpreted.
+for `ANALYSIS_FAILED`. It imports the validated `preview.svg` into a
+presentation-only DOM copy, with per-layer visibility checkboxes and a Finding
+list that focuses the matching spatial or legend marker. Finally, it renders
+`report.md` through a small line-oriented tokenizer limited to the
+deterministic BoardGate report subset (headings, paragraphs, nested lists, and
+`**bold**` status/Finding lines), built exclusively with
+createElement/textContent — no Markdown library, no innerHTML, and HTML
+comment metadata is not displayed. Finding-ID headings in the report are
+activatable: selecting a Finding from the report or from the preview Finding
+list focuses the same preview marker and keeps both buttons' pressed state in
+sync. These interactions change only trusted CSS visibility and class state
+on that presentation copy: geometry-defining attributes and the selected
+bundle bytes remain unchanged, and no review rule is re-run or reinterpreted.
 
 Developers need Node.js 22.12 or newer (but earlier than 25) to rebuild and
 test the tracked standalone file:

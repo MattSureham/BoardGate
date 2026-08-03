@@ -332,6 +332,24 @@ def test_complete_bundle_has_exact_inventory_and_valid_public_schemas() -> None:
         )
 
 
+def test_preview_accepts_unique_local_static_gradient_references() -> None:
+    review = _review()
+    svg = _svg(review).replace(
+        '<linearGradient id="safe-gradient"/>',
+        (
+            '<radialGradient id="safe-gradient" cx="50%" cy="50%" r="50%" '
+            'gradientUnits="objectBoundingBox" spreadMethod="pad">'
+            '<stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>'
+            '<stop offset="100%" stop-color="#000000" stop-opacity="0.5"/>'
+            "</radialGradient>"
+        ),
+    )
+
+    validated = validate_artifact_bundle(_bundle(review=review, svg=svg))
+
+    assert validated.review == review
+
+
 def test_only_run_log_varies_between_equivalent_runs() -> None:
     first = _bundle()
     second = _bundle(
@@ -485,6 +503,16 @@ def test_report_and_svg_finding_ids_must_exactly_match_findings_json() -> None:
             "SVG_EXTERNAL_REFERENCE_REJECTED",
         ),
         (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            "<style>g { animation: pulse 1s }</style></svg>",
+            "SVG_ACTIVE_ELEMENT_REJECTED",
+        ),
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg">'
+            '<g style="animation: pulse 1s"/></svg>',
+            "SVG_ACTIVE_ELEMENT_REJECTED",
+        ),
+        (
             '<!DOCTYPE svg><svg xmlns="http://www.w3.org/2000/svg"/>',
             "SVG_ACTIVE_XML_REJECTED",
         ),
@@ -504,6 +532,145 @@ def test_preview_rejects_active_or_external_content(svg: str, code: str) -> None
     )
 
     with pytest.raises(ArtifactContractError, match=code):
+        _bundle(review=review, svg=svg)
+
+
+@pytest.mark.parametrize(
+    "element",
+    [
+        "animate",
+        "animateColor",
+        "animateMotion",
+        "animateTransform",
+        "discard",
+        "mpath",
+        "set",
+    ],
+)
+def test_preview_rejects_every_svg_animation_element(element: str) -> None:
+    review = build_analysis_unavailable_review(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        diagnostics=(_diagnostic(),),
+    )
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg"><{element}/></svg>'
+
+    with pytest.raises(ArtifactContractError, match="SVG_ACTIVE_ELEMENT_REJECTED"):
+        _bundle(review=review, svg=svg)
+
+
+@pytest.mark.parametrize(
+    "svg",
+    [
+        "<svg/>",
+        '<svg xmlns="urn:not-svg"/>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns=""/></svg>',
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:foreign="urn:test">'
+            "<foreign:g/></svg>"
+        ),
+        (
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:foreign="urn:test">'
+            '<g foreign:data-layer-id="top-copper"/></svg>'
+        ),
+    ],
+)
+def test_preview_requires_the_svg_namespace_for_elements_and_attributes(
+    svg: str,
+) -> None:
+    review = build_analysis_unavailable_review(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        diagnostics=(_diagnostic(),),
+    )
+
+    with pytest.raises(ArtifactContractError, match="SVG_NAMESPACE_INVALID"):
+        _bundle(review=review, svg=svg)
+
+
+def test_preview_requires_an_exact_svg_root_local_name() -> None:
+    review = build_analysis_unavailable_review(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        diagnostics=(_diagnostic(),),
+    )
+
+    with pytest.raises(ArtifactContractError, match="SVG_ROOT_INVALID"):
+        _bundle(
+            review=review,
+            svg='<SVG xmlns="http://www.w3.org/2000/svg"/>',
+        )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<a/>",
+        "<use/>",
+        "<image/>",
+        "<filter/>",
+        '<g class="layer"/>',
+        '<g visibility="hidden"/>',
+        '<g href="#local"/>',
+        '<g data-unrecognized="value"/>',
+    ],
+)
+def test_preview_rejects_elements_and_attributes_outside_passive_vocabulary(
+    body: str,
+) -> None:
+    review = build_analysis_unavailable_review(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        diagnostics=(_diagnostic(),),
+    )
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>'
+
+    with pytest.raises(ArtifactContractError, match="SVG_VOCABULARY_REJECTED"):
+        _bundle(review=review, svg=svg)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<g fill="url(#missing-gradient)"/>',
+        '<g id="not-a-gradient" fill="url(#not-a-gradient)"/>',
+        (
+            '<defs><linearGradient id="duplicate"/>'
+            '<radialGradient id="duplicate"/></defs>'
+            '<g fill="url(#duplicate)"/>'
+        ),
+        ('<defs><linearGradient id="quoted"/></defs><g fill="url(\'#quoted\')"/>'),
+        (
+            '<defs><linearGradient id="namespaced:id"/></defs>'
+            '<g fill="url(#namespaced:id)"/>'
+        ),
+        (
+            '<defs><linearGradient id="safe-gradient"/></defs>'
+            '<g color="url(#safe-gradient)"/>'
+        ),
+        (
+            '<defs><linearGradient id="safe-gradient">'
+            '<stop offset="0" stop-color="url(#safe-gradient)"/>'
+            "</linearGradient></defs>"
+        ),
+    ],
+)
+def test_preview_rejects_ambiguous_or_unsupported_internal_references(
+    body: str,
+) -> None:
+    review = build_analysis_unavailable_review(
+        project_id=PROJECT_ID,
+        profile_id="default-2layer",
+        profile_sha256=PROFILE_SHA,
+        diagnostics=(_diagnostic(),),
+    )
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg">{body}</svg>'
+
+    with pytest.raises(ArtifactContractError, match="SVG_VOCABULARY_REJECTED"):
         _bundle(review=review, svg=svg)
 
 

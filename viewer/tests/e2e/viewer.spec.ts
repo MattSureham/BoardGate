@@ -176,6 +176,109 @@ test("admits a complete local bundle without network, storage, or writes", async
   expect(bundleDigests(bundle)).toEqual(before);
 });
 
+test("fails closed on an active SVG without exposing admitted evidence", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_ACTIVE_SVG_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+  const remoteRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/^(?:https?|wss?):/u.test(request.url())) {
+      remoteRequests.push(request.url());
+    }
+  });
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+
+  await expect(page.getByText("Review unavailable.")).toBeVisible();
+  await expect(page.getByText("SVG_ACTIVE_ELEMENT_REJECTED")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Validated review summary" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Validated preview" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Validated report" })).toHaveCount(0);
+  await expect(page.locator(".review-status, .preview-canvas, .report-content")).toHaveCount(0);
+
+  expect(remoteRequests).toEqual([]);
+  expect(bundleDigests(bundle)).toEqual(before);
+});
+
+test("defensively rejects a worker result whose preview root is outside the SVG namespace", async ({
+  page,
+}) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+
+  await page.addInitScript(() => {
+    class NamespaceBypassWorker {
+      #messageListeners: Array<(event: { data: unknown }) => void> = [];
+
+      addEventListener(type: string, listener: (event: { data: unknown }) => void): void {
+        if (type === "message") {
+          this.#messageListeners.push(listener);
+        }
+      }
+
+      postMessage(message: { requestId: string }): void {
+        const projectId = "prj-0000000000000000";
+        const profileSha256 = "0".repeat(64);
+        const data = {
+          kind: "boardgate.viewer.result",
+          protocolVersion: "1.0",
+          requestId: message.requestId,
+          result: {
+            ok: true,
+            summary: {
+              projectId,
+              profileId: "profile",
+              profileSha256,
+              overallStatus: "READY_FOR_REVIEW",
+              sourceCount: 0,
+              layerCount: 0,
+              drillCount: 0,
+              slotCount: 0,
+              placementCount: 0,
+              bomItemCount: 0,
+              ruleCount: 0,
+              findingCount: 0,
+              coverageGapCount: 0,
+              riskModes: [],
+              diagnostics: [],
+              disclaimer: "test",
+              layers: [],
+              findings: [],
+            },
+            previewSvg:
+              `<svg xmlns="urn:not-svg" data-project-id="${projectId}" ` +
+              `data-profile-sha256="${profileSha256}"/>`,
+            reportMarkdown: "",
+          },
+        };
+        queueMicrotask(() => {
+          for (const listener of this.#messageListeners) {
+            listener({ data });
+          }
+        });
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, "Worker", {
+      configurable: true,
+      value: NamespaceBypassWorker,
+    });
+  });
+
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+
+  await expect(page.getByText("Review unavailable.")).toBeVisible();
+  await expect(page.getByText("VIEWER_INTERNAL_ERROR")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Validated review summary" })).toHaveCount(0);
+  await expect(page.locator(".preview-canvas, .report-content")).toHaveCount(0);
+  expect(bundleDigests(bundle)).toEqual(before);
+});
+
 test("clears admitted evidence before rejecting a replacement selection", async ({ page }) => {
   const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_BUNDLE");
   const invalidBundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_INVALID_BUNDLE");

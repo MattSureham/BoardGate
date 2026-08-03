@@ -35,8 +35,13 @@ const ERROR_SUMMARIES = {
     "The preview contains an active XML declaration that is not safe to load.",
   SVG_XML_INVALID: "The preview is not a well-formed SVG document.",
   SVG_ROOT_INVALID: "The preview document root is not an SVG element.",
+  SVG_NAMESPACE_INVALID:
+    "The preview contains an element or attribute outside the required SVG namespace.",
+  SVG_VOCABULARY_REJECTED:
+    "The preview contains content outside the passive BoardGate SVG vocabulary.",
   SVG_SCRIPT_REJECTED: "The preview contains a script element.",
-  SVG_ACTIVE_ELEMENT_REJECTED: "The preview contains an embedded active document element.",
+  SVG_ACTIVE_ELEMENT_REJECTED:
+    "The preview contains an active, animated, or embedded document element.",
   SVG_EVENT_HANDLER_REJECTED: "The preview contains an event-handler attribute.",
   SVG_EXTERNAL_REFERENCE_REJECTED: "The preview attempts to load or link to an external resource.",
   SVG_REVIEW_ID_MISMATCH: "The preview metadata does not match the selected project and profile.",

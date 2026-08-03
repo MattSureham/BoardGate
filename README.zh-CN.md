@@ -234,24 +234,24 @@ logs/run.jsonl
 ```
 
 准入过程完全离线、只读、受资源上限约束，并且失败关闭。Viewer 会先检查
-文件清单、规范 JSON 与 Schema、语义和跨 Artifact 身份、报告元数据、安全
-SVG 结构及运行日志，之后才显示任何工程结论。缺失、额外、格式错误、
-相互不一致或包含主动内容的 Artifact 都只会让界面进入中性的
-**Review unavailable** 状态。所选 `File` 对象只作为当前页面内存中的快照
-存在；Viewer 不上传、不发起网络请求、不写入存储、不触发审查，也不修改
-Bundle。
+文件清单、规范 JSON 与 Schema、语义和跨 Artifact 身份、报告元数据、
+namespace 正确的被动 SVG vocabulary 及运行日志，之后才显示任何工程结论。
+缺失、额外、格式错误、相互不一致或包含主动内容的 Artifact 都只会让界面
+进入中性的 **Review unavailable** 状态。所选 `File` 对象只作为当前页面
+内存中的快照存在；Viewer 不上传、不发起网络请求、不写入存储、不触发审查，
+也不修改 Bundle。
 
 准入成功后，Viewer 会显示通过验证的项目/Profile 身份、原始总体状态、
-证据计数、风险模式，以及 `ANALYSIS_FAILED` 的安全诊断。它还会按原样插入
-通过验证的 `preview.svg`，提供逐图层可见性开关和 Finding 列表，点击
-Finding 可聚焦对应的空间或图例标记。最后，它会通过一个面向行的轻量
-分词器渲染 `report.md`，该分词器只支持 BoardGate 确定性报告的子集
-（标题、段落、嵌套列表和 `**加粗**` 状态/Finding 行），并完全使用
-createElement/textContent 构建——不使用 Markdown 库，不使用 innerHTML，
-也不显示 HTML 注释元数据。报告中的 Finding-ID 标题可以激活：从报告或
-预览 Finding 列表中选择 Finding 都会聚焦同一个预览标记，并保持两处按钮
-的按下状态同步。这些交互只是在已验证的内存副本上切换 CSS
-可见性和类名：几何、属性和 Bundle 字节都不会被修改，也不会重新执行或
+证据计数、风险模式，以及 `ANALYSIS_FAILED` 的安全诊断。它会把通过验证的
+`preview.svg` 导入一个仅用于展示的 DOM 副本，提供逐图层可见性开关和
+Finding 列表，点击 Finding 可聚焦对应的空间或图例标记。最后，它会通过
+一个面向行的轻量分词器渲染 `report.md`，该分词器只支持 BoardGate
+确定性报告的子集（标题、段落、嵌套列表和 `**加粗**` 状态/Finding 行），
+并完全使用 createElement/textContent 构建——不使用 Markdown 库，不使用
+innerHTML，也不显示 HTML 注释元数据。报告中的 Finding-ID 标题可以激活：
+从报告或预览 Finding 列表中选择 Finding 都会聚焦同一个预览标记，并保持
+两处按钮的按下状态同步。这些交互只改变该展示副本上可信的 CSS 可见性和
+类名状态：定义几何的属性和所选 Bundle 字节保持不变，也不会重新执行或
 解释任何审查规则。
 
 开发者需要 Node.js 22.12 或更高版本（且低于 25）来重建并测试已签入的

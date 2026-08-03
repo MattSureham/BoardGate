@@ -50,8 +50,8 @@ async function writeCase(testCase: MutationCase): Promise<string> {
   return directory;
 }
 
-function accepted(result: ValidationResult): boolean {
-  return result.ok;
+function resultCode(result: ValidationResult): string | null {
+  return result.ok ? null : result.error.code;
 }
 
 describe("Python artifact-admission parity", () => {
@@ -122,6 +122,66 @@ describe("Python artifact-admission parity", () => {
         ),
       },
       {
+        label: "svg-wrong-root-namespace",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace('xmlns="http://www.w3.org/2000/svg"', 'xmlns="urn:not-svg"'),
+        ),
+      },
+      {
+        label: "svg-foreign-descendant",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("</svg>", '<g xmlns="urn:not-svg"/></svg>'),
+        ),
+      },
+      {
+        label: "svg-animation",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("</svg>", '<animate attributeName="viewBox" dur="1s"/></svg>'),
+        ),
+      },
+      {
+        label: "svg-style-element",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("</svg>", "<style>@keyframes pulse {}</style></svg>"),
+        ),
+      },
+      {
+        label: "svg-style-attribute",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("<svg ", '<svg style="animation: pulse 1s" '),
+        ),
+      },
+      {
+        label: "svg-unknown-element",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("</svg>", "<metadata/></svg>"),
+        ),
+      },
+      {
+        label: "svg-local-link",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace("</svg>", '<a href="#paint"/></svg>'),
+        ),
+      },
+      {
+        label: "svg-local-gradient",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload
+            .replace(
+              "</desc>",
+              '</desc><defs><linearGradient id="paint"><stop offset="0" stop-color="#fff"/>' +
+                '<stop offset="1" stop-color="#000"/></linearGradient></defs>',
+            )
+            .replace('fill="#ffffff"', 'fill="url(#paint)"'),
+        ),
+      },
+      {
+        label: "svg-missing-gradient",
+        files: await replaceText(fixture.files, "preview.svg", (payload) =>
+          payload.replace('fill="#ffffff"', 'fill="url(#missing)"'),
+        ),
+      },
+      {
         label: "run-sequence-mismatch",
         files: await replaceText(fixture.files, "logs/run.jsonl", (payload) => {
           const lines = payload.trimEnd().split("\n");
@@ -131,12 +191,12 @@ describe("Python artifact-admission parity", () => {
       },
     ];
 
-    const browserResults = new Map<string, boolean>();
+    const browserResults = new Map<string, string | null>();
     const oracleRequest: { label: string; directory: string }[] = [];
     for (const testCase of cases) {
       browserResults.set(
         testCase.label,
-        accepted(await admitBundle(testCase.files, VIEWER_RESOURCE_POLICY)),
+        resultCode(await admitBundle(testCase.files, VIEWER_RESOURCE_POLICY)),
       );
       oracleRequest.push({
         label: testCase.label,
@@ -157,7 +217,11 @@ describe("Python artifact-admission parity", () => {
       code: null,
     });
     for (const result of oracleResults) {
-      expect(browserResults.get(result.label), result.label).toBe(result.ok);
+      const browserCode = browserResults.get(result.label);
+      expect(browserCode === null, result.label).toBe(result.ok);
+      if (result.label === "active-svg" || result.label.startsWith("svg-")) {
+        expect(browserCode, `${result.label} error code`).toBe(result.code);
+      }
     }
   }, 60_000);
 });

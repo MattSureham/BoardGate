@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { VIEWER_RESOURCE_POLICY } from "../../src/policy";
+import { AdmissionError } from "../../src/validation/errors";
 import { validateRunLog } from "../../src/validation/log";
 import type { CrossArtifactEvidence } from "../../src/validation/semantics";
 import { validateSvg } from "../../src/validation/svg";
 import { validateReport } from "../../src/validation/text";
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 const evidence: CrossArtifactEvidence = {
   projectId: "prj-0000000000000000",
@@ -45,6 +48,15 @@ function svg(children = ""): string {
   );
 }
 
+function svgErrorCode(payload: string): string | undefined {
+  try {
+    validateSvg(payload, evidence, VIEWER_RESOURCE_POLICY);
+  } catch (error) {
+    return error instanceof AdmissionError ? error.viewerError.code : "UNEXPECTED_ERROR";
+  }
+  return undefined;
+}
+
 describe("streaming SVG budgets", () => {
   it("allows exact element/attribute budgets", () => {
     expect(() =>
@@ -72,22 +84,62 @@ describe("streaming SVG budgets", () => {
   });
 
   it.each([
-    "<style>@import 'theme.css';</style>",
-    '<style>.x { fill: url("theme.svg#paint"); }</style>',
-    '<a href="data:text/html,x"/>',
-    '<g onclick="x"/>',
-  ])("rejects active content %s", (content) => {
-    expect(() => validateSvg(svg(content), evidence, VIEWER_RESOURCE_POLICY)).toThrow();
+    ["SVG_SCRIPT_REJECTED", "<script/>"],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", '<animate attributeName="d"/>'],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", '<animateColor attributeName="fill"/>'],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", "<animateMotion/>"],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", '<animateTransform attributeName="transform"/>'],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", '<set attributeName="fill"/>'],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", "<discard/>"],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", "<mpath/>"],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", "<style>@keyframes pulse {}</style>"],
+    ["SVG_ACTIVE_ELEMENT_REJECTED", '<g style="animation: pulse 1s"/>'],
+    ["SVG_EXTERNAL_REFERENCE_REJECTED", "<style>@import 'theme.css';</style>"],
+    ["SVG_EXTERNAL_REFERENCE_REJECTED", '<style>.x { fill: url("theme.svg#paint"); }</style>'],
+    ["SVG_EXTERNAL_REFERENCE_REJECTED", '<a href="data:text/html,x"/>'],
+    ["SVG_EVENT_HANDLER_REJECTED", '<g onclick="x"/>'],
+  ])("rejects active content with %s", (code, content) => {
+    expect(svgErrorCode(svg(content))).toBe(code);
   });
 
-  it("accepts internal references and rejects malformed roots, metadata, and Findings", () => {
+  it("accepts one uniquely resolved local gradient paint reference", () => {
     expect(() =>
       validateSvg(
-        svg('<style>.x { fill: url("#paint"); }</style><a href="#target"/>'),
+        svg(
+          '<defs><linearGradient id="paint"><stop offset="0" stop-color="#fff"/>' +
+            '<stop offset="1" stop-color="#000"/></linearGradient></defs>' +
+            '<rect x="0" y="0" width="1" height="1" fill="url(#paint)"/>',
+        ),
         evidence,
         VIEWER_RESOURCE_POLICY,
       ),
     ).not.toThrow();
+  });
+
+  it.each([
+    ["missing paint server", '<rect x="0" y="0" width="1" height="1" fill="url(#paint)"/>'],
+    [
+      "non-gradient target",
+      '<g id="paint" fill="url(#paint)"><rect x="0" y="0" width="1" height="1"/></g>',
+    ],
+    [
+      "duplicate paint server",
+      '<defs><linearGradient id="paint"/><radialGradient id="paint"/></defs>' +
+        '<rect x="0" y="0" width="1" height="1" fill="url(#paint)"/>',
+    ],
+    [
+      "local URL in a non-paint attribute",
+      '<g transform="url(#paint)"><defs><linearGradient id="paint"/></defs></g>',
+    ],
+    ["quoted local paint URL", '<g fill="url(&quot;#paint&quot;)"/>'],
+    ["uppercase local paint URL", '<g fill="URL(#paint)"/>'],
+    ["spaced local paint URL", '<g fill="url( #paint)"/>'],
+    ["separated local paint URL", '<g fill="url (#paint)"/>'],
+  ])("rejects %s outside the local paint-reference contract", (_label, content) => {
+    expect(svgErrorCode(svg(content))).toBe("SVG_VOCABULARY_REJECTED");
+  });
+
+  it("rejects malformed roots, metadata, and Findings", () => {
     expect(() =>
       validateSvg(
         '<html data-project-id="prj-0000000000000000" ' +
@@ -99,7 +151,9 @@ describe("streaming SVG budgets", () => {
     expect(() =>
       validateSvg(svg().replace("</svg>\n", ""), evidence, VIEWER_RESOURCE_POLICY),
     ).toThrow(/well-formed/i);
-    expect(() => validateSvg("<svg/>", evidence, VIEWER_RESOURCE_POLICY)).toThrow(/metadata/i);
+    expect(() =>
+      validateSvg(`<svg xmlns="${SVG_NAMESPACE}"/>`, evidence, VIEWER_RESOURCE_POLICY),
+    ).toThrow(/metadata/i);
     expect(() =>
       validateSvg(
         svg('<g data-finding-id="fnd-0000000000000000"/>'),
@@ -107,6 +161,31 @@ describe("streaming SVG budgets", () => {
         VIEWER_RESOURCE_POLICY,
       ),
     ).toThrow(/Finding identifiers/i);
+  });
+
+  it.each([
+    ["wrong root namespace", (payload: string) => payload.replace(SVG_NAMESPACE, "urn:not-svg")],
+    [
+      "foreign descendant namespace",
+      (payload: string) => payload.replace("</svg>", '<g xmlns="urn:not-svg"/></svg>'),
+    ],
+    [
+      "namespaced ordinary attribute",
+      (payload: string) => payload.replace("<svg ", '<svg xmlns:e="urn:evidence" e:role="img" '),
+    ],
+  ])("rejects %s", (_label, mutate) => {
+    expect(svgErrorCode(mutate(svg()))).toBe("SVG_NAMESPACE_INVALID");
+  });
+
+  it.each([
+    ["unknown element", "<metadata/>"],
+    ["source class", '<g class="finding-focus"/>'],
+    ["source visibility", '<g visibility="hidden"/>'],
+    ["local link", '<a href="#paint"/>'],
+    ["local image", '<image href="#paint"/>'],
+    ["local use", '<use href="#paint"/>'],
+  ])("rejects %s outside the passive vocabulary", (_label, content) => {
+    expect(svgErrorCode(svg(content))).toBe("SVG_VOCABULARY_REJECTED");
   });
 
   it("extracts well-formed layer groups and rejects malformed or duplicate groups", () => {
@@ -213,17 +292,15 @@ describe("streaming SVG budgets", () => {
         VIEWER_RESOURCE_POLICY,
       ),
     ).toThrow(/Finding identifiers/i);
-    expect(() =>
-      validateSvg(
+    expect(
+      svgErrorCode(
         svg(
           '<circle data-finding-id="fnd-0000000000000000"/>' +
             '<g id="spatial-findings"><g data-finding-id="fnd-0000000000000000"/></g>' +
             '<g id="non-spatial-findings"><g data-finding-id="fnd-1111111111111111"/></g>',
         ),
-        withFindings,
-        VIEWER_RESOURCE_POLICY,
       ),
-    ).toThrow(/Finding identifiers/i);
+    ).toBe("SVG_VOCABULARY_REJECTED");
   });
 });
 
