@@ -26,7 +26,11 @@ from boardgate.application.parser_runner import (
     ParserFailure,
     ParserJob,
 )
-from boardgate.authoring import GenerationRequest, GenerationResult
+from boardgate.authoring import (
+    AppliedTwoLayerCouponGeneration,
+    GenerationRequest,
+    GenerationResult,
+)
 from boardgate.authoring.coupon import GENERATION_PAYLOAD_PATHS
 from boardgate.cli import main
 from boardgate.config import load_rule_profile
@@ -169,6 +173,7 @@ def test_cli_and_service_publish_the_same_complete_validated_generation(
         (cli_workspace / "evidence" / "result.json").read_text(encoding="utf-8")
     )
     assert admitted_request == request
+    assert isinstance(generation.operation, AppliedTwoLayerCouponGeneration)
     assert generation.operation.hole_count == 2
     assert generation.operation.tool_count == 2
     assert generation.operation.trace_count == 2

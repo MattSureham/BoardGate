@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import jsonschema
 import pytest
 from pydantic import ValidationError
 
@@ -24,6 +25,7 @@ from boardgate.authoring.identifiers import (
 )
 from boardgate.authoring.models import RevisionValidationEvidence
 from boardgate.domain.enums import ReviewStatus
+from boardgate.schemas import schema_document
 
 
 def operation_payload() -> dict[str, object]:
@@ -117,6 +119,37 @@ def test_valid_request_is_admitted() -> None:
     assert admitted.operation.kind == "generate_two_layer_coupon"
     assert admitted.operation.holes[0].drill_diameter_mm == 0.3
     assert admitted.operation.traces[0].copper_layers == "both"
+
+
+def test_legacy_defaulted_kind_remains_schema_and_runtime_compatible() -> None:
+    request_payload = {
+        "schema_version": "1.0",
+        "operation": operation_payload(),
+    }
+    operation = request_payload["operation"]
+    assert isinstance(operation, dict)
+    del operation["kind"]
+    jsonschema.Draft202012Validator(schema_document(GenerationRequest)).validate(
+        request_payload
+    )
+
+    admitted_request = GenerationRequest.model_validate_json(
+        json.dumps(request_payload)
+    )
+
+    assert admitted_request.operation.kind == "generate_two_layer_coupon"
+
+    result_payload = generation_result().model_dump(mode="json")
+    applied = result_payload["operation"]
+    assert isinstance(applied, dict)
+    del applied["kind"]
+    jsonschema.Draft202012Validator(schema_document(GenerationResult)).validate(
+        result_payload
+    )
+
+    admitted_result = GenerationResult.model_validate_json(json.dumps(result_payload))
+
+    assert admitted_result.operation.kind == "generate_two_layer_coupon"
 
 
 def test_extra_keys_are_rejected() -> None:

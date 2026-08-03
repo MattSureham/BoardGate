@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +15,7 @@ from boardgate.application.generation_registry import (
     GenerationExecutorError,
     GenerationRegistryError,
     resolve_generation_executor,
+    validate_generation_operation_evidence,
 )
 from boardgate.application.modification_registry import ParserExecutor
 from boardgate.application.output import (
@@ -41,7 +41,6 @@ from boardgate.application.revision_workspace import (
     parent_directories,
     workspace_inventory,
 )
-from boardgate.authoring.coupon import PLATED_DRILL_PATH
 from boardgate.authoring.generation_models import (
     GENERATION_DISCLAIMER,
     GeneratedFileEvidence,
@@ -55,8 +54,8 @@ from boardgate.authoring.identifiers import (
 )
 from boardgate.authoring.models import RevisionValidationEvidence
 from boardgate.config.models import RuleProfile
-from boardgate.domain.enums import Plating, ReviewStatus
-from boardgate.domain.identifiers import project_id, source_file_id
+from boardgate.domain.enums import ReviewStatus
+from boardgate.domain.identifiers import project_id
 from boardgate.domain.project import PCBProject
 from boardgate.domain.source import ProjectManifest
 from boardgate.rules.models import ReviewResult
@@ -92,7 +91,7 @@ class GenerationRun:
     output_path: Path
 
 
-def validate_generation_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
+def validate_generation_workspace(root: Path) -> None:  # noqa: PLR0912
     """Validate exact revision inventory, hashes, identities, and nested review."""
     actual_files, actual_directories = workspace_inventory(root)
     if not {REQUEST_ARTIFACT, RESULT_ARTIFACT}.issubset(actual_files):
@@ -143,15 +142,6 @@ def validate_generation_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
         raise ValueError("generation_id is inconsistent with canonical evidence")
     request_operation = request.operation
     result_operation = result.operation
-    if (
-        request_operation.board_width_mm != result_operation.board_width_mm
-        or request_operation.board_height_mm != result_operation.board_height_mm
-        or len(request_operation.holes) != result_operation.hole_count
-        or len({hole.drill_diameter_mm for hole in request_operation.holes})
-        != result_operation.tool_count
-        or len(request_operation.traces) != result_operation.trace_count
-    ):
-        raise ValueError("request operation does not match applied generation evidence")
 
     for item in result.payload_files:
         path = logical_destination(root / DESIGN_DIRECTORY, item.logical_path)
@@ -189,40 +179,12 @@ def validate_generation_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
         raise ValueError("result validation evidence does not match nested review")
     if validation_manifest.project_id != result.output_project_id:
         raise ValueError("nested review project does not match output_project_id")
-
-    drill_digests = {item.logical_path: item.sha256 for item in result.payload_files}
-    expected_drill_source_id = source_file_id(
-        PLATED_DRILL_PATH,
-        drill_digests[PLATED_DRILL_PATH],
+    validate_generation_operation_evidence(
+        request_operation,
+        result_operation,
+        result.payload_files,
+        validation_project,
     )
-    output_drills = tuple(
-        drill
-        for drill in validation_project.drills
-        if drill.provenance.source_file_id == expected_drill_source_id
-    )
-    if tuple(sorted(drill.drill_id for drill in output_drills)) != tuple(
-        sorted(result_operation.drill_ids)
-    ):
-        raise ValueError("generated drill IDs do not match validation project")
-    expected_holes = sorted(
-        (hole.x_mm, hole.y_mm, hole.drill_diameter_mm)
-        for hole in request_operation.holes
-    )
-    actual_holes = sorted(
-        (drill.position.x, drill.position.y, drill.diameter_mm)
-        for drill in output_drills
-    )
-    if len(actual_holes) != len(expected_holes) or any(
-        not (
-            math.isclose(actual[0], wanted[0], rel_tol=0.0, abs_tol=1e-9)
-            and math.isclose(actual[1], wanted[1], rel_tol=0.0, abs_tol=1e-9)
-            and math.isclose(actual[2], wanted[2], rel_tol=0.0, abs_tol=1e-9)
-        )
-        for actual, wanted in zip(actual_holes, expected_holes, strict=True)
-    ):
-        raise ValueError("generated drills do not match validation project")
-    if any(drill.plating is not Plating.PLATED for drill in output_drills):
-        raise ValueError("generated drills lost plated evidence in validation")
 
 
 class GenerationService:

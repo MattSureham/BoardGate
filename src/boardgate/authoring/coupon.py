@@ -8,7 +8,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from boardgate.authoring.generation_models import (
+    CouponHole,
+    CouponNpthHole,
+    CouponTrace,
     GenerateTwoLayerCoupon,
+    GenerateTwoLayerCouponWithNpth,
     to_emission_nanometres,
 )
 from boardgate.domain.enums import ApertureShape, Plating, Polarity
@@ -19,6 +23,7 @@ from boardgate.parsers.excellon import ExcellonParseResult
 from boardgate.parsers.gerber import GerberParseResult
 
 GENERATION_ADAPTER_POLICY_VERSION = "1.0"
+NPTH_GENERATION_ADAPTER_POLICY_VERSION = "1.1"
 MAX_GENERATED_PAYLOAD_BYTES = 1024 * 1024
 OUTLINE_APERTURE_MM = 0.1
 SAME_COORDINATES_NAME = "boardgate-two-layer-coupon"
@@ -26,6 +31,7 @@ TOP_COPPER_PATH = "coupon-top-copper.gtl"
 BOTTOM_COPPER_PATH = "coupon-bottom-copper.gbl"
 OUTLINE_PATH = "coupon-outline.gko"
 PLATED_DRILL_PATH = "coupon-plated.drl"
+NON_PLATED_DRILL_PATH = "coupon-non-plated.drl"
 GENERATION_PAYLOAD_PATHS = tuple(
     sorted(
         (
@@ -36,6 +42,12 @@ GENERATION_PAYLOAD_PATHS = tuple(
         )
     )
 )
+NPTH_GENERATION_PAYLOAD_PATHS = tuple(
+    sorted((*GENERATION_PAYLOAD_PATHS, NON_PLATED_DRILL_PATH))
+)
+
+type CouponGeneration = GenerateTwoLayerCoupon | GenerateTwoLayerCouponWithNpth
+type CouponDrill = CouponHole | CouponNpthHole
 
 
 class GenerationOperationError(ValueError):
@@ -87,20 +99,20 @@ def _gerber_header(comment: str, file_function: str) -> list[str]:
     ]
 
 
-def _sorted_pads(operation: GenerateTwoLayerCoupon) -> list[tuple[int, int, int]]:
+def _sorted_pads(holes: Sequence[CouponHole]) -> list[tuple[int, int, int]]:
     pads = [
         (
             to_emission_nanometres(hole.pad_diameter_mm),
             to_emission_nanometres(hole.x_mm),
             to_emission_nanometres(hole.y_mm),
         )
-        for hole in operation.holes
+        for hole in holes
     ]
     return sorted(pads)
 
 
 def _sorted_traces(
-    operation: GenerateTwoLayerCoupon,
+    operation: CouponGeneration,
     layer: str,
 ) -> list[tuple[int, int, int, int, int]]:
     traces = [
@@ -151,7 +163,7 @@ def _emit_copper(
     return _guard_payload(logical_path, lines)
 
 
-def _emit_outline(operation: GenerateTwoLayerCoupon) -> bytes:
+def _emit_outline(operation: CouponGeneration) -> bytes:
     width_nm = to_emission_nanometres(operation.board_width_mm)
     height_nm = to_emission_nanometres(operation.board_height_mm)
     zero = _gerber_coordinate(0)
@@ -176,18 +188,23 @@ def _emit_outline(operation: GenerateTwoLayerCoupon) -> bytes:
     return _guard_payload(OUTLINE_PATH, lines)
 
 
-def _emit_plated_drill(operation: GenerateTwoLayerCoupon) -> bytes:
+def _emit_drill(
+    logical_path: str,
+    holes_input: Sequence[CouponDrill],
+    *,
+    plating_marker: str,
+) -> bytes:
     holes = sorted(
         (
             to_emission_nanometres(hole.drill_diameter_mm),
             to_emission_nanometres(hole.x_mm),
             to_emission_nanometres(hole.y_mm),
         )
-        for hole in operation.holes
+        for hole in holes_input
     )
     diameters = sorted({drill_nm for drill_nm, _, _ in holes})
     tool_codes = {drill_nm: index + 1 for index, drill_nm in enumerate(diameters)}
-    lines = ["M48", "METRIC,TZ,0000.000000", ";TYPE=PLATED"]
+    lines = ["M48", "METRIC,TZ,0000.000000", f";TYPE={plating_marker}"]
     lines.extend(
         f"T{tool_codes[drill_nm]:02d}C{_fixed_mm(drill_nm)}" for drill_nm in diameters
     )
@@ -200,14 +217,22 @@ def _emit_plated_drill(operation: GenerateTwoLayerCoupon) -> bytes:
             current_tool = tool
         lines.append(f"X{_fixed_mm(x_nm)}Y{_fixed_mm(y_nm)}")
     lines.append("M30")
-    return _guard_payload(PLATED_DRILL_PATH, lines)
+    return _guard_payload(logical_path, lines)
+
+
+def _emit_plated_drill(operation: GenerateTwoLayerCoupon) -> bytes:
+    return _emit_drill(
+        PLATED_DRILL_PATH,
+        operation.holes,
+        plating_marker="PLATED",
+    )
 
 
 def emit_coupon_payloads(
     operation: GenerateTwoLayerCoupon,
 ) -> tuple[GeneratedPayload, ...]:
     """Emit the complete deterministic four-file coupon design payload."""
-    pads = _sorted_pads(operation)
+    pads = _sorted_pads(operation.holes)
     payloads = (
         (
             TOP_COPPER_PATH,
@@ -231,6 +256,64 @@ def emit_coupon_payloads(
         ),
         (OUTLINE_PATH, _emit_outline(operation)),
         (PLATED_DRILL_PATH, _emit_plated_drill(operation)),
+    )
+    result = []
+    for logical_path, payload in payloads:
+        digest = hashlib.sha256(payload).hexdigest()
+        result.append(
+            GeneratedPayload(
+                logical_path=logical_path,
+                payload=payload,
+                sha256=digest,
+                source_file_id=source_file_id(logical_path, digest),
+            )
+        )
+    return tuple(result)
+
+
+def emit_coupon_with_npth_payloads(
+    operation: GenerateTwoLayerCouponWithNpth,
+) -> tuple[GeneratedPayload, ...]:
+    """Emit the deterministic five-file mixed plated/NPTH coupon design."""
+    pads = _sorted_pads(operation.plated_holes)
+    payloads = (
+        (
+            TOP_COPPER_PATH,
+            _emit_copper(
+                TOP_COPPER_PATH,
+                "BoardGate generated two-layer coupon top copper",
+                "Copper,L1,Top",
+                pads,
+                _sorted_traces(operation, "top"),
+            ),
+        ),
+        (
+            BOTTOM_COPPER_PATH,
+            _emit_copper(
+                BOTTOM_COPPER_PATH,
+                "BoardGate generated two-layer coupon bottom copper",
+                "Copper,L2,Bot",
+                pads,
+                _sorted_traces(operation, "bottom"),
+            ),
+        ),
+        (OUTLINE_PATH, _emit_outline(operation)),
+        (
+            PLATED_DRILL_PATH,
+            _emit_drill(
+                PLATED_DRILL_PATH,
+                operation.plated_holes,
+                plating_marker="PLATED",
+            ),
+        ),
+        (
+            NON_PLATED_DRILL_PATH,
+            _emit_drill(
+                NON_PLATED_DRILL_PATH,
+                operation.non_plated_holes,
+                plating_marker="NON_PLATED",
+            ),
+        ),
     )
     result = []
     for logical_path, payload in payloads:
@@ -276,7 +359,7 @@ def _close_mm(actual: float, expected: float) -> bool:
 
 
 def _expected_segments(
-    operation: GenerateTwoLayerCoupon,
+    operation: CouponGeneration,
 ) -> tuple[tuple[tuple[float, float], tuple[float, float]], ...]:
     width = operation.board_width_mm
     height = operation.board_height_mm
@@ -290,7 +373,7 @@ def _expected_segments(
 
 
 def verify_coupon_outline(
-    operation: GenerateTwoLayerCoupon,
+    operation: CouponGeneration,
     parsed: GerberParseResult,
     *,
     expected_source_file_id: str,
@@ -339,8 +422,9 @@ def verify_coupon_outline(
         )
 
 
-def verify_coupon_copper(
-    operation: GenerateTwoLayerCoupon,
+def _verify_coupon_copper(  # noqa: PLR0913
+    holes: Sequence[CouponHole],
+    traces: Sequence[CouponTrace],
     parsed: GerberParseResult,
     *,
     expected_source_file_id: str,
@@ -350,11 +434,11 @@ def verify_coupon_copper(
     """Prove the reparsed copper layer contains exactly the requested geometry."""
     _require_clean_gerber(parsed, expected_source_file_id)
     expected_flashes = sorted(
-        (hole.x_mm, hole.y_mm, hole.pad_diameter_mm) for hole in operation.holes
+        (hole.x_mm, hole.y_mm, hole.pad_diameter_mm) for hole in holes
     )
     expected_traces = sorted(
         (trace.x1_mm, trace.y1_mm, trace.x2_mm, trace.y2_mm, trace.width_mm)
-        for trace in operation.traces
+        for trace in traces
         if trace.copper_layers in {layer, "both"}
     )
     actual_flashes: list[tuple[float, float, float]] = []
@@ -427,14 +511,54 @@ def verify_coupon_copper(
         )
 
 
-def verify_coupon_drills(
+def verify_coupon_copper(
     operation: GenerateTwoLayerCoupon,
+    parsed: GerberParseResult,
+    *,
+    expected_source_file_id: str,
+    logical_path: str,
+    layer: str,
+) -> None:
+    """Prove one legacy 1.0 copper layer matches the request."""
+    _verify_coupon_copper(
+        operation.holes,
+        operation.traces,
+        parsed,
+        expected_source_file_id=expected_source_file_id,
+        logical_path=logical_path,
+        layer=layer,
+    )
+
+
+def verify_coupon_with_npth_copper(
+    operation: GenerateTwoLayerCouponWithNpth,
+    parsed: GerberParseResult,
+    *,
+    expected_source_file_id: str,
+    logical_path: str,
+    layer: str,
+) -> None:
+    """Prove one mixed-coupon copper layer contains only plated pads."""
+    _verify_coupon_copper(
+        operation.plated_holes,
+        operation.traces,
+        parsed,
+        expected_source_file_id=expected_source_file_id,
+        logical_path=logical_path,
+        layer=layer,
+    )
+
+
+def _verify_coupon_drills(
+    holes: Sequence[CouponDrill],
     parsed: ExcellonParseResult,
     *,
     expected_source_file_id: str,
+    logical_path: str,
+    expected_plating: Plating,
 ) -> tuple[str, ...]:
     """Prove the reparsed drill file contains exactly the requested holes."""
-    subject = PLATED_DRILL_PATH
+    subject = logical_path
     if parsed.source_file_id != expected_source_file_id:
         raise GenerationOperationError(
             "GENERATION_POSTCONDITION_SOURCE_MISMATCH",
@@ -459,9 +583,7 @@ def verify_coupon_drills(
             subject,
             "reparsed generated Excellon contains an unexpected slot",
         )
-    expected = sorted(
-        (hole.x_mm, hole.y_mm, hole.drill_diameter_mm) for hole in operation.holes
-    )
+    expected = sorted((hole.x_mm, hole.y_mm, hole.drill_diameter_mm) for hole in holes)
     actual = sorted(
         (drill.position.x, drill.position.y, drill.diameter_mm)
         for drill in parsed.drills
@@ -479,10 +601,49 @@ def verify_coupon_drills(
             subject,
             "reparsed drills do not match the requested holes",
         )
-    if any(drill.plating is not Plating.PLATED for drill in parsed.drills):
+    if any(drill.plating is not expected_plating for drill in parsed.drills):
+        detail = (
+            "reparsed drills lost the explicit plated evidence"
+            if expected_plating is Plating.PLATED
+            else "reparsed drills lost the explicit non-plated evidence"
+        )
         raise GenerationOperationError(
             "GENERATION_POSTCONDITION_PLATING_MISMATCH",
             subject,
-            "reparsed drills lost the explicit plated evidence",
+            detail,
         )
     return tuple(sorted(drill.drill_id for drill in parsed.drills))
+
+
+def verify_coupon_drills(
+    operation: GenerateTwoLayerCoupon,
+    parsed: ExcellonParseResult,
+    *,
+    expected_source_file_id: str,
+) -> tuple[str, ...]:
+    """Prove the legacy plated drill payload matches its request."""
+    return _verify_coupon_drills(
+        operation.holes,
+        parsed,
+        expected_source_file_id=expected_source_file_id,
+        logical_path=PLATED_DRILL_PATH,
+        expected_plating=Plating.PLATED,
+    )
+
+
+def verify_coupon_with_npth_drills(
+    holes: Sequence[CouponDrill],
+    parsed: ExcellonParseResult,
+    *,
+    expected_source_file_id: str,
+    logical_path: str,
+    expected_plating: Plating,
+) -> tuple[str, ...]:
+    """Prove one explicit mixed-coupon drill population."""
+    return _verify_coupon_drills(
+        holes,
+        parsed,
+        expected_source_file_id=expected_source_file_id,
+        logical_path=logical_path,
+        expected_plating=expected_plating,
+    )

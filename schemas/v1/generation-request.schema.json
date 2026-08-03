@@ -44,6 +44,43 @@
       "title": "CouponHole",
       "type": "object"
     },
+    "CouponNpthHole": {
+      "additionalProperties": false,
+      "description": "One explicit non-plated round hole without an implied copper pad.",
+      "properties": {
+        "drill_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Drill Diameter Mm",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "x_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "X Mm",
+          "type": "number"
+        },
+        "y_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Y Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x_mm",
+        "y_mm",
+        "drill_diameter_mm"
+      ],
+      "title": "CouponNpthHole",
+      "type": "object"
+    },
     "CouponTrace": {
       "additionalProperties": false,
       "description": "One explicit straight copper trace with round-aperture endpoints.",
@@ -172,16 +209,98 @@
       "title": "GenerateTwoLayerCoupon",
       "type": "object"
     },
+    "GenerateTwoLayerCouponWithNpth": {
+      "additionalProperties": false,
+      "description": "Bounded two-layer coupon with separate plated and NPTH payloads.",
+      "properties": {
+        "board_height_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Height Mm",
+          "type": "number"
+        },
+        "board_width_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Width Mm",
+          "type": "number"
+        },
+        "instruction": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "kind": {
+          "const": "generate_two_layer_coupon_with_npth",
+          "title": "Kind",
+          "type": "string"
+        },
+        "non_plated_holes": {
+          "items": {
+            "$ref": "#/$defs/CouponNpthHole"
+          },
+          "maxItems": 1024,
+          "minItems": 1,
+          "title": "Non Plated Holes",
+          "type": "array"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "plated_holes": {
+          "items": {
+            "$ref": "#/$defs/CouponHole"
+          },
+          "maxItems": 1024,
+          "minItems": 1,
+          "title": "Plated Holes",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "traces": {
+          "items": {
+            "$ref": "#/$defs/CouponTrace"
+          },
+          "maxItems": 4096,
+          "title": "Traces",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "kind",
+        "operation_version",
+        "board_width_mm",
+        "board_height_mm",
+        "plated_holes",
+        "non_plated_holes",
+        "traces",
+        "instruction"
+      ],
+      "title": "GenerateTwoLayerCouponWithNpth",
+      "type": "object"
+    },
     "GenerationOperation": {
       "discriminator": {
         "mapping": {
-          "generate_two_layer_coupon": "#/$defs/GenerateTwoLayerCoupon"
+          "generate_two_layer_coupon": "#/$defs/GenerateTwoLayerCoupon",
+          "generate_two_layer_coupon_with_npth": "#/$defs/GenerateTwoLayerCouponWithNpth"
         },
         "propertyName": "kind"
       },
       "oneOf": [
         {
           "$ref": "#/$defs/GenerateTwoLayerCoupon"
+        },
+        {
+          "$ref": "#/$defs/GenerateTwoLayerCouponWithNpth"
         }
       ]
     }

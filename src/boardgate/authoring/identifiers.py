@@ -6,7 +6,7 @@ import hashlib
 import json
 
 from boardgate.authoring.generation_models import (
-    GenerateTwoLayerCoupon,
+    GenerationOperation,
     GenerationRequest,
 )
 from boardgate.authoring.models import (
@@ -60,7 +60,7 @@ def generation_request_sha256(request: GenerationRequest) -> str:
     return hashlib.sha256(canonical_json(request).encode("utf-8")).hexdigest()
 
 
-def generation_operation_sha256(operation: GenerateTwoLayerCoupon) -> str:
+def generation_operation_sha256(operation: GenerationOperation) -> str:
     """Hash executable fields while excluding non-semantic instruction prose."""
     payload = json.dumps(
         operation.model_dump(mode="json", exclude={"instruction"}),

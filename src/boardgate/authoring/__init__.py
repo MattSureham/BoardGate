@@ -2,9 +2,12 @@
 
 from boardgate.authoring.generation_models import (
     AppliedTwoLayerCouponGeneration,
+    AppliedTwoLayerCouponWithNpthGeneration,
     CouponHole,
+    CouponNpthHole,
     GeneratedFileEvidence,
     GenerateTwoLayerCoupon,
+    GenerateTwoLayerCouponWithNpth,
     GenerationRequest,
     GenerationResult,
 )
@@ -38,8 +41,11 @@ from boardgate.authoring.request import (
 __all__ = [
     "AppliedExcellonToolDiameterChange",
     "AppliedTwoLayerCouponGeneration",
+    "AppliedTwoLayerCouponWithNpthGeneration",
     "CouponHole",
+    "CouponNpthHole",
     "GenerateTwoLayerCoupon",
+    "GenerateTwoLayerCouponWithNpth",
     "GeneratedFileEvidence",
     "GenerationRequest",
     "GenerationRequestError",

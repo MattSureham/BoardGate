@@ -1,5 +1,22 @@
 {
   "$defs": {
+    "AppliedGenerationOperation": {
+      "discriminator": {
+        "mapping": {
+          "generate_two_layer_coupon": "#/$defs/AppliedTwoLayerCouponGeneration",
+          "generate_two_layer_coupon_with_npth": "#/$defs/AppliedTwoLayerCouponWithNpthGeneration"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AppliedTwoLayerCouponGeneration"
+        },
+        {
+          "$ref": "#/$defs/AppliedTwoLayerCouponWithNpthGeneration"
+        }
+      ]
+    },
     "AppliedTwoLayerCouponGeneration": {
       "additionalProperties": false,
       "description": "Auditable evidence for one emitted two-layer coupon payload set.",
@@ -81,6 +98,111 @@
         "drill_ids"
       ],
       "title": "AppliedTwoLayerCouponGeneration",
+      "type": "object"
+    },
+    "AppliedTwoLayerCouponWithNpthGeneration": {
+      "additionalProperties": false,
+      "description": "Evidence for one mixed plated/non-plated coupon payload set.",
+      "properties": {
+        "adapter_id": {
+          "const": "boardgate-two-layer-coupon-writer",
+          "default": "boardgate-two-layer-coupon-writer",
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_policy_version": {
+          "const": "1.1",
+          "default": "1.1",
+          "title": "Adapter Policy Version",
+          "type": "string"
+        },
+        "board_height_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Height Mm",
+          "type": "number"
+        },
+        "board_width_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Width Mm",
+          "type": "number"
+        },
+        "kind": {
+          "const": "generate_two_layer_coupon_with_npth",
+          "title": "Kind",
+          "type": "string"
+        },
+        "non_plated_drill_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Non Plated Drill Ids",
+          "type": "array"
+        },
+        "non_plated_hole_count": {
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Non Plated Hole Count",
+          "type": "integer"
+        },
+        "non_plated_tool_count": {
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Non Plated Tool Count",
+          "type": "integer"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "plated_drill_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Plated Drill Ids",
+          "type": "array"
+        },
+        "plated_hole_count": {
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Plated Hole Count",
+          "type": "integer"
+        },
+        "plated_tool_count": {
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Plated Tool Count",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "trace_count": {
+          "maximum": 4096,
+          "minimum": 0,
+          "title": "Trace Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "operation_version",
+        "board_width_mm",
+        "board_height_mm",
+        "plated_hole_count",
+        "plated_tool_count",
+        "non_plated_hole_count",
+        "non_plated_tool_count",
+        "trace_count",
+        "plated_drill_ids",
+        "non_plated_drill_ids"
+      ],
+      "title": "AppliedTwoLayerCouponWithNpthGeneration",
       "type": "object"
     },
     "GeneratedFileEvidence": {
@@ -205,7 +327,7 @@
       "type": "string"
     },
     "operation": {
-      "$ref": "#/$defs/AppliedTwoLayerCouponGeneration"
+      "$ref": "#/$defs/AppliedGenerationOperation"
     },
     "operation_sha256": {
       "pattern": "^[0-9a-f]{64}$",
