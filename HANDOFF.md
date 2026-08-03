@@ -16,20 +16,21 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T16:47:34+08:00`
+- Last updated: `2026-08-03T18:20:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows mixed-drill implementation fd1030b and documentation 852065d,
-  which follow the published trace-footprint correction 4ac7772 and its
-  HANDOFF correction c841982.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at c841982 after
-  a normal fast-forward push. GitHub Actions run 30795786473 passed all eight
-  jobs for that published baseline. The mixed-drill implementation,
-  documentation, and this branch-tip HANDOFF commit remain local until the
-  final authorized normal push; no force push, rebase, or remote-history
-  rewrite occurred.`
+  follows the typed authoring-plan implementation and documentation commits,
+  which follow the published mixed-drill baseline 4cb6098 (implementation
+  fd1030b, documentation 852065d).`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 4cb6098.
+  GitHub Actions run 30799039212 completed with success on all eight jobs
+  (quality, tests 3.12, tests 3.14, viewer-quality, viewer-browsers, and the
+  three CLI smokes) for that published baseline, independently re-verified
+  via gh on 2026-08-03. The typed-plan implementation, documentation, and
+  this branch-tip HANDOFF commit remain local until the final authorized
+  normal push; no force push, rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -38,8 +39,9 @@
   Phase E registered extension now have an
   accepted separate-subsystem architecture, strict public contracts, one
   deterministic Excellon modification operation, two bounded deterministic
-  two-layer coupon generation operations, and independent review validation
-  for every emitted design.`
+  two-layer coupon generation operations, independent review validation
+  for every emitted design, and a typed authoring-plan admission boundary
+  with a separate authorization digest.`
 - Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
   INPUT... --request CHANGE.json --rules rules/default.yaml --output
@@ -287,6 +289,29 @@
     exit 3 with no publication, and completed blocker reviews to truthful
     publication with exit 1. CLI and service produce byte-identical
     design/evidence bytes and identical deterministic validation artifacts.`
+  - `[CONFIRMED] AuthoringPlan/PlanAuthorization 1.0 are strict public
+    contracts with the eleventh checked-in Draft 2020-12 Schema
+    (authoring-plan.schema.json). A plan names exactly one registered
+    modification or generation kind/version with no fallback, carries the
+    canonical request and prose-independent structured-operation digests, and
+    binds a separate authorization digest derived from the approver identity,
+    the pinned normative non-guarantee statement, and the request digest.
+    Optional rationale prose is bounded to 500 characters and excluded from
+    every digest.`
+  - `[CONFIRMED] Bounded duplicate-safe plan JSON admission mirrors the
+    request loaders: an inclusive 1 MiB cap, BOM and invalid-UTF-8 rejection,
+    duplicate-key and non-finite-number rejection, non-object-root and
+    extension/read errors, and contract violations reported without echoing
+    untrusted input.`
+  - `[CONFIRMED] admit_authoring_plan performs no I/O and returns a frozen
+    AdmittedAuthoringPlan exposing only the plan and its bound request. It
+    rejects request-kind mismatches, unregistered or mismatched operation
+    kind/version pairs, and recomputed request, operation, and authorization
+    digest mismatches with stable typed error codes. Reworded instruction
+    prose changes the request digest (so tampering is detected) but never the
+    operation digest; reworded rationale changes nothing. Execution remains
+    only through the unchanged ModificationService/GenerationService with
+    their fresh independent review, proven end to end for both request kinds.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -303,6 +328,19 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Typed authoring-plan gates on 2026-08-03 passed on the
+    complete tree: checked-in Schema export/currency for all eleven Schemas;
+    Ruff format/check (178 files); mypy (178 source files); and the complete
+    Python 3.12 suite with 866 tests at 89.81% branch coverage, including 37
+    focused plan contract/admission/integration tests covering registry-key
+    parity with both executor registries, prose inertness, tampered and
+    rebound digests, bounded admission limits, and no-write structural
+    exposure. An end-to-end parametrized test proves an admitted plan drives
+    only the registered ModificationService or GenerationService and yields a
+    validated READY_FOR_REVIEW workspace with no staging or backup residue.`
+  - `[CONFIRMED] GitHub Actions run 30799039212 at published baseline
+    4cb6098 completed with success on all eight jobs, independently
+    re-verified via gh during the typed-plan cross-review.`
   - `[CONFIRMED] Mixed PTH/NPTH generation gates on 2026-08-03 passed on the
     complete tree: uv lock --check and locked all-group sync; checked-in
     Schema export/currency; Ruff format/check (189 files); mypy (171 source
@@ -542,14 +580,18 @@
     API/upload/review/persistence channel.`
   - `[CONFIRMED] Authoring currently supports exactly one Excellon
     tool-diameter operation and exactly two bounded two-layer coupon
-    generation operations (plated-only and mixed PTH/NPTH). They are neither
+    generation operations (plated-only and mixed PTH/NPTH). The typed
+    authoring-plan boundary admits only those registered kind/version pairs
+    and is a library-level contract: no CLI flag wires an admitted plan into
+    modify/generate yet. The operations are neither
     arbitrary nor lossless source editing and do not guarantee
     manufacturability. No slots, non-round holes, native EDA writer, inferred
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after fd1030b and 852065d. It remains linearly
-  ahead of origin/main=c841982 until the authorized final normal push is
+  leave a clean local main after the typed authoring-plan implementation and
+  documentation commits. It remains linearly
+  ahead of origin/main=4cb6098 until the authorized final normal push is
   performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -918,13 +960,99 @@ the current capabilities.
 
 ## Next Action
 
-Implement Phase E's typed authoring-plan admission boundary: admit exactly one
-registered modification or generation kind/version with immutable request
-identities and a separate authorization digest, and prove that prose cannot
-execute, alter operation fields, select unknown versions, suppress fresh
-review, or write design bytes directly.
+Wire the admitted authoring plan into the pcb-review CLI as an explicit
+authorized input path: accept an optional `--plan PLAN.json` alongside
+`--request` on `modify` and `generate`, load and admit the plan against the
+bound request, and drive only the registered service on mismatch-free
+admission. Map plan load/admission failures to exit 2 without publication,
+keep the single-request behavior unchanged when no plan is given, and prove
+with CLI regressions that a tampered, rebound, or prose-only plan never
+executes or suppresses the fresh review.
 
 ## Recent Activity
+
+### 2026-08-03T18:20:00+08:00 — Claude — Typed authoring-plan admission boundary
+
+- Role: cross-review, implementation, verification, and documentation agent
+- Task: Cross-review the published mixed PTH/NPTH baseline, then implement
+  the sole standing Next Action: Phase E's typed authoring-plan admission
+  boundary, without changing ReviewService, the services, Viewer,
+  dependencies, workflows, ADRs, or the six-artifact review protocol.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, ADR 0007, Current State/Active
+    Issues/Next Action, both request loaders and their models, identifier
+    derivation, both executor registries, both services, documentation,
+    tests, git history, remote refs, and live GitHub Actions evidence.
+  - `[CONFIRMED]` Cross-review of the NPTH delivery found no discrepancies:
+    HEAD == origin/main == origin/HEAD == 4cb6098 with a clean tree, and
+    gates re-run independently on that baseline (828 tests at 89.71% branch
+    coverage, Ruff and mypy clean). GitHub Actions run 30799039212 was
+    re-verified via gh: success on all eight jobs.
+- Actions performed:
+  - `[CONFIRMED]` Added `AuthoringPlan`/`PlanAuthorization` 1.0 strict
+    contracts. A plan names exactly one registered modification or
+    generation kind/version validated against the union of both model-side
+    key sets, carries request and operation SHA-256 digests, pins the
+    authorization statement to normative non-guarantee text, requires the
+    authorization to bind the plan's request digest, and bounds optional
+    rationale prose to 500 characters.
+  - `[CONFIRMED]` Added `plan_authorization_sha256` over the canonical
+    {approver, request_sha256, statement} tuple, keeping authorization
+    identity separate from request and operation identities.
+  - `[CONFIRMED]` Added bounded duplicate-safe plan JSON loading (inclusive
+    1 MiB cap, BOM/invalid-UTF-8/duplicate-key/non-finite rejection,
+    non-object root, extension and read errors, no untrusted-input echoes)
+    mirroring the existing request loaders, plus the eleventh checked-in
+    Draft 2020-12 Schema `authoring-plan.schema.json` and package exports.
+  - `[CONFIRMED]` Added `admit_authoring_plan`, which performs no I/O and
+    returns a frozen `AdmittedAuthoringPlan` exposing only the plan and its
+    bound request. It rejects kind mismatches, unregistered/mismatched
+    operation kind/version pairs, and recomputed request, operation, and
+    authorization digest mismatches with stable typed error codes.
+  - `[CONFIRMED]` Proved the five boundary properties by test: prose cannot
+    execute (admission has no executor/review dependency and exposes only
+    evidence), prose cannot alter operation fields (reworded instructions
+    change the request digest, never the operation digest; rationale is
+    excluded from all digests), unknown versions are rejected at model
+    validation with no fallback, fresh review cannot be suppressed (the
+    schema has no review-control fields and execution still goes through the
+    unchanged services), and plans cannot write design bytes (admission
+    performs no writes, verified structurally and by tmp_path emptiness).
+  - `[CONFIRMED]` Added a parametrized end-to-end integration test that
+    loads a plan from JSON, validates it against the public Schema, admits
+    it, and drives only the registered ModificationService or
+    GenerationService to a validated READY_FOR_REVIEW workspace with no
+    staging or backup residue.
+  - `[CONFIRMED]` Updated PROJECT_SPEC (Phase E implemented bullet),
+    docs/CAPABILITIES.md, and both READMEs with the exact implemented plan
+    scope and its library-level boundary.
+- Files modified: `src/boardgate/authoring/plan_models.py`,
+  `src/boardgate/authoring/plan_request.py`,
+  `src/boardgate/authoring/plan_admission.py`,
+  `src/boardgate/authoring/identifiers.py`,
+  `src/boardgate/authoring/__init__.py`, `src/boardgate/schemas.py`,
+  `schemas/v1/authoring-plan.schema.json`,
+  `tests/unit/authoring/test_plan_models.py`,
+  `tests/unit/authoring/test_plan_request.py`,
+  `tests/unit/authoring/test_plan_admission.py`,
+  `tests/integration/test_authoring_plan.py`, `PROJECT_SPEC.md`,
+  `README.md`, `README.zh-CN.md`, `docs/CAPABILITIES.md`, and `HANDOFF.md`.
+- Verification performed:
+  - Checked-in Schema export/currency for all eleven Schemas; Ruff
+    format/check (178 files); mypy (178 source files).
+  - Python 3.12: the complete suite passed 866 tests at 89.81%
+    branch coverage, including 37 focused plan tests; the four plan test
+    files pass in isolation.
+- Commits: the typed-plan implementation commit, a documentation commit, and
+  this HANDOFF update as the branch-tip documentation commit.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The typed-plan commits and this HANDOFF commit are
+  not yet published or exercised by their own GitHub Actions run. The plan
+  boundary is library-level; no CLI path consumes an admitted plan yet, and
+  Python 3.14 was not re-run for this slice.
+- Recommended next action: Implement the sole bounded CLI plan-consumption
+  slice above after final publication evidence is green.
 
 ### 2026-08-03T16:50:31+08:00 — Codex — Mixed PTH/NPTH coupon generation
 
