@@ -1,5 +1,6 @@
 """Draft 2020-12 schema generation for public boundary models."""
 
+from boardgate.authoring.generation_models import GenerationRequest, GenerationResult
 from boardgate.authoring.models import ModificationRequest, ModificationResult
 from boardgate.config.models import RuleProfile
 from boardgate.domain.base import StrictModel
@@ -10,6 +11,8 @@ from boardgate.domain.source import ProjectManifest
 from boardgate.rules.models import ReviewResult
 
 MODEL_SCHEMAS: tuple[tuple[str, type[StrictModel]], ...] = (
+    ("generation-request.schema.json", GenerationRequest),
+    ("generation-result.schema.json", GenerationResult),
     ("modification-request.schema.json", ModificationRequest),
     ("modification-result.schema.json", ModificationResult),
     ("rule-profile.schema.json", RuleProfile),

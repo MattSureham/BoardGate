@@ -5,6 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 
+from boardgate.authoring.generation_models import (
+    GenerateTwoLayerCoupon,
+    GenerationRequest,
+)
 from boardgate.authoring.models import (
     ModificationRequest,
     SetExcellonToolDiameter,
@@ -49,3 +53,40 @@ def revision_id(
     )
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
     return f"rev-{digest}"
+
+
+def generation_request_sha256(request: GenerationRequest) -> str:
+    """Hash the canonical requirements without filesystem or run-varying state."""
+    return hashlib.sha256(canonical_json(request).encode("utf-8")).hexdigest()
+
+
+def generation_operation_sha256(operation: GenerateTwoLayerCoupon) -> str:
+    """Hash executable fields while excluding non-semantic instruction prose."""
+    payload = json.dumps(
+        operation.model_dump(mode="json", exclude={"instruction"}),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def generation_id(
+    *,
+    operation_digest: str,
+    output_project_id: str,
+) -> str:
+    """Build a stable generation ID from its immutable evidence."""
+    payload = json.dumps(
+        {
+            "operation_sha256": operation_digest,
+            "output_project_id": output_project_id,
+        },
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return f"gen-{digest}"

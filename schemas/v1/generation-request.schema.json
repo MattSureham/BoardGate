@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "CouponHole": {
+      "additionalProperties": false,
+      "description": "One explicit plated round hole with its explicit copper pad.",
+      "properties": {
+        "drill_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Drill Diameter Mm",
+          "type": "number"
+        },
+        "pad_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Pad Diameter Mm",
+          "type": "number"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "x_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "X Mm",
+          "type": "number"
+        },
+        "y_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Y Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x_mm",
+        "y_mm",
+        "drill_diameter_mm",
+        "pad_diameter_mm"
+      ],
+      "title": "CouponHole",
+      "type": "object"
+    },
+    "CouponTrace": {
+      "additionalProperties": false,
+      "description": "One explicit straight copper trace with round-aperture endpoints.",
+      "properties": {
+        "copper_layers": {
+          "enum": [
+            "top",
+            "bottom",
+            "both"
+          ],
+          "title": "Copper Layers",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "width_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 500.0,
+          "title": "Width Mm",
+          "type": "number"
+        },
+        "x1_mm": {
+          "maximum": 500.0,
+          "minimum": 0.0,
+          "title": "X1 Mm",
+          "type": "number"
+        },
+        "x2_mm": {
+          "maximum": 500.0,
+          "minimum": 0.0,
+          "title": "X2 Mm",
+          "type": "number"
+        },
+        "y1_mm": {
+          "maximum": 500.0,
+          "minimum": 0.0,
+          "title": "Y1 Mm",
+          "type": "number"
+        },
+        "y2_mm": {
+          "maximum": 500.0,
+          "minimum": 0.0,
+          "title": "Y2 Mm",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x1_mm",
+        "y1_mm",
+        "x2_mm",
+        "y2_mm",
+        "width_mm",
+        "copper_layers"
+      ],
+      "title": "CouponTrace",
+      "type": "object"
+    },
+    "GenerateTwoLayerCoupon": {
+      "additionalProperties": false,
+      "description": "Bounded requirements for one metric two-layer rectangular coupon.",
+      "properties": {
+        "board_height_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Height Mm",
+          "type": "number"
+        },
+        "board_width_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Width Mm",
+          "type": "number"
+        },
+        "holes": {
+          "items": {
+            "$ref": "#/$defs/CouponHole"
+          },
+          "maxItems": 1024,
+          "title": "Holes",
+          "type": "array"
+        },
+        "instruction": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "kind": {
+          "const": "generate_two_layer_coupon",
+          "default": "generate_two_layer_coupon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "traces": {
+          "items": {
+            "$ref": "#/$defs/CouponTrace"
+          },
+          "maxItems": 4096,
+          "title": "Traces",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "operation_version",
+        "board_width_mm",
+        "board_height_mm",
+        "holes",
+        "traces",
+        "instruction"
+      ],
+      "title": "GenerateTwoLayerCoupon",
+      "type": "object"
+    },
+    "GenerationOperation": {
+      "discriminator": {
+        "mapping": {
+          "generate_two_layer_coupon": "#/$defs/GenerateTwoLayerCoupon"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/GenerateTwoLayerCoupon"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One canonical, explicitly authorized generation requirements document.",
+  "properties": {
+    "operation": {
+      "$ref": "#/$defs/GenerationOperation"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "operation"
+  ],
+  "title": "GenerationRequest",
+  "type": "object"
+}

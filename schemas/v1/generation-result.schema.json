@@ -1,0 +1,255 @@
+{
+  "$defs": {
+    "AppliedTwoLayerCouponGeneration": {
+      "additionalProperties": false,
+      "description": "Auditable evidence for one emitted two-layer coupon payload set.",
+      "properties": {
+        "adapter_id": {
+          "const": "boardgate-two-layer-coupon-writer",
+          "default": "boardgate-two-layer-coupon-writer",
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_policy_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Adapter Policy Version",
+          "type": "string"
+        },
+        "board_height_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Height Mm",
+          "type": "number"
+        },
+        "board_width_mm": {
+          "maximum": 500.0,
+          "minimum": 1.0,
+          "title": "Board Width Mm",
+          "type": "number"
+        },
+        "drill_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Drill Ids",
+          "type": "array"
+        },
+        "hole_count": {
+          "maximum": 1024,
+          "minimum": 0,
+          "title": "Hole Count",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "generate_two_layer_coupon",
+          "default": "generate_two_layer_coupon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tool_count": {
+          "maximum": 1024,
+          "minimum": 0,
+          "title": "Tool Count",
+          "type": "integer"
+        },
+        "trace_count": {
+          "maximum": 4096,
+          "minimum": 0,
+          "title": "Trace Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "board_width_mm",
+        "board_height_mm",
+        "hole_count",
+        "tool_count",
+        "trace_count",
+        "drill_ids"
+      ],
+      "title": "AppliedTwoLayerCouponGeneration",
+      "type": "object"
+    },
+    "GeneratedFileEvidence": {
+      "additionalProperties": false,
+      "description": "Digest evidence for one emitted design file.",
+      "properties": {
+        "logical_path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Logical Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "logical_path",
+        "sha256",
+        "size_bytes"
+      ],
+      "title": "GeneratedFileEvidence",
+      "type": "object"
+    },
+    "ReviewStatus": {
+      "description": "Overall deterministic review result.",
+      "enum": [
+        "READY_FOR_REVIEW",
+        "NOT_READY_FOR_FABRICATION",
+        "READY_WITH_CONFIRMATIONS",
+        "INSUFFICIENT_INFORMATION",
+        "ANALYSIS_FAILED"
+      ],
+      "title": "ReviewStatus",
+      "type": "string"
+    },
+    "RevisionValidationEvidence": {
+      "additionalProperties": false,
+      "description": "Identity and conclusion of the independent post-emission review.",
+      "properties": {
+        "finding_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Finding Ids",
+          "type": "array"
+        },
+        "overall_status": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "profile_id": {
+          "minLength": 1,
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "profile_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Profile Sha256",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^prj-[0-9a-f]{16}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "review_artifact_directory": {
+          "const": "validation",
+          "default": "validation",
+          "title": "Review Artifact Directory",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_id",
+        "profile_id",
+        "profile_sha256",
+        "overall_status"
+      ],
+      "title": "RevisionValidationEvidence",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic evidence binding requirements, payload, and fresh review.",
+  "properties": {
+    "disclaimer": {
+      "default": "This revision records a deterministic generation from structured requirements and an independent BoardGate review; it does not guarantee manufacturability or replace fabricator and engineer approval.",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Disclaimer",
+      "type": "string"
+    },
+    "generation_id": {
+      "pattern": "^gen-[0-9a-f]{16}$",
+      "title": "Generation Id",
+      "type": "string"
+    },
+    "implementation_version": {
+      "minLength": 1,
+      "title": "Implementation Version",
+      "type": "string"
+    },
+    "operation": {
+      "$ref": "#/$defs/AppliedTwoLayerCouponGeneration"
+    },
+    "operation_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Operation Sha256",
+      "type": "string"
+    },
+    "output_project_id": {
+      "pattern": "^prj-[0-9a-f]{16}$",
+      "title": "Output Project Id",
+      "type": "string"
+    },
+    "payload_files": {
+      "items": {
+        "$ref": "#/$defs/GeneratedFileEvidence"
+      },
+      "minItems": 1,
+      "title": "Payload Files",
+      "type": "array"
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Request Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "validation": {
+      "$ref": "#/$defs/RevisionValidationEvidence"
+    }
+  },
+  "required": [
+    "generation_id",
+    "output_project_id",
+    "request_sha256",
+    "operation_sha256",
+    "implementation_version",
+    "operation",
+    "payload_files",
+    "validation"
+  ],
+  "title": "GenerationResult",
+  "type": "object"
+}
