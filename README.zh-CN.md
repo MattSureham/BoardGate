@@ -4,8 +4,9 @@
 
 BoardGate 是一个 Evidence-first、确定性的 PCB 审查与 authoring Agent。
 它安全导入制造与装配文件，执行可复现的 DFM 检查并输出结构化审查证据。
-独立的 authoring 子系统现在还能执行一种严格受限的 PCB 文件修改，并把
-新设计交给未经改写的现有审查管线重新验证。
+独立的 authoring 子系统现在还能执行一种严格受限的 PCB 文件修改，并能从
+结构化需求生成一种有边界的双面板 coupon 设计，两者都会把新设计交给
+未经改写的现有审查管线重新验证。
 
 项目遵守一条硬边界：文件解析、几何测量和规则判断必须由确定性代码完成。
 Agent 只能组织和解释这些结果，不得编造几何数据、设计意图或投产保证。
@@ -13,9 +14,9 @@ Agent 只能组织和解释这些结果，不得编造几何数据、设计意�
 ## 当前状态
 
 v0.1 审查基线已经完成。面向未来的审查、修改与生成契约由
-[`PROJECT_SPEC.md`](PROJECT_SPEC.md) 定义；首个确定性修改纵向切片已实现，
-结构化 PCB 生成仍处于规划阶段。已经验证的仓库状态和唯一下一步维护在
-[`HANDOFF.md`](HANDOFF.md) 中。
+[`PROJECT_SPEC.md`](PROJECT_SPEC.md) 定义；首个确定性修改纵向切片与首个
+有边界的结构化生成器（双面板 coupon）均已实现。已经验证的仓库状态和
+唯一下一步维护在 [`HANDOFF.md`](HANDOFF.md) 中。
 
 ## 开发
 
@@ -30,7 +31,7 @@ uv run pcb-review --version
 uv run pytest
 ```
 
-审查与修改接口：
+审查、修改与生成接口：
 
 ```bash
 pcb-review inspect INPUT... \
@@ -41,6 +42,11 @@ pcb-review modify INPUT... \
   --request change.json \
   --rules rules/default.yaml \
   --output artifacts/revision
+
+pcb-review generate \
+  --request coupon.json \
+  --rules rules/default.yaml \
+  --output artifacts/generation
 ```
 
 ## 使用 walkthrough
@@ -266,6 +272,69 @@ uv run pcb-review modify tests/fixtures/drill_too_small \
 发布；不支持的解析/输出或失败的验证以退出码 3 拒绝且不发布。若审查完成
 但仍有 blocker，则如实发布 revision 并返回 1，绝不会称其已修复或获准投产。
 
+## 确定性 PCB 生成
+
+生成是第三个独立的确定性能力：输入结构化需求，输出一个有边界的设计，
+随后进行一次全新的独立审查。首个生成器输出公制矩形双面板 coupon，
+包含显式的金属化圆孔（每个孔都有显式铜盘）和显式的圆形光圈直线走线。
+不存在自由形式的写入口径：需求先按含边界的上限校验（板尺寸 1.0–500.0
+mm，最多 1,024 个孔和 4,096 条走线，所有数值必须是 0.000001 mm 输出量
+子的整数倍），执行器还会重新解析每个输出文件并证明其与请求完全一致，
+然后才运行未经改写的审查管线。
+
+请求是一个严格 JSON 文档，例如：
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": {
+    "schema_version": "1.0",
+    "kind": "generate_two_layer_coupon",
+    "operation_version": "1.0",
+    "board_width_mm": 20.0,
+    "board_height_mm": 15.0,
+    "holes": [
+      {
+        "schema_version": "1.0",
+        "x_mm": 5.0,
+        "y_mm": 5.0,
+        "drill_diameter_mm": 0.3,
+        "pad_diameter_mm": 0.8
+      }
+    ],
+    "traces": [
+      {
+        "schema_version": "1.0",
+        "x1_mm": 1.0,
+        "y1_mm": 1.0,
+        "x2_mm": 19.0,
+        "y2_mm": 1.0,
+        "width_mm": 0.25,
+        "copper_layers": "both"
+      }
+    ],
+    "instruction": "Generate a two-layer coupon with one plated hole."
+  }
+}
+```
+
+将其保存为 `coupon.json`，然后运行：
+
+```bash
+uv run pcb-review generate \
+  --request coupon.json \
+  --rules rules/default.yaml \
+  --output artifacts/coupon-generation
+```
+
+发布的 workspace 与修改 revision 具有相同的布局和发布规则：`design/`
+保存输出的 X2 顶层/底层铜皮、矩形外形和金属化 Excellon 钻孔文件；
+`evidence/` 保存 canonical request 与 result（包括由内容派生的
+`gen-...` 生成 ID，以及固定声明"生成不保证可制造性"的免责声明）；
+`validation/` 保存独立的六产物审查。非法需求以退出码 2 拒绝且不发布；
+输出、重新解析或验证失败以退出码 3 拒绝且不发布；审查完成但仍有
+blocker 时如实发布并返回 1。
+
 ## 离线审查 Viewer
 
 独立分发的
@@ -321,8 +390,9 @@ npm run build:check
 ## 安全与范围
 
 所有输入文件都按不可信数据处理。BoardGate Evidence 不是板厂投产保证。
-当前 authoring 切片不是任意或无损的 Gerber/Excellon 编辑；从结构化需求
-生成 PCB 也尚未实现。原生 EDA authoring、ODB++、IPC-2581、SI/PI、
+当前 authoring 切片不是任意或无损的 Gerber/Excellon 编辑；已实现的生成器
+也只输出有边界的双面板 coupon 契约——两者都不保证可制造性。原生 EDA
+authoring、ODB++、IPC-2581、SI/PI、
 autorouting、Web API、自动投产发布和需要联网的 LLM Provider 仍不在范围内。
 精确支持范围与限制见
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md)。

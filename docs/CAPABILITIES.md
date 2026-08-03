@@ -27,7 +27,7 @@ approval.
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
 | PCB modification | Exact `set_excellon_tool_diameter` 1.0 operation on one confirmed warning-free metric/absolute Excellon source; stale base/source identity, old diameter, target tool, and syntax are checked before one same-width token change; before/after parses prove the protected semantic delta; a separate atomic revision includes canonical evidence and a fresh six-artifact review | No in-place edits, raw/free-form patches, arbitrary Gerber/Excellon round trips, tools shared with slots, unsupported tool syntax, or inferred design intent; request/profile files and non-design siblings are rejected from v1 design inputs |
-| PCB generation | Versioned structured requirements and bounded deterministic writer adapters are specified by PROJECT_SPEC and ADR 0007 | No generator is implemented yet; no schematic synthesis, arbitrary placement/routing, native EDA authoring, or production release claim |
+| PCB generation | Exact `generate_two_layer_coupon` 1.0 requirements contract: one bounded metric rectangular two-layer coupon with explicit plated round holes, explicit pad diameters, and explicit straight round-aperture traces; the single registered deterministic executor emits X2 top/bottom copper, a rectangular outline, and a plated Excellon drill payload, reparses every emitted file, and proves the exact requested semantics before a separate atomic revision publishes canonical evidence plus a fresh six-artifact review | No free-form writer path, schematic synthesis, arbitrary placement/routing, slots, vias, non-round apertures, or native EDA authoring; the pinned normative disclaimer states that generation does not guarantee manufacturability or replace fabricator and engineer approval |
 
 ## Bounded derived geometry policy
 
@@ -100,6 +100,24 @@ Symlinks, non-regular nodes, extra files/directories, digest/ID/span
 mismatches, `ANALYSIS_FAILED`, and invalid nested review evidence prevent
 publication. A completed blocker result is retained truthfully and returns
 exit 1; it is not called a repair or fabrication approval.
+
+Generation requests are strict JSON capped at an inclusive 1 MiB and must
+explicitly declare request and operation version 1.0; the generator registry
+has no version fallback and no free-form writer path. Stable generation
+identity uses only the structured operation digest (excluding instruction
+prose) and the output project ID derived from the emitted payload hashes.
+
+The two-layer coupon writer policy 1.0 admits board dimensions from 1.0 to
+500.0 mm, feature coordinates and sizes up to 500 mm, at most 1,024 holes,
+and at most 4,096 traces. Equality is allowed; N+1 fails before emission.
+Every value must be an exact multiple of the 0.000001 mm emission quantum,
+each pad must exceed its drill, pad circles must fit inside the outline,
+drill circles must not overlap, and trace endpoints must lie inside the
+outline. Each emitted payload is capped at an inclusive 1 MiB. Every emitted
+file is reparsed by the unchanged bounded parsers and compared against the
+requested holes, pads, traces, and rectangle before the unchanged project
+review pipeline runs on the generated design; the revision workspace layout
+and publication rules are identical to modification.
 
 ## Offline viewer admission policy
 

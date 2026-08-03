@@ -4,9 +4,10 @@
 
 BoardGate is an evidence-first, deterministic PCB review and authoring agent.
 It ingests fabrication and assembly files, runs reproducible DFM checks, and
-produces structured review evidence. Its separate authoring subsystem can now
-apply one narrowly supported PCB-file modification and validate the resulting
-design through a fresh run of the unchanged review pipeline.
+produces structured review evidence. Its separate authoring subsystems can
+apply one narrowly supported PCB-file modification and generate one bounded
+two-layer coupon design from structured requirements, each validated through
+a fresh run of the unchanged review pipeline.
 
 The project follows one hard boundary: parsers, measurements, and rule
 decisions are deterministic. Agent orchestration may organize and explain
@@ -17,9 +18,9 @@ production-readiness guarantee.
 
 The v0.1 review baseline is complete. The forward-looking review,
 modification, and generation contract is [`PROJECT_SPEC.md`](PROJECT_SPEC.md);
-the initial deterministic modification slice is implemented, while structured
-PCB generation remains planned. Verified repository state and the exact next
-action are maintained in [`HANDOFF.md`](HANDOFF.md).
+the initial deterministic modification slice and the first bounded structured
+generator (a two-layer coupon) are implemented. Verified repository state and
+the exact next action are maintained in [`HANDOFF.md`](HANDOFF.md).
 
 ## Development
 
@@ -34,7 +35,7 @@ uv run pcb-review --version
 uv run pytest
 ```
 
-The review and modification interfaces are:
+The review, modification, and generation interfaces are:
 
 ```bash
 pcb-review inspect INPUT... \
@@ -45,6 +46,11 @@ pcb-review modify INPUT... \
   --request change.json \
   --rules rules/default.yaml \
   --output artifacts/revision
+
+pcb-review generate \
+  --request coupon.json \
+  --rules rules/default.yaml \
+  --output artifacts/generation
 ```
 
 ## User walkthrough
@@ -286,6 +292,73 @@ failed validation exits 3 without publication. A completed review that still
 has blockers is published truthfully and exits 1—it is never described as a
 repair or fabrication approval.
 
+## Deterministic PCB generation
+
+Generation is the third separate deterministic capability: structured
+requirements in, one bounded design out, then a fresh independent review. The
+first generator emits a metric rectangular two-layer coupon with explicit
+plated round holes (each with its explicit copper pad) and explicit straight
+round-aperture traces. There is no free-form writer path: the requirements
+are validated against inclusive bounds (1.0–500.0 mm boards, at most 1,024
+holes and 4,096 traces, all values exact multiples of 0.000001 mm), and the
+executor reparses every emitted file and proves it matches the request before
+the unchanged review pipeline runs.
+
+A request is one strict JSON document, for example:
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": {
+    "schema_version": "1.0",
+    "kind": "generate_two_layer_coupon",
+    "operation_version": "1.0",
+    "board_width_mm": 20.0,
+    "board_height_mm": 15.0,
+    "holes": [
+      {
+        "schema_version": "1.0",
+        "x_mm": 5.0,
+        "y_mm": 5.0,
+        "drill_diameter_mm": 0.3,
+        "pad_diameter_mm": 0.8
+      }
+    ],
+    "traces": [
+      {
+        "schema_version": "1.0",
+        "x1_mm": 1.0,
+        "y1_mm": 1.0,
+        "x2_mm": 19.0,
+        "y2_mm": 1.0,
+        "width_mm": 0.25,
+        "copper_layers": "both"
+      }
+    ],
+    "instruction": "Generate a two-layer coupon with one plated hole."
+  }
+}
+```
+
+Save it as `coupon.json`, then run:
+
+```bash
+uv run pcb-review generate \
+  --request coupon.json \
+  --rules rules/default.yaml \
+  --output artifacts/coupon-generation
+```
+
+The published workspace has the same layout and publication rules as a
+modification revision: `design/` holds the emitted X2 top/bottom copper,
+rectangular outline, and plated Excellon drill payloads; `evidence/` holds
+the canonical request and result (including the content-derived
+`gen-...` generation ID and the pinned disclaimer that generation does not
+guarantee manufacturability); `validation/` holds the independent
+six-artifact review. Invalid requirements exit 2 without publication;
+emission, reparse, or validation failures exit 3 without publication; a
+completed review with blockers is published truthfully and exits 1.
+
 ## Offline review viewer
 
 The separately distributed
@@ -347,9 +420,10 @@ npm run build:check
 ## Safety and scope
 
 All input files are treated as untrusted. BoardGate evidence is not a
-fabrication warranty. The implemented authoring slice is not arbitrary or
-lossless Gerber/Excellon editing, and generation from structured requirements
-is not implemented yet. Native EDA authoring, ODB++, IPC-2581, SI/PI,
+fabrication warranty. The implemented authoring slices are not arbitrary or
+lossless Gerber/Excellon editing, and the implemented generator emits only
+the bounded two-layer coupon contract—neither guarantees manufacturability.
+Native EDA authoring, ODB++, IPC-2581, SI/PI,
 autorouting, a web API, autonomous production release, and network-backed LLM
 providers remain out of scope. The exact supported subsets and limits are in
 [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
