@@ -267,7 +267,10 @@ the matching spatial or legend marker. Finally, it renders `report.md` through
 a small line-oriented tokenizer limited to the deterministic BoardGate report
 subset (headings, paragraphs, nested lists, and `**bold**` status/Finding
 lines), built exclusively with createElement/textContent — no Markdown
-library, no innerHTML, and HTML comment metadata is not displayed. These
+library, no innerHTML, and HTML comment metadata is not displayed. Finding-ID
+headings in the report are activatable: selecting a Finding from the report
+or from the preview Finding list focuses the same preview marker and keeps
+both buttons' pressed state in sync. These
 interactions only toggle CSS visibility and classes on the already validated
 in-memory copy: geometry, attributes, and bundle bytes are never mutated, and
 no review rule is re-run or reinterpreted.

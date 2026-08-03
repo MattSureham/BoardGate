@@ -373,6 +373,32 @@ button:focus-visible {
   list-style: square;
 }
 
+.report-finding-button {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.2rem;
+  background: none;
+  color: #174b32;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.report-finding-button:hover {
+  background: #dcebe2;
+  color: #174b32;
+}
+
+.report-finding-button[aria-pressed="true"] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 footer {
   padding: 1.3rem 0;
   color: #637069;

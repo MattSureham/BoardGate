@@ -248,7 +248,9 @@ Finding 可聚焦对应的空间或图例标记。最后，它会通过一个面
 分词器渲染 `report.md`，该分词器只支持 BoardGate 确定性报告的子集
 （标题、段落、嵌套列表和 `**加粗**` 状态/Finding 行），并完全使用
 createElement/textContent 构建——不使用 Markdown 库，不使用 innerHTML，
-也不显示 HTML 注释元数据。这些交互只是在已验证的内存副本上切换 CSS
+也不显示 HTML 注释元数据。报告中的 Finding-ID 标题可以激活：从报告或
+预览 Finding 列表中选择 Finding 都会聚焦同一个预览标记，并保持两处按钮
+的按下状态同步。这些交互只是在已验证的内存副本上切换 CSS
 可见性和类名：几何、属性和 Bundle 字节都不会被修改，也不会重新执行或
 解释任何审查规则。
 

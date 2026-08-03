@@ -478,3 +478,58 @@ test("renders the validated report as inert structured text", async ({ page }) =
   expect(remoteRequests).toEqual([]);
   expect(bundleDigests(bundle)).toEqual(before);
 });
+
+test("synchronizes Finding selection between the report and the preview", async ({ page }) => {
+  const bundle = requiredEnvironment("BOARDGATE_VIEWER_E2E_SPATIAL_BUNDLE");
+  const html = requiredEnvironment("BOARDGATE_VIEWER_E2E_HTML");
+  const before = bundleDigests(bundle);
+
+  const remoteRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/^(?:https?|wss?):/u.test(request.url())) {
+      remoteRequests.push(request.url());
+    }
+  });
+  await page.goto(pathToFileURL(html).href);
+  await page.getByLabel("Choose BoardGate review directory").setInputFiles(bundle);
+  await expect(page.getByText("Bundle validation complete.")).toBeVisible();
+
+  const reportButtons = page.locator(".report-finding-button");
+  const firstId = (await reportButtons.first().getAttribute("data-finding-id")) as string;
+  expect(firstId).toMatch(/^fnd-[0-9a-f]{16}$/u);
+  await expect(page.locator(`.report-finding-button[data-finding-id="${firstId}"]`)).toHaveCount(2);
+
+  await reportButtons.first().click();
+  const firstMarker = page.locator(`.preview-canvas [data-finding-id="${firstId}"]`);
+  await expect(firstMarker).toHaveClass(/finding-focus/u);
+  await expect(page.locator(`.finding-button[data-finding-id="${firstId}"]`)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  for (const button of await page
+    .locator(`.report-finding-button[data-finding-id="${firstId}"]`)
+    .all()) {
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+  }
+
+  const secondId = (await page
+    .locator(".finding-button")
+    .nth(1)
+    .getAttribute("data-finding-id")) as string;
+  await page.locator(".finding-button").nth(1).click();
+  await expect(page.locator(`.preview-canvas [data-finding-id="${secondId}"]`)).toHaveClass(
+    /finding-focus/u,
+  );
+  await expect(firstMarker).not.toHaveClass(/finding-focus/u);
+  await expect(
+    page.locator(`.report-finding-button[data-finding-id="${firstId}"]`).first(),
+  ).toHaveAttribute("aria-pressed", "false");
+  for (const button of await page
+    .locator(`.report-finding-button[data-finding-id="${secondId}"]`)
+    .all()) {
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+  }
+
+  expect(remoteRequests).toEqual([]);
+  expect(bundleDigests(bundle)).toEqual(before);
+});

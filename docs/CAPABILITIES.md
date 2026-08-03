@@ -22,7 +22,7 @@ approval.
 | Derived geometry | One deterministic review-scoped workspace caches geometry, spatial indexes, polarity composition, components, board material, and contributor queries | Versioned resource limits produce explicit coverage gaps; no Shapely object crosses a persistence or worker boundary |
 | Rule execution | Built-in rules run in a fresh spawned worker under the remaining review deadline | A timed-out, crashed, invalid, or oversized worker result is discarded and produces the six-artifact `ANALYSIS_FAILED` fallback |
 | Visualization | Static, script-free SVG with layers, outline, drills, and Finding IDs | Not a pixel-equivalent CAM renderer and never feeds rule evaluation |
-| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, inserts the validated preview.svg with layer visibility toggles and Finding-ID focus, and renders report.md through a deterministic-subset tokenizer built only with createElement/textContent | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions only change CSS visibility/classes on the validated in-memory copy and never mutate or re-evaluate evidence |
+| Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, inserts the validated preview.svg with layer visibility toggles and Finding-ID focus, renders report.md through a deterministic-subset tokenizer built only with createElement/textContent, and keeps report Finding headings and the preview Finding list on one shared selection state | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions only change CSS visibility/classes on the validated in-memory copy and never mutate or re-evaluate evidence |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
 
@@ -114,7 +114,10 @@ up to level four, paragraphs, two-space nested lists, and `**bold**` inline
 segments) with composer backslash escapes reversed; unknown structures fall
 back to literal paragraphs and HTML comment metadata is not displayed. All DOM
 is built with createElement/textContent — no Markdown library, no innerHTML —
-so report content cannot execute, navigate, or embed active content. These
+so report content cannot execute, navigate, or embed active content. Finding-ID
+headings in the rendered report are activatable buttons: selecting a Finding
+from the report or from the preview Finding list focuses the same preview
+marker and keeps the pressed state of both button sets in sync. These
 controls only toggle CSS visibility and classes on the already validated
 in-memory copy; geometry, attributes, and bundle bytes are never mutated and
 no Finding or rule result is recomputed.

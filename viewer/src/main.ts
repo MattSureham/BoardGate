@@ -177,7 +177,10 @@ function buildLayerToggles(canvas: HTMLElement, layers: readonly ViewerLayer[]):
   return list;
 }
 
-function buildFindingList(canvas: HTMLElement, findings: readonly ViewerFinding[]): HTMLElement {
+function buildFindingList(
+  findings: readonly ViewerFinding[],
+  onFindingSelect: (findingId: string) => void,
+): HTMLElement {
   const list = document.createElement("ul");
   list.className = "finding-list";
   if (findings.length === 0) {
@@ -202,20 +205,7 @@ function buildFindingList(canvas: HTMLElement, findings: readonly ViewerFinding[
     }`;
     button.append(identifier, detail);
     button.addEventListener("click", () => {
-      for (const previous of canvas.querySelectorAll(".finding-focus")) {
-        previous.classList.remove("finding-focus");
-      }
-      for (const other of list.querySelectorAll(".finding-button")) {
-        other.setAttribute("aria-pressed", "false");
-      }
-      const target = canvas.querySelector<SVGElement>(
-        `[data-finding-id="${CSS.escape(finding.findingId)}"]`,
-      );
-      if (target !== null) {
-        target.classList.add("finding-focus");
-        target.scrollIntoView({ block: "nearest" });
-        button.setAttribute("aria-pressed", "true");
-      }
+      onFindingSelect(finding.findingId);
     });
     item.append(button);
     list.append(item);
@@ -227,6 +217,7 @@ export function renderPreview(
   section: HTMLElement,
   previewSvg: string,
   summary: ReviewSummary,
+  onFindingSelect: (findingId: string) => void,
 ): boolean {
   const parsed = new DOMParser().parseFromString(previewSvg, "image/svg+xml");
   const parsedRoot = parsed.documentElement;
@@ -258,7 +249,7 @@ export function renderPreview(
     layersHeading,
     buildLayerToggles(canvas, summary.layers),
     findingsHeading,
-    buildFindingList(canvas, summary.findings),
+    buildFindingList(summary.findings, onFindingSelect),
   );
 
   layout.append(canvas, panel);
@@ -278,7 +269,13 @@ function appendInline(parent: HTMLElement, inline: readonly ReportInline[]): voi
   }
 }
 
-export function renderReport(section: HTMLElement, reportMarkdown: string): void {
+const REPORT_FINDING_HEADING = /^fnd-[0-9a-f]{16}\b/u;
+
+export function renderReport(
+  section: HTMLElement,
+  reportMarkdown: string,
+  onFindingSelect: (findingId: string) => void,
+): void {
   const heading = document.createElement("h2");
   heading.textContent = "Validated report";
   const content = document.createElement("div");
@@ -286,7 +283,23 @@ export function renderReport(section: HTMLElement, reportMarkdown: string): void
   for (const block of tokenizeReport(reportMarkdown)) {
     if (block.kind === "heading") {
       const element = document.createElement(`h${Math.min(block.level + 1, 6)}`);
-      appendInline(element, block.inline);
+      const findingId = REPORT_FINDING_HEADING.exec(
+        block.inline.map((segment) => segment.text).join(""),
+      )?.[0];
+      if (findingId === undefined) {
+        appendInline(element, block.inline);
+      } else {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "report-finding-button";
+        button.dataset.findingId = findingId;
+        button.setAttribute("aria-pressed", "false");
+        appendInline(button, block.inline);
+        button.addEventListener("click", () => {
+          onFindingSelect(findingId);
+        });
+        element.append(button);
+      }
       content.append(element);
     } else if (block.kind === "paragraph") {
       const element = document.createElement("p");
@@ -396,11 +409,17 @@ export class ViewerController {
       if (event.data.result.ok) {
         const { summary, previewSvg, reportMarkdown } = event.data.result;
         renderSummary(this.#elements.summary, summary);
-        if (!renderPreview(this.#elements.preview, previewSvg, summary)) {
+        if (
+          !renderPreview(this.#elements.preview, previewSvg, summary, (findingId) =>
+            this.#selectFinding(findingId, true),
+          )
+        ) {
           this.#showError(INTERNAL_ERROR);
           return;
         }
-        renderReport(this.#elements.report, reportMarkdown);
+        renderReport(this.#elements.report, reportMarkdown, (findingId) =>
+          this.#selectFinding(findingId, false),
+        );
         this.#elements.preview.hidden = false;
         this.#elements.report.hidden = false;
         this.#elements.status.textContent = "Bundle validation complete.";
@@ -478,6 +497,34 @@ export class ViewerController {
 
   #finishActive(): void {
     this.#cancelActive();
+  }
+
+  #selectFinding(findingId: string, scrollReport: boolean): void {
+    for (const previous of this.#elements.preview.querySelectorAll(".finding-focus")) {
+      previous.classList.remove("finding-focus");
+    }
+    const buttons = [
+      ...this.#elements.preview.querySelectorAll<HTMLButtonElement>(".finding-button"),
+      ...this.#elements.report.querySelectorAll<HTMLButtonElement>(".report-finding-button"),
+    ];
+    for (const button of buttons) {
+      button.setAttribute(
+        "aria-pressed",
+        button.dataset.findingId === findingId ? "true" : "false",
+      );
+    }
+    const marker = this.#elements.preview.querySelector<SVGElement>(
+      `.preview-canvas [data-finding-id="${CSS.escape(findingId)}"]`,
+    );
+    if (marker !== null) {
+      marker.classList.add("finding-focus");
+      marker.scrollIntoView({ block: "nearest" });
+    }
+    if (scrollReport) {
+      this.#elements.report
+        .querySelector(`.report-finding-button[data-finding-id="${CSS.escape(findingId)}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
   }
 
   #showError(error: ViewerError): void {
