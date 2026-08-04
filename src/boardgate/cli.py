@@ -34,6 +34,14 @@ from boardgate.authoring.generation_request import (
     GenerationRequestError,
     load_generation_request,
 )
+from boardgate.authoring.plan_admission import (
+    PlanAdmissionError,
+    admit_authoring_plan,
+)
+from boardgate.authoring.plan_request import (
+    AuthoringPlanError,
+    load_authoring_plan,
+)
 from boardgate.authoring.request import (
     ModificationRequestError,
     load_modification_request,
@@ -64,10 +72,12 @@ def _raise_click_error(error: Exception) -> NoReturn:
         error,
         (
             IngestionError,
+            AuthoringPlanError,
             GenerationRequestError,
             ModificationInputError,
             ModificationRequestError,
             OutputError,
+            PlanAdmissionError,
             ProjectConfigError,
             RuleProfileError,
         ),
@@ -238,6 +248,12 @@ def inspect(  # noqa: PLR0913
     help="Strict JSON modification request bound to the input project.",
 )
 @click.option(
+    "--plan",
+    "plan_path",
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Optional strict JSON authoring plan authorizing the exact request.",
+)
+@click.option(
     "--rules",
     "rules_path",
     required=True,
@@ -256,9 +272,10 @@ def inspect(  # noqa: PLR0913
     is_flag=True,
     help="Atomically replace an existing non-empty revision workspace.",
 )
-def modify(
+def modify(  # noqa: PLR0913
     inputs: tuple[Path, ...],
     request_path: Path,
+    plan_path: Path | None,
     rules_path: Path,
     output_path: Path,
     *,
@@ -267,15 +284,14 @@ def modify(
     """Apply one explicit supported operation, then independently review it."""
     try:
         preflight_output(output_path, overwrite=overwrite)
-        _reject_authoring_control_inputs(
-            inputs,
-            (request_path, rules_path),
-        )
-        reject_output_input_overlap(
-            (*inputs, request_path, rules_path),
-            output_path,
-        )
+        controls: tuple[Path, ...] = (request_path, rules_path)
+        if plan_path is not None:
+            controls = (*controls, plan_path)
+        _reject_authoring_control_inputs(inputs, controls)
+        reject_output_input_overlap((*inputs, *controls), output_path)
         request = load_modification_request(request_path)
+        if plan_path is not None:
+            admit_authoring_plan(load_authoring_plan(plan_path), request)
         profile = load_rule_profile(rules_path)
         run = ModificationService().modify(
             inputs,
@@ -286,12 +302,14 @@ def modify(
         )
     except (
         IngestionError,
+        AuthoringPlanError,
         ModificationExecutionError,
         ModificationInputError,
         ModificationPublicationError,
         ModificationRequestError,
         OSError,
         OutputError,
+        PlanAdmissionError,
         RuleProfileError,
     ) as error:
         _raise_click_error(error)
@@ -309,6 +327,12 @@ def modify(
     required=True,
     type=click.Path(path_type=Path, dir_okay=False),
     help="Strict JSON generation requirements for one supported generator.",
+)
+@click.option(
+    "--plan",
+    "plan_path",
+    type=click.Path(path_type=Path, dir_okay=False),
+    help="Optional strict JSON authoring plan authorizing the exact request.",
 )
 @click.option(
     "--rules",
@@ -331,6 +355,7 @@ def modify(
 )
 def generate(
     request_path: Path,
+    plan_path: Path | None,
     rules_path: Path,
     output_path: Path,
     *,
@@ -339,11 +364,13 @@ def generate(
     """Emit one supported deterministic design, then independently review it."""
     try:
         preflight_output(output_path, overwrite=overwrite)
-        reject_output_input_overlap(
-            (request_path, rules_path),
-            output_path,
-        )
+        controls: tuple[Path, ...] = (request_path, rules_path)
+        if plan_path is not None:
+            controls = (*controls, plan_path)
+        reject_output_input_overlap(controls, output_path)
         request = load_generation_request(request_path)
+        if plan_path is not None:
+            admit_authoring_plan(load_authoring_plan(plan_path), request)
         profile = load_rule_profile(rules_path)
         run = GenerationService().generate(
             request,
@@ -352,11 +379,13 @@ def generate(
             overwrite=overwrite,
         )
     except (
+        AuthoringPlanError,
         GenerationExecutionError,
         GenerationPublicationError,
         GenerationRequestError,
         OSError,
         OutputError,
+        PlanAdmissionError,
         RuleProfileError,
     ) as error:
         _raise_click_error(error)
