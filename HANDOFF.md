@@ -11,10 +11,9 @@
 > - Repository evidence takes precedence over assumptions and summaries.
 > - Leave exactly one bounded, immediately actionable Next Action.
 > - Keep the history understandable without access to prior conversations.
-> - Persist a machine-readable lifecycle marker under `.boardgate/tasks/`
->   for any background task that cannot be foreground-observed to
->   completion, and reconcile stale `running` markers on takeover
->   (BOOTSTRAP.md, Background Task State).
+> - Keep background-task lifecycle state truthful in the Background Tasks
+>   subsection of Current State (fixed schema there), and reconcile stale
+>   `running` entries on takeover (BOOTSTRAP.md, Background Task State).
 > - Protocol changes require a recorded proposal, motivation, compatibility
 >   analysis, and explicit approval before adoption.
 
@@ -649,6 +648,34 @@
   leave a clean local main. It remains linearly ahead of origin/main=7b015a0
   until the authorized normal push is performed.`
 
+### Background Tasks
+
+This subsection fixes the background-task lifecycle schema (per BOOTSTRAP.md,
+Background Task State) and carries the live state. Every entry must follow
+this fixed lifecycle:
+
+- At start, record `task_id`, `command`, `start_time`, and either `pid`
+  (local process) or `remote_ref` (remote task, for example
+  `github-actions:MattSureham/BoardGate:<run_id>`), with `status` =
+  `running`.
+- While `running`, the state must stay queryable: local tasks via their
+  `pid`, remote tasks via their `remote_ref` (for example `gh run view`).
+- At end, regardless of outcome, record terminal `status` (`succeeded`,
+  `failed`, or `cancelled`), `exit_code` (or the remote conclusion),
+  `end_time`, and `log_path` (bulk logs may live under the gitignored
+  `.boardgate/` directory).
+- On takeover, before new work, reconcile every `running` entry: if its
+  `pid` is dead or its `remote_ref` is terminal, mark it `orphaned` (or the
+  observed terminal state) with `end_time`; never treat a dead task as
+  alive. Record the reconciliation in Recent Activity when the outcome
+  matters to the project state.
+- Terminal entries may be removed once their outcome is reflected in
+  Current State, Active Issues, or Recent Activity, or is no longer
+  relevant.
+
+Current background tasks: `[CONFIRMED] none — no live, terminal, or
+unreconciled background tasks exist as of 2026-08-04T13:30:00+08:00.`
+
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
 the current capabilities.
@@ -1053,6 +1080,55 @@ a minimum_trace_width blocker resolves through the unchanged review
 pipeline without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-04T13:50:00+08:00 — Claude — Protocol correction: lifecycle schema belongs to HANDOFF state
+
+- Role: protocol-recording agent
+- Task: Adopt the user's correction relocating the fixed background-task
+  lifecycle schema from BOOTSTRAP.md (norm) into HANDOFF.md (state).
+- Proposal: BOOTSTRAP.md keeps only the normative principle — background
+  tasks must not be started then forgotten, their lifecycle state must
+  stay queryable, terminal state must be recorded regardless of outcome,
+  and takeover reconciliation must mark dead running-tasks orphaned.
+  HANDOFF.md fixes the concrete schema and carries the live state in a
+  new Background Tasks subsection of Current State: start fields
+  (`task_id`/`command`/`start_time`/`pid` or `remote_ref`, status
+  `running`), queryable running state, mandatory terminal fields
+  (`status`/`exit_code`/`end_time`/`log_path`), and the
+  orphaned-on-reconcile rule.
+- Motivation: The user corrected their earlier suggestion's placement:
+  BOOTSTRAP is the norm, HANDOFF is the state. Fixing concrete state
+  fields inside the norm conflated the two layers.
+- Compatibility analysis: `[CONFIRMED]` Content relocates without loss:
+  the b823123 principle remains in BOOTSTRAP.md in trimmed form, and the
+  46822e9 field set moves verbatim into the HANDOFF.md Background Tasks
+  subsection (BOOTSTRAP explicitly leaves section schemas to HANDOFF).
+  Prior activity entries describing b823123/46822e9 are preserved
+  untouched as history; this entry records the superseding placement.
+  `.boardgate/` stays gitignored as the conventional `log_path`
+  location. No code, schema, or workflow is affected. No live background
+  tasks exist to migrate into the new subsection.
+- Approval: `[CONFIRMED]` Explicit user instruction on 2026-08-04
+  correcting the placement, satisfying Protocol Evolution.
+- Actions performed:
+  - `[CONFIRMED]` Trimmed BOOTSTRAP.md's Background Task State section to
+    the normative principle with a pointer to HANDOFF.md for the schema
+    and live state.
+  - `[CONFIRMED]` Added the Background Tasks subsection to Current State
+    with the fixed lifecycle schema and the current (empty) state, and
+    updated the normative protocol header bullet.
+- Files modified: `BOOTSTRAP.md` and `HANDOFF.md`.
+- Verification performed: none required; documentation-only protocol
+  change. The complete suite was green at 890 tests / 89.89% branch
+  coverage immediately before this slice, and run 30891198384 (b823123)
+  passed all eight jobs.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: This commit is not yet exercised by its own
+  GitHub Actions run (docs-only; a viewer-browsers failure would be the
+  recorded ISSUE-008 flake requiring no action).
+- Recommended next action: Unchanged — the second registered modification
+  operation slice bounded in Next Action.
 
 ### 2026-08-04T13:30:00+08:00 — Claude — Protocol change: background task lifecycle markers
 

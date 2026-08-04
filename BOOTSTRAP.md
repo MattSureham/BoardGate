@@ -166,47 +166,15 @@ Limit this task strictly to initializing the multi-agent collaboration protocol.
 
 Any long-running background task that cannot be continuously observed in the
 foreground — for example CI watches, remote jobs, or asynchronous processes
-that may outlive the current turn — must not represent its running state
-solely through in-session memory. A background task must never be "started
-then forgotten": it must carry a queryable lifecycle state on disk.
+that may outlive the current turn — must not be "started then forgotten":
+its lifecycle state must remain queryable without access to the originating
+session, and its terminal state must be recorded whether the task succeeded,
+failed, or was cancelled.
 
-## Lifecycle marker
-
-The participant must persist one machine-readable JSON marker per task at
-`.boardgate/tasks/<task_id>.json` (gitignored, so it survives the session
-without polluting the tree). The marker lifecycle is fixed:
-
-- At start, record: `task_id`, `command`, `start_time`, and either `pid`
-  for a local process or `remote_ref` for a remote task (for example
-  `github-actions:<owner>/<repo>:<run_id>`), with `status: "running"`.
-- While running, the state must be queryable: local tasks via their `pid`,
-  remote tasks via their `remote_ref` (for example `gh run view`).
-- At end, whether the task succeeded, failed, or was cancelled, record the
-  terminal `status` (`"succeeded"`, `"failed"`, or `"cancelled"`),
-  `exit_code` (or the remote equivalent conclusion), `end_time`, and
-  `log_path` pointing at the captured output.
-
-A marker whose task is still legitimately running when the participant
-finishes its turn keeps `status: "running"` with the fields above, never an
-informal note.
-
-## Reconciliation on takeover
-
-Before starting new work, a participant must reconcile every marker it finds:
-
-1. Read each `.boardgate/tasks/*.json` marker with `status: "running"`.
-2. Check liveness: the `pid` still exists for a local task, or the
-   `remote_ref` still reports a non-terminal state for a remote task.
-3. If the task is alive, leave the marker untouched.
-4. If the task is dead but the marker still says `running`, the participant
-   must not keep pretending it is alive: update the marker to
-   `status: "orphaned"` (or the observed terminal state) with `end_time`,
-   and record the reconciliation in HANDOFF.md when the outcome matters to
-   the recorded project state (Current State, Active Issues, or Recent
-   Activity).
-
-Terminal markers may be deleted once their outcome has been reflected into
-HANDOFF.md or is no longer relevant.
+HANDOFF.md fixes the concrete lifecycle schema and carries the live
+background-task state. A participant taking over must first reconcile that
+state: any task still recorded as running whose process or remote reference
+is dead must be marked orphaned rather than treated as alive.
 
 # Protocol Evolution
 
