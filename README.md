@@ -44,11 +44,13 @@ pcb-review inspect INPUT... \
 
 pcb-review modify INPUT... \
   --request change.json \
+  [--plan plan.json] \
   --rules rules/default.yaml \
   --output artifacts/revision
 
 pcb-review generate \
   --request coupon.json \
+  [--plan plan.json] \
   --rules rules/default.yaml \
   --output artifacts/generation
 ```
@@ -392,6 +394,12 @@ digest without performing I/O: instruction or rationale prose cannot change
 any admitted identity, unknown kind/version pairs are rejected without
 fallback, and an admitted plan executes only through the unchanged services
 above with their fresh independent review.
+
+Both authoring commands accept an optional `--plan plan.json` alongside
+`--request`: the CLI loads and admits the plan against the exact request and
+drives only the registered service when every digest matches. A tampered,
+rebound, or kind-mismatched plan fails with exit 2 and publishes nothing;
+without `--plan`, behavior is unchanged.
 
 ## Offline review viewer
 

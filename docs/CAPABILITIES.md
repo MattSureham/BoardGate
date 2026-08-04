@@ -142,7 +142,11 @@ performs no I/O: reworded instruction or rationale prose changes no admitted
 identity, unknown kind/version pairs are rejected without fallback, and an
 admitted plan executes only by passing its bound request through the
 unchanged modification or generation service with its fresh independent
-review.
+review. The `modify` and `generate` commands accept an optional
+`--plan plan.json` next to `--request`: the plan is admitted against the
+exact request before any design work, plan load or admission failures exit 2
+without publication, and omitting `--plan` keeps the single-request behavior
+unchanged.
 
 ## Offline viewer admission policy
 

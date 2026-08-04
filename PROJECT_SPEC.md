@@ -110,10 +110,16 @@ initially:
 ```bash
 pcb-review modify INPUT... \
   --request CHANGE_REQUEST.json \
+  [--plan AUTHORING_PLAN.json] \
   --rules RULE_PROFILE \
   --output REVISION_DIRECTORY \
   [--overwrite]
 ```
+
+An optional `--plan` names a typed `AuthoringPlan` that must admit exactly
+the presented request before any design work; plan load or admission failures
+reject the run without publication. The same optional flag applies to
+`pcb-review generate`.
 
 The service accepts typed request/profile objects and paths. It does not call
 the Viewer, parse suggested-action prose, or enter `ReviewService` until a new
@@ -306,7 +312,10 @@ separate from deterministic evidence.
   admission that recomputes the request and structured-operation digests plus
   a separate approver-bound authorization digest. Plan prose cannot execute,
   alter operation fields, select unknown versions, suppress fresh review, or
-  write design bytes directly.
+  write design bytes directly. The `modify` and `generate` CLI commands
+  consume an admitted plan through an optional `--plan` flag: mismatched,
+  tampered, or unregistered plans exit 2 without publication, and the
+  plan-less single-request path is unchanged.
 - Add more registered operations and native EDA adapters only with round-trip
   evidence.
 - Permit agents to propose typed plans, with explicit approval and deterministic

@@ -40,11 +40,13 @@ pcb-review inspect INPUT... \
 
 pcb-review modify INPUT... \
   --request change.json \
+  [--plan plan.json] \
   --rules rules/default.yaml \
   --output artifacts/revision
 
 pcb-review generate \
   --request coupon.json \
+  [--plan plan.json] \
   --rules rules/default.yaml \
   --output artifacts/generation
 ```
@@ -361,6 +363,11 @@ digest，并要求一个由批准人、固定的不保证制造性声明文本�
 不执行任何 I/O：instruction 或 rationale 的措辞无法改变任何已承认的
 身份，未知的 kind/version 会被无回退地拒绝，已承认的 plan 只能经由上述
 未改写的服务及其全新的独立审查执行。
+
+两个 authoring 命令都接受与 `--request` 并列的可选 `--plan plan.json`：
+CLI 会加载并对照确切的请求承认该 plan，且仅在所有 digest 一致时驱动
+已注册的服务。被篡改、重新绑定或 kind 不匹配的 plan 以退出码 2 失败且
+不发布任何内容；不提供 `--plan` 时行为保持不变。
 
 ## 离线审查 Viewer
 
