@@ -316,10 +316,15 @@ separate from deterministic evidence.
   consume an admitted plan through an optional `--plan` flag: mismatched,
   tampered, or unregistered plans exit 2 without publication, and the
   plan-less single-request path is unchanged.
+- **Implemented:** explicit-approval plan minting through `pcb-review plan`
+  derives the canonical `AuthoringPlan` 1.0 for one admitted request (request
+  and operation digests plus the authorization digest for an explicit
+  `--approver` identity and explicit `--kind`) with byte-deterministic
+  output and no design-input staging, operation execution, or review. A
+  minted plan admits through `--plan` and drives the unchanged services
+  byte-identically to the plan-less path.
 - Add more registered operations and native EDA adapters only with round-trip
   evidence.
-- Permit agents to propose typed plans, with explicit approval and deterministic
-  execution.
 - Evaluate remote collaboration/providers only after authentication, privacy,
   data-egress, quota, and determinism decisions.
 

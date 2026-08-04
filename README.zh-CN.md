@@ -369,6 +369,21 @@ CLI 会加载并对照确切的请求承认该 plan，且仅在所有 digest 一
 已注册的服务。被篡改、重新绑定或 kind 不匹配的 plan 以退出码 2 失败且
 不发布任何内容；不提供 `--plan` 时行为保持不变。
 
+用显式批准为一个确切的请求铸造 plan：
+
+```bash
+uv run pcb-review plan \
+  --request coupon.json \
+  --kind generation \
+  --approver engineer@example.com \
+  --output plan.json
+```
+
+该命令只加载已承认的请求并写出字节确定性的规范化 plan JSON（可用
+`--rationale` 添加有界的可选说明文本，用 `--overwrite` 替换已有文件）。
+它不 staging 任何设计输入、不执行任何操作、不运行审查；铸造的 plan 经
+`--plan` 传入后运行的管线与无 plan 调用完全一致。
+
 ## 离线审查 Viewer
 
 独立分发的

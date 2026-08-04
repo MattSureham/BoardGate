@@ -401,6 +401,22 @@ drives only the registered service when every digest matches. A tampered,
 rebound, or kind-mismatched plan fails with exit 2 and publishes nothing;
 without `--plan`, behavior is unchanged.
 
+Mint a plan for an exact request with explicit approval:
+
+```bash
+uv run pcb-review plan \
+  --request coupon.json \
+  --kind generation \
+  --approver engineer@example.com \
+  --output plan.json
+```
+
+The command only loads the admitted request and writes byte-deterministic
+canonical plan JSON (add `--rationale` for bounded optional prose and
+`--overwrite` to replace an existing file). It stages no design inputs,
+executes no operation, and runs no review; a minted plan passed through
+`--plan` runs the identical pipeline as the plan-less invocation.
+
 ## Offline review viewer
 
 The separately distributed

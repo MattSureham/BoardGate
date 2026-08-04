@@ -142,7 +142,17 @@ performs no I/O: reworded instruction or rationale prose changes no admitted
 identity, unknown kind/version pairs are rejected without fallback, and an
 admitted plan executes only by passing its bound request through the
 unchanged modification or generation service with its fresh independent
-review. The `modify` and `generate` commands accept an optional
+review.
+
+`pcb-review plan` mints that authorization artifact for one admitted request:
+an explicit `--kind` selects the request contract (there is no
+auto-detection fallback), an explicit `--approver` identity is bound into the
+authorization digest, and optional `--rationale` prose is recorded but never
+digested. The command writes byte-deterministic canonical plan JSON to a
+`.json` path, refuses to replace an existing file without `--overwrite`,
+rejects an output identical to the request path, and performs no
+design-input staging, operation execution, or review. Contract-violating
+approver or rationale values fail with exit 2 before any write. The `modify` and `generate` commands accept an optional
 `--plan plan.json` next to `--request`: the plan is admitted against the
 exact request before any design work, plan load or admission failures exit 2
 without publication, and omitting `--plan` keeps the single-request behavior
