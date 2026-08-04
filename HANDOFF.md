@@ -16,21 +16,23 @@
 
 ## Current State
 
-- Last updated: `2026-08-03T18:20:00+08:00`
+- Last updated: `2026-08-04T10:20:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows the typed authoring-plan implementation and documentation commits,
-  which follow the published mixed-drill baseline 4cb6098 (implementation
-  fd1030b, documentation 852065d).`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 4cb6098.
-  GitHub Actions run 30799039212 completed with success on all eight jobs
+  follows the CLI plan-consumption implementation commit eff041f and its
+  documentation commit aafc668, which follow the published typed
+  authoring-plan baseline 62af31a (implementation f70ee14, documentation
+  93e19ce).`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 62af31a.
+  GitHub Actions run 30805341275 completed with success on all eight jobs
   (quality, tests 3.12, tests 3.14, viewer-quality, viewer-browsers, and the
-  three CLI smokes) for that published baseline, independently re-verified
-  via gh on 2026-08-03. The typed-plan implementation, documentation, and
-  this branch-tip HANDOFF commit remain local until the final authorized
-  normal push; no force push, rebase, or remote-history rewrite occurred.`
+  three CLI smokes) for that published baseline, verified via gh on
+  2026-08-04; this corrects the stale local-only claim in the previous
+  snapshot. The CLI plan-consumption implementation, documentation, and this
+  branch-tip HANDOFF commit remain local until the authorized normal push;
+  no force push, rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -312,6 +314,15 @@
     operation digest; reworded rationale changes nothing. Execution remains
     only through the unchanged ModificationService/GenerationService with
     their fresh independent review, proven end to end for both request kinds.`
+  - `[CONFIRMED] The pcb-review modify and generate commands accept an
+    optional --plan PLAN.json alongside --request. The CLI loads and admits
+    the plan against the exact request before any design work, treats the
+    plan as a control file that must stay outside design inputs and outputs,
+    drives only the registered service when every digest matches, and maps
+    plan load or admission failures to exit 2 without publication. Planned
+    runs publish byte-identical design/evidence and deterministic validation
+    artifacts to plan-less runs; omitting --plan keeps the single-request
+    behavior unchanged.`
 - Supported inputs: `[CONFIRMED] Directories, ZIP archives, and one or more
   regular files; Gerber, Excellon, BOM/placement CSV, BOM XLSX, rule profiles,
   and unknown files receive evidence-backed manifest classifications.
@@ -328,6 +339,18 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] CLI plan-consumption gates on 2026-08-04 passed on the
+    complete tree: Ruff format/check (197 files); mypy (179 source files);
+    and the complete Python 3.12 suite with 875 tests at 89.83% branch
+    coverage, including nine new CLI plan regressions proving planned runs
+    are byte-identical to plan-less runs and that tampered, rebound,
+    cross-kind, prose-reworded, misplaced, and non-JSON plans exit 2 without
+    publication. pcb-review modify/generate --help both show the optional
+    --plan flag.`
+  - `[CONFIRMED] GitHub Actions run 30805341275 at published baseline
+    62af31a completed with success on all eight jobs, verified via gh on
+    2026-08-04; the typed-plan slice is therefore also exercised under
+    Python 3.14 in CI.`
   - `[CONFIRMED] Typed authoring-plan gates on 2026-08-03 passed on the
     complete tree: checked-in Schema export/currency for all eleven Schemas;
     Ruff format/check (178 files); mypy (178 source files); and the complete
@@ -581,18 +604,18 @@
   - `[CONFIRMED] Authoring currently supports exactly one Excellon
     tool-diameter operation and exactly two bounded two-layer coupon
     generation operations (plated-only and mixed PTH/NPTH). The typed
-    authoring-plan boundary admits only those registered kind/version pairs
-    and is a library-level contract: no CLI flag wires an admitted plan into
-    modify/generate yet. The operations are neither
+    authoring-plan boundary admits only those registered kind/version pairs;
+    the modify and generate CLI commands consume an admitted plan through
+    the optional --plan flag while keeping the plan-less path unchanged. The
+    operations are neither
     arbitrary nor lossless source editing and do not guarantee
     manufacturability. No slots, non-round holes, native EDA writer, inferred
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after the typed authoring-plan implementation and
-  documentation commits. It remains linearly
-  ahead of origin/main=4cb6098 until the authorized final normal push is
-  performed.`
+  leave a clean local main after the CLI plan-consumption implementation and
+  documentation commits. It remains linearly ahead of origin/main=62af31a
+  until the authorized normal push is performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -960,16 +983,82 @@ the current capabilities.
 
 ## Next Action
 
-Wire the admitted authoring plan into the pcb-review CLI as an explicit
-authorized input path: accept an optional `--plan PLAN.json` alongside
-`--request` on `modify` and `generate`, load and admit the plan against the
-bound request, and drive only the registered service on mismatch-free
-admission. Map plan load/admission failures to exit 2 without publication,
-keep the single-request behavior unchanged when no plan is given, and prove
-with CLI regressions that a tampered, rebound, or prose-only plan never
-executes or suppresses the fresh review.
+Publish the CLI plan-consumption slice: perform a normal `git push origin
+main` (no force push or history rewrite), then verify the resulting GitHub
+Actions run completes all eight jobs successfully; if viewer-browsers fails,
+retain and inspect its trace/error-context artifact per the ISSUE-008
+diagnostic path before any re-run.
 
 ## Recent Activity
+
+### 2026-08-04T10:20:00+08:00 — Claude — CLI authoring-plan consumption
+
+- Role: recovery, implementation, verification, and documentation agent
+- Task: Recover repository state without prior conversational context, then
+  implement the sole standing Next Action: consume admitted authoring plans
+  in the pcb-review CLI, without changing ReviewService, the services,
+  plan/request contracts, Schemas, Viewer, dependencies, workflows, ADRs, or
+  the six-artifact review protocol.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, Current State/Active Issues/Next
+    Action/Recent Activity, the CLI, both request loaders, the plan
+    models/loader/admission modules, both services, existing modify/generate
+    integration tests, git history, remote refs, and live GitHub Actions
+    evidence.
+  - `[CONFIRMED]` Recovery found HANDOFF mildly stale in the repository's
+    favor: the typed-plan commits were already published, HEAD == origin/main
+    == 62af31a with a clean tree, and Actions run 30805341275 passed all
+    eight jobs (verified via gh run view), satisfying the prior entry's
+    "after final publication evidence is green" precondition.
+- Actions performed:
+  - `[CONFIRMED]` Added an optional `--plan` option to `pcb-review modify`
+    and `pcb-review generate`. When present, the CLI loads the plan through
+    the existing bounded loader, admits it against the exact `--request`
+    before any design work, and drives only the registered service; the same
+    immutable request object is passed through unchanged.
+  - `[CONFIRMED]` Extended the CLI control-file separation so the plan path
+    must stay outside design inputs (modify) and outside the output
+    workspace (both commands), exactly like the request and rule profile.
+  - `[CONFIRMED]` Mapped `AuthoringPlanError` and `PlanAdmissionError` to
+    CLI exit 2 with no publication; execution, publication, and blocker
+    semantics are unchanged when `--plan` is omitted.
+  - `[CONFIRMED]` Added nine CLI integration regressions: planned modify and
+    generate runs publish byte-identical design/evidence and deterministic
+    validation artifacts to plan-less runs (only nested validation
+    logs/run.jsonl differs as contracted); tampered request digests
+    (PLAN_REQUEST_DIGEST_MISMATCH), rebound authorization digests
+    (PLAN_AUTHORIZATION_MISMATCH), a generation plan on modify
+    (PLAN_REQUEST_KIND_MISMATCH), reworded request instruction prose
+    (request-digest mismatch), a plan inside design inputs
+    (MODIFICATION_CONTROL_INSIDE_INPUT), and a non-`.json` plan
+    (AUTHORING_PLAN_FORMAT_ERROR) all exit 2 with no output workspace;
+    reworded plan rationale remains inert and still runs the full fresh
+    review to READY_FOR_REVIEW.
+  - `[CONFIRMED]` Updated PROJECT_SPEC (modification interface and Phase E
+    implemented bullet), both READMEs, and docs/CAPABILITIES.md with the
+    exact `--plan` CLI behavior.
+- Files modified: `src/boardgate/cli.py`,
+  `tests/integration/test_cli_plan.py`, `PROJECT_SPEC.md`, `README.md`,
+  `README.zh-CN.md`, `docs/CAPABILITIES.md`, and `HANDOFF.md`.
+- Verification performed:
+  - Ruff format/check passed (197 files); mypy passed (179 source files).
+  - Python 3.12: the complete suite passed 875 tests at 89.83% branch
+    coverage (866 prior + 9 new); the nine new tests pass in isolation.
+  - `pcb-review modify --help` and `pcb-review generate --help` both show
+    the optional `--plan` flag.
+  - gh run view 30805341275: success on all eight jobs at published
+    baseline 62af31a.
+- Commits: `eff041f feat(authoring): admit authorized authoring plans in
+  the CLI`; `aafc668 docs(authoring): document CLI authoring-plan
+  consumption`; this HANDOFF update is the branch-tip documentation commit.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The CLI plan-consumption commits and this HANDOFF
+  commit are not yet published or exercised by their own GitHub Actions run;
+  Python 3.14 was not re-run locally for this slice (CI covers both
+  interpreters on push).
+- Recommended next action: Publish this slice with a normal push and verify
+  the Actions run, as bounded in Next Action.
 
 ### 2026-08-03T18:20:00+08:00 — Claude — Typed authoring-plan admission boundary
 
