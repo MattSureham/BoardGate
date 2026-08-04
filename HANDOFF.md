@@ -16,25 +16,21 @@
 
 ## Current State
 
-- Last updated: `2026-08-04T11:00:00+08:00`
+- Last updated: `2026-08-04T12:40:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows the published CLI plan-consumption baseline 74e3f3a
-  (implementation eff041f, documentation aafc668).`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at ce12d20
-  after two normal fast-forward pushes. GitHub Actions run 30871623697
-  completed with success on all eight jobs (quality, tests 3.12, tests
-  3.14, viewer-quality, viewer-browsers, and the three CLI smokes) for
-  published baseline 74e3f3a, verified via gh on 2026-08-04. Run
-  30873541817 for docs-only ce12d20 passed seven of eight jobs; its
-  viewer-browsers job failed three consecutive attempts with the
-  documented ISSUE-008 driver-hang signature on code byte-identical to
-  the green run with the same runner image (see Active Issues). This
-  ISSUE-008-evidence HANDOFF commit remains local until the authorized
-  normal push; no force push, rebase, or remote-history rewrite
-  occurred.`
+  follows the plan-minting implementation and documentation commits, which
+  follow the published ISSUE-008-evidence baseline 7b015a0.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 7b015a0.
+  GitHub Actions run 30874653380 completed with success on all eight jobs
+  for that published baseline, verified via gh on 2026-08-04, confirming
+  the ce12d20 viewer-browsers failures were the documented ISSUE-008
+  environment flake rather than a product regression. The plan-minting
+  implementation, documentation, and this branch-tip HANDOFF commit remain
+  local until the authorized normal push; no force push, rebase, or
+  remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -45,12 +41,15 @@
   deterministic Excellon modification operation, two bounded deterministic
   two-layer coupon generation operations, independent review validation
   for every emitted design, and a typed authoring-plan admission boundary
-  with a separate authorization digest.`
+  with a separate authorization digest, explicit-approval CLI minting, and
+  CLI consumption through `--plan`.`
 - Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
   INPUT... --request CHANGE.json --rules rules/default.yaml --output
   REVISION_OUTPUT; uv run pcb-review generate --request COUPON.json --rules
-  rules/default.yaml --output GENERATION_OUTPUT`
+  rules/default.yaml --output GENERATION_OUTPUT; uv run pcb-review plan
+  --request REQUEST.json --kind modification|generation --approver IDENTITY
+  --output PLAN.json`
 - Implemented capabilities:
   - `[CONFIRMED] Installable Python package and versioned CLI entry point.`
   - `[CONFIRMED] Locked Python 3.12 development environment; Ubuntu CI
@@ -316,6 +315,17 @@
     operation digest; reworded rationale changes nothing. Execution remains
     only through the unchanged ModificationService/GenerationService with
     their fresh independent review, proven end to end for both request kinds.`
+  - `[CONFIRMED] pcb-review plan mints the explicit-approval artifact for one
+    admitted request: an explicit required --kind selects the request
+    contract with no auto-detection fallback, an explicit --approver identity
+    is bound into the authorization digest, and optional --rationale prose is
+    recorded but never digested. The command writes byte-deterministic
+    canonical plan JSON to a .json path, refuses to replace an existing file
+    without --overwrite, rejects an output identical to the request path,
+    maps contract-violating approver/rationale values to exit 2 before any
+    write, and performs no design-input staging, operation execution, or
+    review. Minted plans admit through --plan and drive the unchanged
+    services byte-identically to the plan-less path for both request kinds.`
   - `[CONFIRMED] The pcb-review modify and generate commands accept an
     optional --plan PLAN.json alongside --request. The CLI loads and admits
     the plan against the exact request before any design work, treats the
@@ -341,6 +351,19 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Plan-minting gates on 2026-08-04 passed on the complete
+    tree: Ruff format/check (181 files); mypy (181 source files); and the
+    complete Python 3.12 suite with 890 tests at 89.89% branch coverage,
+    including 15 new minting tests covering digest parity with admission for
+    all three registered operations, byte determinism, rationale inertness,
+    approver binding, wrong-kind/missing-request/output-policy/contract
+    rejections, only-plan-file side effects, and end-to-end planned runs
+    byte-identical to plan-less runs for both request kinds. A manual smoke
+    minted a generation plan and drove a READY_FOR_REVIEW planned
+    generation.`
+  - `[CONFIRMED] GitHub Actions run 30874653380 at published baseline
+    7b015a0 completed with success on all eight jobs, verified via gh on
+    2026-08-04, closing the ce12d20 ISSUE-008 flake episode.`
   - `[CONFIRMED] GitHub Actions run 30871623697 at published baseline
     74e3f3a completed with success on all eight jobs, verified via gh on
     2026-08-04; the CLI plan-consumption slice is now exercised by its own
@@ -619,7 +642,7 @@
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main. It remains linearly ahead of origin/main=74e3f3a
+  leave a clean local main. It remains linearly ahead of origin/main=7b015a0
   until the authorized normal push is performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -1010,17 +1033,82 @@ the current capabilities.
 
 ## Next Action
 
-Add the explicit-approval plan-minting path: a deterministic `pcb-review
-plan` command that loads one admitted modification or generation request,
-derives the canonical `AuthoringPlan` 1.0 payload (request and operation
-digests plus the authorization digest for an explicit `--approver`
-identity), and writes bounded canonical plan JSON without staging design
-inputs, executing any operation, or running a review. Prove digest parity
-with admission, byte-deterministic output, and that a minted plan admits
-through `--plan` and drives the unchanged services byte-identically to the
-plan-less path.
+Implement the second registered modification operation as a Phase B-style
+slice: `set_gerber_standard_aperture_diameter/1.0` — change one confirmed
+standard round aperture's diameter definition in a supported Gerber copper
+source while preserving every unrelated byte. Deliver strict request/result
+contracts and registry admission first, then stale-input, ambiguity,
+unsupported-syntax, and rollback tests, and prove round-trip evidence that
+a minimum_trace_width blocker resolves through the unchanged review
+pipeline without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-04T12:40:00+08:00 — Claude — Explicit-approval plan minting
+
+- Role: implementation, verification, and documentation agent
+- Task: Implement the sole standing Next Action: the explicit-approval
+  plan-minting path, without changing ReviewService, the services, the
+  plan contracts, Viewer, dependencies, workflows, ADRs, or the
+  six-artifact review protocol.
+- Context inspected:
+  - `BOOTSTRAP.md`, `PROJECT_SPEC.md`, ADR 0007, Current State/Active
+    Issues/Next Action, the plan contracts/loader/admission, identifier
+    derivation, the CLI including `--plan` consumption, both request
+    loaders, existing CLI plan tests, documentation, git history, remote
+    refs, and live GitHub Actions evidence.
+  - `[CONFIRMED]` Published baseline 7b015a0 was clean and in sync; its
+    Actions run 30874653380 passed all eight jobs, confirming the ce12d20
+    viewer-browsers failures were the documented ISSUE-008 environment
+    flake. Per the recorded user decision, ISSUE-008 stays OPEN/low and
+    receives no further proactive investigation without new reproducible
+    product-behavior evidence.
+- Actions performed:
+  - `[CONFIRMED]` Added `mint_authoring_plan`, a pure derivation from one
+    admitted modification or generation request to the canonical
+    `AuthoringPlan` 1.0: request and prose-independent operation digests
+    plus the authorization digest over the explicit approver, the pinned
+    statement, and the request digest.
+  - `[CONFIRMED]` Added the `pcb-review plan` command with required
+    explicit `--kind` (no auto-detection fallback), required `--approver`,
+    optional bounded `--rationale`, and a `.json` `--output` that refuses
+    to replace an existing file without `--overwrite` and rejects an
+    output identical to the request path. Contract-violating approver or
+    rationale values exit 2 with a static non-echoing message before any
+    write. The command stages no design inputs, executes no operation,
+    and runs no review.
+  - `[CONFIRMED]` Proved by test: digest parity with admission for all
+    three registered operations, byte-deterministic output across runs
+    and CLI invocations, rationale recorded but never digested, approver
+    changing only the authorization digest, wrong-kind/missing-request/
+    output-policy/contract rejections with exit 2 and no plan file,
+    only-plan-file side effects, and minted plans driving modify/generate
+    byte-identically to plan-less runs for both request kinds.
+  - `[CONFIRMED]` Smoke-tested `plan --help`, minting a generation plan,
+    and a planned READY_FOR_REVIEW generation end to end.
+  - `[CONFIRMED]` Updated PROJECT_SPEC (Phase E implemented bullet; the
+    typed-plans-with-explicit-approval forward bullet is now covered and
+    removed), both READMEs, and docs/CAPABILITIES.md with the exact
+    minting behavior.
+- Files modified: `src/boardgate/authoring/plan_minting.py`,
+  `src/boardgate/authoring/__init__.py`, `src/boardgate/cli.py`,
+  `tests/unit/authoring/test_plan_minting.py`,
+  `tests/integration/test_cli_plan.py`, `PROJECT_SPEC.md`, `README.md`,
+  `README.zh-CN.md`, `docs/CAPABILITIES.md`, and `HANDOFF.md`.
+- Verification performed:
+  - Ruff format/check (181 files); mypy (181 source files).
+  - Python 3.12: the complete suite passed 890 tests at 89.89% branch
+    coverage (875 prior + 15 new); the new tests pass in isolation.
+- Commits: the plan-minting implementation commit, a documentation commit,
+  and this HANDOFF update as the branch-tip documentation commit.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The plan-minting commits and this HANDOFF commit
+  are not yet published or exercised by their own GitHub Actions run;
+  Python 3.14 was not re-run locally for this slice (CI covers both
+  interpreters on push).
+- Recommended next action: Implement the sole bounded second-operation
+  slice above after final publication evidence is green.
 
 ### 2026-08-04T11:40:00+08:00 — Claude — ISSUE-008 escalation evidence from ce12d20 CI verification
 
