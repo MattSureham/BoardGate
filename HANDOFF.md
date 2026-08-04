@@ -11,8 +11,9 @@
 > - Repository evidence takes precedence over assumptions and summaries.
 > - Leave exactly one bounded, immediately actionable Next Action.
 > - Keep the history understandable without access to prior conversations.
-> - Persist a machine-readable status/completion marker to disk for any
->   background task that cannot be foreground-observed to completion
+> - Persist a machine-readable lifecycle marker under `.boardgate/tasks/`
+>   for any background task that cannot be foreground-observed to
+>   completion, and reconcile stale `running` markers on takeover
 >   (BOOTSTRAP.md, Background Task State).
 > - Protocol changes require a recorded proposal, motivation, compatibility
 >   analysis, and explicit approval before adoption.
@@ -1052,6 +1053,54 @@ a minimum_trace_width blocker resolves through the unchanged review
 pipeline without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-04T13:30:00+08:00 — Claude — Protocol change: background task lifecycle markers
+
+- Role: protocol-recording agent
+- Task: Adopt the user-directed refinement fixing the background-task
+  lifecycle schema and takeover reconciliation.
+- Proposal: Background tasks must never be "started then forgotten". Each
+  task carries one machine-readable JSON marker at
+  `.boardgate/tasks/<task_id>.json` (gitignored) with a fixed lifecycle:
+  start records `task_id`/`command`/`start_time`/`pid` or `remote_ref`
+  with `status: "running"`; running state stays queryable via pid or
+  remote reference; termination records `status`/`exit_code`/`end_time`/
+  `log_path` regardless of outcome; and a participant taking over must
+  reconcile stale `running` markers, marking dead tasks `orphaned`
+  instead of pretending they live.
+- Motivation: The marker rule adopted hours earlier fixed *that* state
+  must hit disk but not *which* fields, where markers live, or how a
+  later participant distinguishes a live task from a dead one — exactly
+  the ambiguity that let completed CI watches go unreported earlier this
+  session.
+- Compatibility analysis: `[CONFIRMED]` Purely additive refinement of the
+  "Background Task State" section added in b823123. The earlier
+  acceptable-marker list is narrowed to one conventional gitignored
+  location; no HANDOFF.md section schema, existing entry, issue record,
+  code, schema, or workflow is rewritten. `.boardgate/` is newly
+  gitignored so markers never pollute the tree.
+- Approval: `[CONFIRMED]` Explicit user instruction on 2026-08-04 fixing
+  the start/running/end fields and the orphaned-on-reconcile rule,
+  satisfying the Protocol Evolution requirement.
+- Actions performed:
+  - `[CONFIRMED]` Rewrote the "Background Task State" section in
+    BOOTSTRAP.md with the fixed lifecycle schema and reconciliation
+    procedure.
+  - `[CONFIRMED]` Added `.boardgate/` to `.gitignore` and updated the
+    normative protocol header of this file.
+- Files modified: `BOOTSTRAP.md`, `.gitignore`, and `HANDOFF.md`.
+- Verification performed: none required; documentation-only protocol
+  change. The complete suite was green at 890 tests / 89.89% branch
+  coverage immediately before this slice, and run 30891198384 (b823123)
+  passed all eight jobs.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: This commit is not yet exercised by its own
+  GitHub Actions run (docs-only; a viewer-browsers failure would be the
+  recorded ISSUE-008 flake requiring no action). No live background tasks
+  exist to reconcile at adoption time.
+- Recommended next action: Unchanged — the second registered modification
+  operation slice bounded in Next Action.
 
 ### 2026-08-04T13:05:00+08:00 — Claude — Protocol change: background task state markers
 
