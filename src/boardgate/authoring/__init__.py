@@ -38,6 +38,7 @@ from boardgate.authoring.plan_admission import (
     PlanAdmissionError,
     admit_authoring_plan,
 )
+from boardgate.authoring.plan_minting import mint_authoring_plan
 from boardgate.authoring.plan_models import (
     PLAN_AUTHORIZATION_STATEMENT,
     AuthoringPlan,
@@ -88,6 +89,7 @@ __all__ = [
     "load_generation_request_bytes",
     "load_modification_request",
     "load_modification_request_bytes",
+    "mint_authoring_plan",
     "operation_sha256",
     "plan_authorization_sha256",
     "request_sha256",

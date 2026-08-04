@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
+import pytest
 from click.testing import CliRunner
 
 from boardgate.authoring import (
@@ -14,6 +15,9 @@ from boardgate.authoring import (
     ModificationRequest,
     PlanAuthorization,
     SetExcellonToolDiameter,
+    admit_authoring_plan,
+    load_authoring_plan,
+    mint_authoring_plan,
 )
 from boardgate.authoring.identifiers import (
     generation_operation_sha256,
@@ -175,6 +179,33 @@ def _invoke_generate(
     return CliRunner().invoke(main, tuple(arguments))
 
 
+def _invoke_plan(  # noqa: PLR0913
+    request_path: Path,
+    output: Path,
+    *,
+    kind: str,
+    approver: str = APPROVER,
+    rationale: str | None = None,
+    overwrite: bool = False,
+) -> Any:
+    arguments = [
+        "plan",
+        "--request",
+        str(request_path),
+        "--kind",
+        kind,
+        "--approver",
+        approver,
+        "--output",
+        str(output),
+    ]
+    if rationale is not None:
+        arguments.extend(("--rationale", rationale))
+    if overwrite:
+        arguments.append("--overwrite")
+    return CliRunner().invoke(main, tuple(arguments))
+
+
 def test_modify_with_matching_plan_publishes_planless_identical_revision(
     tmp_path: Path,
 ) -> None:
@@ -332,3 +363,156 @@ def test_plan_must_be_a_json_file(tmp_path: Path) -> None:
     assert result.exit_code == 2, result.output
     assert "AUTHORING_PLAN_FORMAT_ERROR" in result.output
     assert not output.exists()
+
+
+@pytest.mark.parametrize("kind", ("modification", "generation"))
+def test_minted_plan_drives_services_identically_to_planless(
+    tmp_path: Path,
+    kind: str,
+) -> None:
+    if kind == "modification":
+        request: ModificationRequest | GenerationRequest = _modification_request()
+    else:
+        request = _generation_request()
+    request_path = tmp_path / "request.json"
+    _write_json(request_path, json.loads(canonical_json(request)))
+    plan_path = tmp_path / "plan.json"
+
+    minted = _invoke_plan(request_path, plan_path, kind=kind)
+    assert minted.exit_code == 0, minted.output
+    expected = mint_authoring_plan(request, approver=APPROVER)
+    assert plan_path.read_bytes() == f"{canonical_json(expected)}\n".encode()
+    admitted = admit_authoring_plan(load_authoring_plan(plan_path), request)
+    assert admitted.request == request
+
+    planned_output = tmp_path / "planned"
+    if kind == "modification":
+        planned = _invoke_modify(request_path, planned_output, plan_path)
+    else:
+        planned = _invoke_generate(request_path, planned_output, plan_path)
+    assert planned.exit_code == 0, planned.output
+    assert "validation READY_FOR_REVIEW" in planned.output
+
+    planless_output = tmp_path / "planless"
+    if kind == "modification":
+        planless = _invoke_modify(request_path, planless_output)
+    else:
+        planless = _invoke_generate(request_path, planless_output)
+    assert planless.exit_code == 0, planless.output
+
+    assert _stable_bytes(planned_output) == _stable_bytes(planless_output)
+
+
+def test_plan_command_output_is_byte_deterministic(tmp_path: Path) -> None:
+    request_path = tmp_path / "request.json"
+    _write_json(request_path, json.loads(canonical_json(_generation_request())))
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+
+    assert _invoke_plan(request_path, first, kind="generation").exit_code == 0
+    assert _invoke_plan(request_path, second, kind="generation").exit_code == 0
+
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_plan_command_writes_only_the_plan_file(tmp_path: Path) -> None:
+    request = _modification_request()
+    request_path = tmp_path / "request.json"
+    _write_json(request_path, json.loads(canonical_json(request)))
+    plan_path = tmp_path / "plan.json"
+
+    result = _invoke_plan(
+        request_path,
+        plan_path,
+        kind="modification",
+        rationale="Selected Finding minimum_drill_diameter.",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert sorted(item.name for item in tmp_path.iterdir()) == [
+        "plan.json",
+        "request.json",
+    ]
+    assert load_authoring_plan(plan_path).rationale == (
+        "Selected Finding minimum_drill_diameter."
+    )
+
+
+def test_plan_command_rejects_the_wrong_request_kind(tmp_path: Path) -> None:
+    modification_path = tmp_path / "change.json"
+    _write_json(modification_path, json.loads(canonical_json(_modification_request())))
+    generation_path = tmp_path / "coupon.json"
+    _write_json(generation_path, json.loads(canonical_json(_generation_request())))
+    plan_path = tmp_path / "plan.json"
+
+    wrong_generation = _invoke_plan(modification_path, plan_path, kind="generation")
+    assert wrong_generation.exit_code == 2, wrong_generation.output
+    assert not plan_path.exists()
+
+    wrong_modification = _invoke_plan(generation_path, plan_path, kind="modification")
+    assert wrong_modification.exit_code == 2, wrong_modification.output
+    assert not plan_path.exists()
+
+
+def test_plan_command_rejects_a_missing_request(tmp_path: Path) -> None:
+    plan_path = tmp_path / "plan.json"
+
+    result = _invoke_plan(tmp_path / "missing.json", plan_path, kind="generation")
+
+    assert result.exit_code == 2, result.output
+    assert not plan_path.exists()
+
+
+def test_plan_command_output_policy(tmp_path: Path) -> None:
+    request = _generation_request()
+    request_path = tmp_path / "request.json"
+    _write_json(request_path, json.loads(canonical_json(request)))
+    request_bytes = request_path.read_bytes()
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text("pre-existing content", encoding="utf-8")
+
+    refused = _invoke_plan(request_path, plan_path, kind="generation")
+    assert refused.exit_code == 2, refused.output
+    assert "PLAN_OUTPUT_EXISTS" in refused.output
+    assert plan_path.read_text(encoding="utf-8") == "pre-existing content"
+
+    replaced = _invoke_plan(request_path, plan_path, kind="generation", overwrite=True)
+    assert replaced.exit_code == 0, replaced.output
+    expected = mint_authoring_plan(request, approver=APPROVER)
+    assert plan_path.read_bytes() == f"{canonical_json(expected)}\n".encode()
+
+    text_path = tmp_path / "plan.txt"
+    wrong_suffix = _invoke_plan(request_path, text_path, kind="generation")
+    assert wrong_suffix.exit_code == 2, wrong_suffix.output
+    assert "AUTHORING_PLAN_FORMAT_ERROR" in wrong_suffix.output
+    assert not text_path.exists()
+
+    overlap = _invoke_plan(request_path, request_path, kind="generation")
+    assert overlap.exit_code == 2, overlap.output
+    assert "PLAN_OUTPUT_OVERLAPS_REQUEST" in overlap.output
+    assert request_path.read_bytes() == request_bytes
+
+
+def test_plan_command_rejects_contract_violating_approver_and_rationale(
+    tmp_path: Path,
+) -> None:
+    request_path = tmp_path / "request.json"
+    _write_json(request_path, json.loads(canonical_json(_generation_request())))
+    plan_path = tmp_path / "plan.json"
+
+    empty_approver = _invoke_plan(
+        request_path, plan_path, kind="generation", approver=""
+    )
+    assert empty_approver.exit_code == 2, empty_approver.output
+    assert "PLAN_MINT_CONTRACT_ERROR" in empty_approver.output
+    assert not plan_path.exists()
+
+    long_rationale = _invoke_plan(
+        request_path,
+        plan_path,
+        kind="generation",
+        rationale="x" * 501,
+    )
+    assert long_rationale.exit_code == 2, long_rationale.output
+    assert "PLAN_MINT_CONTRACT_ERROR" in long_rationale.output
+    assert not plan_path.exists()
