@@ -23,15 +23,18 @@
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
   follows the published CLI plan-consumption baseline 74e3f3a
   (implementation eff041f, documentation aafc668).`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 74e3f3a
-  after a normal fast-forward push. GitHub Actions run 30871623697
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at ce12d20
+  after two normal fast-forward pushes. GitHub Actions run 30871623697
   completed with success on all eight jobs (quality, tests 3.12, tests
   3.14, viewer-quality, viewer-browsers, and the three CLI smokes) for
-  that published baseline, verified via gh on 2026-08-04; viewer-browsers
-  did not flake, so the ISSUE-008 trace-retention path was not needed.
-  This publication-evidence HANDOFF commit remains local until the
-  authorized normal push; no force push, rebase, or remote-history
-  rewrite occurred.`
+  published baseline 74e3f3a, verified via gh on 2026-08-04. Run
+  30873541817 for docs-only ce12d20 passed seven of eight jobs; its
+  viewer-browsers job failed three consecutive attempts with the
+  documented ISSUE-008 driver-hang signature on code byte-identical to
+  the green run with the same runner image (see Active Issues). This
+  ISSUE-008-evidence HANDOFF commit remains local until the authorized
+  normal push; no force push, rebase, or remote-history rewrite
+  occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -723,7 +726,16 @@ the current capabilities.
   E2E tests and all seven sibling jobs passed. A fourth occurrence in run
   30780349890 affected two unrelated tests: active-SVG fail-closed admission
   and non-spatial Finding focus. Both stalled inside their initial directory
-  selection while 34/36 E2E tests and all seven sibling jobs passed.
+  selection while 34/36 E2E tests and all seven sibling jobs passed. The
+  issue escalated in run 30873541817 (docs-only commit ce12d20): three
+  consecutive viewer-browsers attempts failed while all seven sibling jobs
+  passed each time. Attempts one and two hung identically in the WebKit
+  project of "renders an empty Finding list for a clean review"; attempt
+  three passed every WebKit test but failed the Firefox project of
+  "terminates and revokes an in-flight worker before validating a
+  replacement" waiting for the "Review unavailable." status. The failing
+  code is byte-identical to fully green run 30871623697 on the same
+  ubuntu-24.04 runner image (20260720.247.2).
 - Evidence: Both failed-job logs show `toBeVisible()` on "Review unavailable."
   unresolved for the full 90 s. In the first test the SelectionError →
   `showError` path is synchronous and every error branch renders that status,
@@ -773,8 +785,17 @@ the current capabilities.
   screenshots, and error context were inspected without re-running the job.
   Run 30780349890 exercised the same diagnostic path for two failures: the
   upload succeeded, retained only two trace/error-context pairs, and both
-  were downloaded and inspected without a re-run.
-- Current resolution state: Open and recurrent. Diagnostic retention is
+  were downloaded and inspected without a re-run. Run 30873541817 retained
+  one artifact per attempt, all downloaded and inspected. Attempt-one and
+  attempt-two WebKit traces both end at a pending `Frame setInputFiles` (no
+  `after` event) while their error-context snapshots show "Bundle validation
+  complete" with the full review UI; attempt three's Firefox error-context
+  shows "Review unavailable." visibly rendered in the page snapshot while
+  `getByText('Review unavailable.')` never resolved. Two
+  `gh run rerun --failed` attempts did not clear the job, unlike the
+  single-rerun recovery in run 30598805829.
+- Current resolution state: Open, recurrent, and escalating. Diagnostic
+  retention is
   implemented and verified on the success path: Actions run 30779478703
   passed all jobs, skipped the upload step, and retained zero artifacts. It is
   also verified on the failure path: run 30779724086 preserved exactly the
@@ -783,7 +804,11 @@ the current capabilities.
   driver command. Run 30780349890 then reproduced the same pending driver
   command across both a fail-closed Bundle and a valid Bundle whose UI had
   completed, while the fixed Viewer-quality job and every non-browser job
-  passed. No Viewer behavior change is justified by the available evidence.
+  passed. Run 30873541817 failed three viewer-browsers attempts in a row on
+  docs-only code byte-identical to green run 30871623697 with the same
+  runner image, moving the issue from intermittent to near-systematic on
+  GitHub runners while remaining unreproduced locally; no Viewer behavior
+  change is justified by the available evidence.
 - Remaining work: Reproduce only the two replacement-selection WebKit tests
   in a temporary Playwright 1.62.0 Linux environment with repeat-each 20,
   one worker, and retained traces; compare change-event delivery and Worker
@@ -996,6 +1021,54 @@ through `--plan` and drives the unchanged services byte-identically to the
 plan-less path.
 
 ## Recent Activity
+
+### 2026-08-04T11:40:00+08:00 — Claude — ISSUE-008 escalation evidence from ce12d20 CI verification
+
+- Role: verification and evidence-recording agent
+- Task: Verify the Actions run for docs-only publication commit ce12d20
+  and follow the ISSUE-008 diagnostic path when viewer-browsers flaked.
+- Context inspected:
+  - Run 30873541817 job results and failed-job logs, all three retained
+    failure artifacts (trace.zip + error-context.md per attempt), runner
+    image versions of green run 30871623697 versus the failing run, and
+    the ISSUE-008 record.
+- Actions performed:
+  - `[CONFIRMED]` Run 30873541817 passed seven of eight jobs on all three
+    attempts; only viewer-browsers failed, three attempts in a row.
+  - `[CONFIRMED]` Attempts one and two hung identically: WebKit "renders
+    an empty Finding list for a clean review" traces end at a pending
+    `Frame setInputFiles` with no `after` event while the error-context
+    snapshots show the fully completed UI ("Bundle validation complete").
+  - `[CONFIRMED]` Attempt three passed every WebKit test (including both
+    previously hung ones in under 1.1 s each) but failed the Firefox
+    project of "terminates and revokes an in-flight worker before
+    validating a replacement": `getByText('Review unavailable.')` never
+    resolved even though the page snapshot visibly renders that status —
+    the original first-occurrence signature, now on Firefox.
+  - `[CONFIRMED]` The failing code is byte-identical to fully green run
+    30871623697 (only HANDOFF.md changed) on the same ubuntu-24.04 runner
+    image 20260720.247.2, so no product or Viewer change is implicated.
+  - `[CONFIRMED]` Two `gh run rerun --failed` attempts did not clear the
+    job, unlike the single-rerun recovery recorded for run 30598805829;
+    reruns were stopped after the third failure to avoid retry loops.
+  - `[CONFIRMED]` Recorded the escalation in ISSUE-008 (Context,
+    Attempted approaches, Current resolution state) and updated Current
+    State Remote sync.
+- Files modified: `HANDOFF.md`.
+- Verification performed: artifact inspection per the ISSUE-008 path for
+  all three attempts; `gh run view` job matrix; runner-image comparison.
+- Commits: this HANDOFF update is the branch-tip documentation commit.
+- Issues created or updated: ISSUE-008 remains OPEN, low severity, and
+  non-blocking, but its frequency escalated from intermittent to three
+  consecutive failures; its recorded remaining work (bounded Linux
+  reproduction of the replacement-selection WebKit tests, now also
+  informed by the Firefox locator non-resolution) is unchanged.
+- Remaining uncertainty: Whether the escalation is time-of-day runner
+  load or a durable GitHub/Playwright environment regression; main is
+  published with a red viewer-browsers job on the tip docs commit.
+- Recommended next action: Unchanged — the bounded plan-minting slice; if
+  viewer-browsers keeps failing on the next push, consider prioritizing
+  the ISSUE-008 bounded reproduction first.
 
 ### 2026-08-04T11:00:00+08:00 — Claude — CLI plan-consumption publication and CI verification
 
