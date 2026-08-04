@@ -16,23 +16,22 @@
 
 ## Current State
 
-- Last updated: `2026-08-04T10:20:00+08:00`
+- Last updated: `2026-08-04T11:00:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows the CLI plan-consumption implementation commit eff041f and its
-  documentation commit aafc668, which follow the published typed
-  authoring-plan baseline 62af31a (implementation f70ee14, documentation
-  93e19ce).`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 62af31a.
-  GitHub Actions run 30805341275 completed with success on all eight jobs
-  (quality, tests 3.12, tests 3.14, viewer-quality, viewer-browsers, and the
-  three CLI smokes) for that published baseline, verified via gh on
-  2026-08-04; this corrects the stale local-only claim in the previous
-  snapshot. The CLI plan-consumption implementation, documentation, and this
-  branch-tip HANDOFF commit remain local until the authorized normal push;
-  no force push, rebase, or remote-history rewrite occurred.`
+  follows the published CLI plan-consumption baseline 74e3f3a
+  (implementation eff041f, documentation aafc668).`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 74e3f3a
+  after a normal fast-forward push. GitHub Actions run 30871623697
+  completed with success on all eight jobs (quality, tests 3.12, tests
+  3.14, viewer-quality, viewer-browsers, and the three CLI smokes) for
+  that published baseline, verified via gh on 2026-08-04; viewer-browsers
+  did not flake, so the ISSUE-008 trace-retention path was not needed.
+  This publication-evidence HANDOFF commit remains local until the
+  authorized normal push; no force push, rebase, or remote-history
+  rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -339,6 +338,10 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] GitHub Actions run 30871623697 at published baseline
+    74e3f3a completed with success on all eight jobs, verified via gh on
+    2026-08-04; the CLI plan-consumption slice is now exercised by its own
+    green CI run on both interpreters and all three CLI-smoke platforms.`
   - `[CONFIRMED] CLI plan-consumption gates on 2026-08-04 passed on the
     complete tree: Ruff format/check (197 files); mypy (179 source files);
     and the complete Python 3.12 suite with 875 tests at 89.83% branch
@@ -613,8 +616,7 @@
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main after the CLI plan-consumption implementation and
-  documentation commits. It remains linearly ahead of origin/main=62af31a
+  leave a clean local main. It remains linearly ahead of origin/main=74e3f3a
   until the authorized normal push is performed.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
@@ -983,13 +985,52 @@ the current capabilities.
 
 ## Next Action
 
-Publish the CLI plan-consumption slice: perform a normal `git push origin
-main` (no force push or history rewrite), then verify the resulting GitHub
-Actions run completes all eight jobs successfully; if viewer-browsers fails,
-retain and inspect its trace/error-context artifact per the ISSUE-008
-diagnostic path before any re-run.
+Add the explicit-approval plan-minting path: a deterministic `pcb-review
+plan` command that loads one admitted modification or generation request,
+derives the canonical `AuthoringPlan` 1.0 payload (request and operation
+digests plus the authorization digest for an explicit `--approver`
+identity), and writes bounded canonical plan JSON without staging design
+inputs, executing any operation, or running a review. Prove digest parity
+with admission, byte-deterministic output, and that a minted plan admits
+through `--plan` and drives the unchanged services byte-identically to the
+plan-less path.
 
 ## Recent Activity
+
+### 2026-08-04T11:00:00+08:00 — Claude — CLI plan-consumption publication and CI verification
+
+- Role: publication and verification agent
+- Task: Complete the sole bounded Next Action: publish the CLI
+  plan-consumption slice with a normal push and verify the resulting
+  Actions run.
+- Context inspected:
+  - Current State/Next Action, git history and remote refs, and live
+    GitHub Actions evidence via gh.
+  - `[CONFIRMED]` Pre-push state matched the handoff report exactly: clean
+    tree, main three commits ahead of origin (eff041f, aafc668, 74e3f3a),
+    and prior run 30805341275 at 62af31a already green.
+- Actions performed:
+  - `[CONFIRMED]` Performed a normal fast-forward push
+    `62af31a..74e3f3a`; no force push, rebase, or history rewrite.
+  - `[CONFIRMED]` Verified GitHub Actions run 30871623697 at 74e3f3a:
+    success on all eight jobs (quality, tests 3.12, tests 3.14,
+    viewer-quality, viewer-browsers, cli-smoke ubuntu/macos/windows).
+    viewer-browsers did not flake; the ISSUE-008 trace-retention path was
+    not needed.
+  - `[CONFIRMED]` Updated Current State (HEAD, Remote sync, Verification,
+    Working tree) with the publication evidence and replaced the consumed
+    push/verify Next Action.
+- Files modified: `HANDOFF.md`.
+- Verification performed: `git status` clean and in sync with origin/main;
+  `gh run view 30871623697` all eight jobs success.
+- Commits: this HANDOFF update is the branch-tip documentation commit.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: This publication-evidence HANDOFF commit is not
+  yet published or exercised by its own GitHub Actions run (docs-only
+  change; gates unaffected).
+- Recommended next action: Implement the sole bounded plan-minting slice
+  above after final publication evidence is green.
 
 ### 2026-08-04T10:20:00+08:00 — Claude — CLI authoring-plan consumption
 
