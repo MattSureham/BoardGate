@@ -162,6 +162,31 @@ Do not implement unrelated code changes.
 Limit this task strictly to initializing the multi-agent collaboration protocol.
 
 
+# Background Task State
+
+Any long-running background task that cannot be continuously observed in the
+foreground — for example CI watches, remote jobs, or asynchronous processes
+that may outlive the current turn — must not represent its running state
+solely through in-session memory.
+
+The participant must persist a machine-readable status/completion marker to
+disk, so that any later participant can determine the task's state without
+access to the originating session. Acceptable markers include a JSON state
+file inside the repository or task workspace, the task system's own recorded
+machine-readable output, or a structured entry in HANDOFF.md.
+
+The marker must record at minimum:
+
+- task identity and what it is waiting on;
+- the state at dispatch time (queued/running, plus relevant identifiers such
+  as a CI run ID); and
+- the terminal state (succeeded/failed/cancelled) once known, or an explicit
+  still-pending state when the participant finishes its turn.
+
+When the outcome matters to the recorded project state, completion must be
+reflected back into HANDOFF.md (Current State, Active Issues, or Recent
+Activity) rather than left only in the marker.
+
 # Protocol Evolution
 
 The collaboration protocol is allowed to evolve.

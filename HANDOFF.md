@@ -11,6 +11,9 @@
 > - Repository evidence takes precedence over assumptions and summaries.
 > - Leave exactly one bounded, immediately actionable Next Action.
 > - Keep the history understandable without access to prior conversations.
+> - Persist a machine-readable status/completion marker to disk for any
+>   background task that cannot be foreground-observed to completion
+>   (BOOTSTRAP.md, Background Task State).
 > - Protocol changes require a recorded proposal, motivation, compatibility
 >   analysis, and explicit approval before adoption.
 
@@ -1049,6 +1052,48 @@ a minimum_trace_width blocker resolves through the unchanged review
 pipeline without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-04T13:05:00+08:00 — Claude — Protocol change: background task state markers
+
+- Role: protocol-recording agent
+- Task: Adopt the user-directed protocol rule for background task state.
+- Proposal: Any long-running background task that cannot be continuously
+  observed in the foreground must not represent its running state solely
+  through in-session memory; it must persist a machine-readable
+  status/completion marker to disk recording at minimum task identity,
+  dispatch-time state, and terminal or still-pending state, with outcomes
+  relevant to project state reflected back into HANDOFF.md.
+- Motivation: Earlier this session, background `gh run watch` tasks twice
+  completed without any visible report — the turn ended with only "I'll
+  report when it finishes" and the user had to ask for the result. Run
+  state existed only in session memory and harness task output that no
+  later participant could rely on.
+- Compatibility analysis: `[CONFIRMED]` The change is purely additive to
+  participant behavior. No HANDOFF.md section schema, existing entry, or
+  issue record is rewritten; prior entries remain valid because no prior
+  background task left project-relevant state unrecorded in HANDOFF.md
+  (every CI outcome was eventually reflected in Current State or
+  ISSUE-008). No code, schema, or workflow is affected.
+- Approval: `[CONFIRMED]` Explicit user instruction on 2026-08-04 to add
+  this rule to BOOTSTRAP.md, satisfying the Protocol Evolution
+  requirement of explicit approval before adoption.
+- Actions performed:
+  - `[CONFIRMED]` Added the "Background Task State" normative section to
+    BOOTSTRAP.md defining marker requirements and acceptable marker forms.
+  - `[CONFIRMED]` Added a pointer bullet to the normative protocol header
+    of this file.
+- Files modified: `BOOTSTRAP.md` and `HANDOFF.md`.
+- Verification performed: none required; documentation-only protocol
+  change. The complete suite was green at 890 tests / 89.89% branch
+  coverage immediately before this slice.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: This commit is not yet exercised by its own
+  GitHub Actions run (docs-only; if viewer-browsers fails it is the
+  recorded ISSUE-008 flake and requires no action per the standing user
+  decision).
+- Recommended next action: Unchanged — the second registered modification
+  operation slice bounded in Next Action.
 
 ### 2026-08-04T12:40:00+08:00 — Claude — Explicit-approval plan minting
 
