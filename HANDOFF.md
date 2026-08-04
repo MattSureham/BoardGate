@@ -758,7 +758,13 @@ the current capabilities.
   "terminates and revokes an in-flight worker before validating a
   replacement" waiting for the "Review unavailable." status. The failing
   code is byte-identical to fully green run 30871623697 on the same
-  ubuntu-24.04 runner image (20260720.247.2).
+  ubuntu-24.04 runner image (20260720.247.2). Green run 30874653380
+  (7b015a0) then passed all eight jobs with no code change, and run
+  30876898631 (935235e) failed the same WebKit empty-Finding-list test
+  again with the identical 90-second `toBeVisible` timeout and a retained
+  trace. Per the recorded 2026-08-04 user decision, occurrences are logged
+  without reruns or further investigation unless new reproducible
+  product-behavior evidence appears.
 - Evidence: Both failed-job logs show `toBeVisible()` on "Review unavailable."
   unresolved for the full 90 s. In the first test the SelectionError →
   `showError` path is synchronous and every error branch renders that status,
