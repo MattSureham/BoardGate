@@ -17,6 +17,7 @@ from boardgate.authoring.models import (
     MODIFICATION_DISCLAIMER,
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
+    AppliedPlacementAnchorCoordinateChange,
     AppliedPlacementReferenceDesignatorChange,
     ModificationRequest,
     ModificationResult,
@@ -24,6 +25,7 @@ from boardgate.authoring.models import (
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
+    SetPlacementAnchorCoordinate,
     SetPlacementReferenceDesignator,
 )
 from boardgate.domain.enums import ReviewStatus
@@ -635,4 +637,188 @@ def test_placement_applied_change_round_trips_inside_result() -> None:
     assert admitted.operation.new_reference == "R2"
     assert admitted.operation.adapter_id == (
         "boardgate-placement-reference-designator-patch"
+    )
+
+
+def coordinate_operation() -> SetPlacementAnchorCoordinate:
+    return SetPlacementAnchorCoordinate(
+        schema_version="1.0",
+        operation_version="1.0",
+        source_logical_path="assembly/component-placement.csv",
+        source_file_id=INPUT_SOURCE_ID,
+        source_sha256=INPUT_SHA,
+        reference="C1",
+        coordinate="x",
+        expected_position_mm=25.0,
+        new_position_mm=10.0,
+        instruction="Move the explicitly selected placement anchor.",
+    )
+
+
+def coordinate_applied_change() -> AppliedPlacementAnchorCoordinateChange:
+    span = SourceSpan(
+        start_line=3,
+        end_line=3,
+        start_byte=42,
+        end_byte=44,
+    )
+    return AppliedPlacementAnchorCoordinateChange(
+        source_logical_path="assembly/component-placement.csv",
+        input_source_file_id=INPUT_SOURCE_ID,
+        output_source_file_id=OUTPUT_SOURCE_ID,
+        input_sha256=INPUT_SHA,
+        output_sha256=OUTPUT_SHA,
+        reference="C1",
+        coordinate="x",
+        old_position_mm=25.0,
+        new_position_mm=10.0,
+        input_value_span=span,
+        output_value_span=span,
+        affected_input_placement_ids=("plc-input",),
+        affected_output_placement_ids=("plc-output",),
+    )
+
+
+def test_coordinate_request_round_trip_and_hash_is_content_derived() -> None:
+    value = ModificationRequest(
+        schema_version="1.0",
+        base_project_id=BASE_PROJECT_ID,
+        operation=coordinate_operation(),
+    )
+
+    admitted = ModificationRequest.model_validate_json(value.model_dump_json())
+    assert admitted == value
+    assert isinstance(admitted.operation, SetPlacementAnchorCoordinate)
+    assert admitted.operation.kind == "set_placement_anchor_coordinate"
+
+    changed_instruction = value.model_copy(
+        update={
+            "operation": value.operation.model_copy(
+                update={"instruction": "A different explicit instruction."}
+            )
+        }
+    )
+    assert request_sha256(changed_instruction) != request_sha256(value)
+    assert operation_sha256(changed_instruction.operation) == operation_sha256(
+        value.operation
+    )
+
+
+def test_coordinate_operation_rejects_noop_bad_axis_and_unbounded_positions() -> None:
+    payload = coordinate_operation().model_dump()
+    payload["new_position_mm"] = payload["expected_position_mm"]
+    with pytest.raises(ValidationError, match="must differ"):
+        SetPlacementAnchorCoordinate.model_validate(payload)
+
+    with pytest.raises(ValidationError, match="coordinate"):
+        SetPlacementAnchorCoordinate.model_validate(
+            {**coordinate_operation().model_dump(), "coordinate": "z"}
+        )
+    for axis in ("x", "y"):
+        admitted = SetPlacementAnchorCoordinate.model_validate(
+            {**coordinate_operation().model_dump(), "coordinate": axis}
+        )
+        assert admitted.coordinate == axis
+
+    with pytest.raises(ValidationError, match="reference"):
+        SetPlacementAnchorCoordinate.model_validate(
+            {**coordinate_operation().model_dump(), "reference": "c1"}
+        )
+
+    for field in ("expected_position_mm", "new_position_mm"):
+        with pytest.raises(ValidationError, match=field):
+            SetPlacementAnchorCoordinate.model_validate(
+                {**coordinate_operation().model_dump(), field: 1000.5}
+            )
+        with pytest.raises(ValidationError, match=field):
+            SetPlacementAnchorCoordinate.model_validate(
+                {**coordinate_operation().model_dump(), field: -1000.5}
+            )
+        admitted = SetPlacementAnchorCoordinate.model_validate(
+            {**coordinate_operation().model_dump(), field: -250.0}
+        )
+        assert getattr(admitted, field) == -250.0
+
+
+def test_coordinate_applied_change_requires_new_identity_and_one_to_one_targets() -> (
+    None
+):
+    value = coordinate_applied_change()
+
+    with pytest.raises(ValidationError, match="must change the source digest"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {**value.model_dump(), "output_sha256": INPUT_SHA}
+        )
+    with pytest.raises(ValidationError, match="new source_file_id"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {**value.model_dump(), "output_source_file_id": INPUT_SOURCE_ID}
+        )
+    with pytest.raises(ValidationError, match="must change the anchor coordinate"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {**value.model_dump(), "new_position_mm": value.old_position_mm}
+        )
+    with pytest.raises(ValidationError, match="one-to-one"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_input_placement_ids": ("plc-input", "plc-input"),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+
+
+def test_coordinate_applied_change_requires_the_exact_same_width_token_span() -> None:
+    value = coordinate_applied_change()
+    shifted = value.output_value_span.model_copy(
+        update={"start_byte": 43, "end_byte": 45}
+    )
+    with pytest.raises(ValidationError, match="preserve the value source span"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {**value.model_dump(), "output_value_span": shifted.model_dump()}
+        )
+
+    empty = value.input_value_span.model_copy(update={"start_byte": 42, "end_byte": 42})
+    with pytest.raises(ValidationError, match="non-empty source token span"):
+        AppliedPlacementAnchorCoordinateChange.model_validate(
+            {
+                **value.model_dump(),
+                "input_value_span": empty.model_dump(),
+                "output_value_span": empty.model_dump(),
+            }
+        )
+
+
+def test_coordinate_applied_change_round_trips_inside_result() -> None:
+    evidence = result()
+    payload_files = tuple(
+        item.model_copy(
+            update={
+                "logical_path": "assembly/component-placement.csv"
+                if item.changed
+                else item.logical_path
+            }
+        )
+        for item in evidence.payload_files
+    )
+    coordinate_result = evidence.model_copy(
+        update={
+            "operation": coordinate_applied_change(),
+            "payload_files": payload_files,
+        }
+    )
+    admitted = ModificationResult.model_validate_json(
+        coordinate_result.model_dump_json()
+    )
+    assert isinstance(admitted.operation, AppliedPlacementAnchorCoordinateChange)
+    assert admitted.operation.coordinate == "x"
+    assert admitted.operation.new_position_mm == 10.0
+    assert admitted.operation.adapter_id == (
+        "boardgate-placement-anchor-coordinate-patch"
     )

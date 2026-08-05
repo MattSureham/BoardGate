@@ -62,6 +62,8 @@ from boardgate.authoring.models import (
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
     AppliedModificationOperation,
+    AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementReferenceDesignatorChange,
     ModificationOperation,
     ModificationRequest,
     ModificationResult,
@@ -69,9 +71,11 @@ from boardgate.authoring.models import (
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
+    SetPlacementAnchorCoordinate,
     SetPlacementReferenceDesignator,
 )
 from boardgate.authoring.placement import (
+    scan_placement_coordinates,
     scan_placement_references,
 )
 from boardgate.config.models import RuleProfile
@@ -107,6 +111,8 @@ _INPUT_OPERATION_ERROR_CODES = frozenset(
         "AUTHORING_GERBER_APERTURE_UNUSED",
         "AUTHORING_GERBER_NEW_DIAMETER_PRECISION",
         "AUTHORING_GERBER_NEW_DIAMETER_WIDTH",
+        "AUTHORING_PLACEMENT_NEW_COORDINATE_PRECISION",
+        "AUTHORING_PLACEMENT_NEW_COORDINATE_WIDTH",
         "AUTHORING_PLACEMENT_NEW_REFERENCE_COLLISION",
         "AUTHORING_PLACEMENT_NEW_REFERENCE_WIDTH",
         "AUTHORING_PLACEMENT_REFERENCE_AMBIGUOUS",
@@ -208,13 +214,13 @@ def _copy_design(
 
 def _operation_evidence_key(
     operation: ModificationOperation | AppliedModificationOperation,
-) -> tuple[str, object, object]:
+) -> tuple[object, object, object]:
     """Return the operation's addressed target and expected/old and new values."""
     if isinstance(
         operation,
         (SetExcellonToolDiameter, AppliedExcellonToolDiameterChange),
     ):
-        target = operation.tool_code
+        target: object = operation.tool_code
     elif isinstance(
         operation,
         (
@@ -225,6 +231,11 @@ def _operation_evidence_key(
         target = operation.aperture_code
     elif isinstance(operation, SetPlacementReferenceDesignator):
         target = operation.expected_reference
+    elif isinstance(
+        operation,
+        (SetPlacementAnchorCoordinate, AppliedPlacementAnchorCoordinateChange),
+    ):
+        target = (operation.reference, operation.coordinate)
     else:
         target = operation.old_reference
     if isinstance(
@@ -234,6 +245,8 @@ def _operation_evidence_key(
         return target, operation.expected_diameter_mm, operation.new_diameter_mm
     if isinstance(operation, SetPlacementReferenceDesignator):
         return target, operation.expected_reference, operation.new_reference
+    if isinstance(operation, SetPlacementAnchorCoordinate):
+        return target, operation.expected_position_mm, operation.new_position_mm
     if isinstance(
         operation,
         (
@@ -242,6 +255,8 @@ def _operation_evidence_key(
         ),
     ):
         return target, operation.old_diameter_mm, operation.new_diameter_mm
+    if isinstance(operation, AppliedPlacementAnchorCoordinateChange):
+        return target, operation.old_position_mm, operation.new_position_mm
     return target, operation.old_reference, operation.new_reference
 
 
@@ -381,7 +396,10 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     != Decimal(str(result_operation.new_diameter_mm))
                 ):
                     raise token_mismatch
-            else:
+            elif isinstance(
+                result_operation,
+                AppliedPlacementReferenceDesignatorChange,
+            ):
                 placement_witnesses = tuple(
                     witness
                     for witness in scan_placement_references(
@@ -394,6 +412,24 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     len(placement_witnesses) != 1
                     or placement_witnesses[0].value_span
                     != result_operation.output_value_span
+                ):
+                    raise token_mismatch
+            else:
+                coordinate_witnesses = tuple(
+                    witness
+                    for witness in scan_placement_coordinates(
+                        payload,
+                        coordinate=result_operation.coordinate,
+                        subject="<design-source>",
+                    )
+                    if witness.reference == result_operation.reference
+                )
+                if (
+                    len(coordinate_witnesses) != 1
+                    or coordinate_witnesses[0].value_span
+                    != result_operation.output_value_span
+                    or coordinate_witnesses[0].value_mm
+                    != Decimal(str(result_operation.new_position_mm))
                 ):
                     raise token_mismatch
 
@@ -482,13 +518,48 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
             raise ValueError(
                 "operation output primitives do not match validation project"
             )
-    else:
+    elif isinstance(
+        result_operation,
+        AppliedPlacementReferenceDesignatorChange,
+    ):
         output_target_placements = tuple(
             placement
             for placement in validation_project.components
             if placement.provenance.source_file_id
             == result_operation.output_source_file_id
             and placement.reference == result_operation.new_reference
+        )
+        output_placement_ids = tuple(
+            sorted(
+                placement.provenance.object_id
+                for placement in output_target_placements
+                if placement.provenance.object_id is not None
+            )
+        )
+        if len(output_target_placements) != len(output_placement_ids) or (
+            output_placement_ids
+            != tuple(sorted(result_operation.affected_output_placement_ids))
+        ):
+            raise ValueError(
+                "operation output placements do not match validation project"
+            )
+    else:
+        output_target_placements = tuple(
+            placement
+            for placement in validation_project.components
+            if placement.provenance.source_file_id
+            == result_operation.output_source_file_id
+            and placement.reference == result_operation.reference
+            and math.isclose(
+                (
+                    placement.position.x
+                    if result_operation.coordinate == "x"
+                    else placement.position.y
+                ),
+                result_operation.new_position_mm,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
         )
         output_placement_ids = tuple(
             sorted(
