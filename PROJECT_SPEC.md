@@ -83,8 +83,9 @@ project. An operation is supported only when BoardGate can prove its target,
 preconditions, deterministic byte or semantic transformation, and
 postconditions. Operations are registered and versioned individually.
 
-The first supported vertical slice is a constrained Excellon round-drill tool
-diameter change. Later candidates include bounded placement-field edits,
+The supported vertical slices are a constrained Excellon round-drill tool
+diameter change and a constrained Gerber standard round-aperture diameter
+change. Later candidates include bounded placement-field edits,
 explicit layer transformations, and edits through native EDA adapters. Each
 candidate requires its own capability and round-trip evidence; support for one
 operation does not imply general Gerber, Excellon, or EDA editing.
@@ -280,9 +281,13 @@ separate from deterministic evidence.
 ### Phase B — deterministic modification operations
 
 - Deliver one operation at a time with precise format/precondition scope.
-- First slice: change one supported metric absolute Excellon tool diameter,
+- **Implemented:** change one supported metric absolute Excellon tool diameter,
   preserve all unrelated bytes, and prove the parsed semantic delta.
-- Add stale-input, ambiguity, unsupported-syntax, and rollback tests.
+- **Implemented:** change one supported metric absolute Gerber standard round
+  aperture diameter, preserve all unrelated bytes, and prove the parsed
+  semantic delta.
+- Stale-input, ambiguity, unsupported-syntax, and rollback tests accompany each
+  operation slice.
 
 ### Phase C — independent review validation
 

@@ -248,11 +248,13 @@ checks, and so on), see [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 ## Constrained PCB modification
 
 Modification is a separate deterministic capability, not a rule-engine side
-effect. The first operation changes one explicitly identified Excellon round
-drill tool from an expected diameter to a new diameter. It accepts only a
-confirmed, warning-free, metric/absolute source with a plain fixed-width
-`TnnC0.000` definition; tools shared with routed slots and unsupported syntax
-fail closed.
+effect. Two operations are registered: `set_excellon_tool_diameter/1.0` changes
+one explicitly identified Excellon round drill tool from an expected diameter
+to a new diameter, and `set_gerber_standard_aperture_diameter/1.0` changes one
+explicitly identified Gerber standard round aperture the same way. Each accepts
+only a confirmed, warning-free, metric/absolute source with a plain fixed-width
+definition (`TnnC0.000` or `%ADDnnC,0.000*%`); tools shared with routed slots,
+holed or non-circle apertures, and unsupported syntax fail closed.
 
 First run `inspect` and take the base project/source IDs and SHA-256 from its
 validated `manifest.json`. For the original `drill_too_small` fixture, a
