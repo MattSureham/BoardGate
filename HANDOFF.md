@@ -19,29 +19,30 @@
 
 ## Current State
 
-- Last updated: `2026-08-05T12:10:00+08:00`
+- Last updated: `2026-08-05T13:40:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  records the completed placement reference-designator modification slice
-  eb202ff+291943d.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 278a9fb.
-  GitHub Actions run 30970697188 completed with success on all eight jobs
-  for that published slice tip, verified via gh on 2026-08-05. Local main
-  is three commits ahead of origin/main (eb202ff, 291943d, and this
-  HANDOFF commit); publication awaits explicit user authorization. No
-  force push, rebase, or remote-history rewrite occurred.`
+  records the completed placement anchor-coordinate modification slice
+  ac22e1c+faa8ce0.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 178ff48,
+  verified via git fetch on 2026-08-05; the prior state's claim that
+  origin was at 278a9fb was stale (178ff48 was pushed and CI-verified in
+  the same authorized publication as 278a9fb). Local main is six commits
+  ahead of origin/main (eb202ff, 291943d, 6bb5fbe, ac22e1c, faa8ce0, and
+  this HANDOFF commit); publication awaits explicit user authorization.
+  No force push, rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
   and cross-panel Finding navigation. Authoring Phases A-D and the first
   Phase E registered extension now have an
-  accepted separate-subsystem architecture, strict public contracts, three
+  accepted separate-subsystem architecture, strict public contracts, four
   deterministic single-token modification operations (Excellon tool
-  diameter, Gerber standard round-aperture diameter, and placement-CSV
-  reference designator), two bounded
+  diameter, Gerber standard round-aperture diameter, placement-CSV
+  reference designator, and placement-CSV anchor coordinate), two bounded
   deterministic two-layer coupon generation operations, independent review
   validation for every emitted design, and a typed authoring-plan admission
   boundary with a separate authorization digest, explicit-approval CLI
@@ -73,7 +74,7 @@
     helpers.`
   - `[CONFIRMED] Strict Rule Profile 1.0 covering all 16 rule settings,
     required layers, fabrication thresholds, tolerances, and review policy.`
-  - `[CONFIRMED] Restricted YAML/JSON loader and ten checked-in Draft
+  - `[CONFIRMED] Restricted YAML/JSON loader and eleven checked-in Draft
     2020-12 public JSON Schemas.`
   - `[CONFIRMED] Private, lifecycle-bounded staging for directories, ZIP
     archives, and explicit regular files.`
@@ -388,6 +389,23 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Placement anchor-coordinate gates on 2026-08-05 passed on
+    the complete tree: Ruff format/check (207 files); mypy (189 source
+    files); checked-in Schema export/currency for the eleven Schemas
+    (modification-request/result widened for the fourth operation); and
+    the complete Python 3.12 suite with 1002 tests at 90.43% branch
+    coverage, including 30 focused scanner/patch/verify unit tests, five
+    new contract tests, and thirteen integration tests proving the
+    placement_outside_outline base blocker, CLI/service byte-identical
+    publication, public-Schema validation, stale-source fail-closed with
+    workspace preservation, precondition/input exit separation
+    (PRECONDITION_MISMATCH, PRECISION, and WIDTH at exit 2; ambiguous
+    duplicate at exit 2; non-plain token and non-metric source at
+    exit 3), blocker publication with exit 1, span-tamper workspace
+    rejection, and ANALYSIS_FAILED rollback without residue. A manual
+    end-to-end smoke produced rev-8c377e28af9e2947 READY_FOR_REVIEW with
+    zero validation Findings and only the intended coordinate token
+    changed.`
   - `[CONFIRMED] GitHub Actions run 30970697188 at published slice tip
     278a9fb completed with success on all eight jobs (quality, tests 3.12,
     tests 3.14, viewer-quality, viewer-browsers, and the Ubuntu, macOS, and
@@ -1144,19 +1162,93 @@ the current capabilities.
 
 ## Next Action
 
-Select the next registered authoring operation from PROJECT_SPEC's
-remaining Phase E candidates (a further bounded placement-field edit, an
-explicit layer transformation, or a native EDA adapter) and implement it
-as a Phase B-style slice: strict request/result contracts and exact
-registry admission first, then stale-input, ambiguity,
-unsupported-syntax, and rollback tests, plus round-trip evidence that
-the emitted revision resolves a targeted Finding through the unchanged
-review pipeline without hiding new Findings. Publication of the
-placement reference-designator slice (eb202ff, 291943d, and the
-branch-tip HANDOFF commit) additionally awaits explicit user
-authorization for a normal push to origin/main.
+Publish the six local commits (the placement reference-designator slice
+eb202ff+291943d+6bb5fbe and the placement anchor-coordinate slice
+ac22e1c+faa8ce0 plus the branch-tip HANDOFF commit) to origin/main with
+explicit user authorization, then verify the resulting GitHub Actions
+run in the foreground. If publication is not yet authorized, select the
+next registered authoring operation from PROJECT_SPEC's remaining
+Phase E candidates (a further bounded placement-field edit, an explicit
+layer transformation, or a native EDA adapter) and implement it as a
+Phase B-style slice: strict request/result contracts and exact registry
+admission first, then stale-input, ambiguity, unsupported-syntax, and
+rollback tests, plus round-trip evidence that the emitted revision
+resolves a targeted Finding through the unchanged review pipeline
+without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-05T13:40:00+08:00 — Claude — Placement anchor coordinate modification operation
+
+- Role: implementation agent
+- Task: Execute the bounded Next Action: select the next registered
+  authoring operation from PROJECT_SPEC's Phase E candidates and
+  implement it as a Phase B-style slice.
+- Context: The recovery at session start confirmed the unpublished
+  placement reference-designator slice (eb202ff+291943d+6bb5fbe) and
+  independently re-verified its claimed gates before proceeding. The
+  selected candidate is the further bounded placement-field edit:
+  `set_placement_anchor_coordinate` 1.0 moves one explicitly identified
+  placement-CSV row's X or Y anchor token from an expected position to a
+  new position, resolving a targeted placement_outside_board_outline
+  blocker.
+- Actions performed:
+  - `[CONFIRMED]` Added the SetPlacementAnchorCoordinate and
+    AppliedPlacementAnchorCoordinateChange 1.0 contracts (reference
+    pattern, x/y axis literal, ±1000 mm inclusive bounds, no-op and
+    same-width token-span validators) with a fourth
+    MODIFICATION_OPERATION_KEYS entry, full registry admission, and
+    regenerated modification Schemas.
+  - `[CONFIRMED]` Implemented the bounded coordinate adapter in
+    `authoring/placement.py`: a strict single-line unquoted-cell scanner
+    sharing the refactored row-strictness helper with the reference
+    scanner, plain-decimal token admission
+    (`-?(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?`), metric-only sources,
+    dual parsed/token target uniqueness, exact Decimal expected-position
+    and parsed-position preconditions, precision-exact same-width token
+    replacement, and a semantic postcondition verifier protecting every
+    non-target row in full plus the target row's reference, untouched
+    axis, and remaining raw tokens.
+  - `[CONFIRMED]` Registered the fourth executor and integrated the new
+    kind into ModificationService evidence-key comparison, workspace
+    witness rescans, validation-project checks, and the input-error exit
+    code set (PRECISION/WIDTH at exit 2).
+  - `[CONFIRMED]` Created the original placement_outside_outline fixture
+    (C1 anchor at X=25 outside the 20x15 mm outline, R1 inside) and
+    verified its baseline review empirically (exactly one
+    placement_outside_board_outline blocker) before writing tests.
+  - `[CONFIRMED]` Updated PROJECT_SPEC, CAPABILITIES, and both READMEs
+    for the fourth operation, and corrected two stale Current State
+    facts: origin/main is at 178ff48 (not 278a9fb) per git fetch, and
+    eleven (not ten) Schemas are checked in.
+- Files modified: `src/boardgate/authoring/models.py`,
+  `src/boardgate/authoring/placement.py`,
+  `src/boardgate/authoring/__init__.py`,
+  `src/boardgate/application/modification_registry.py`,
+  `src/boardgate/application/modification_service.py`,
+  `schemas/v1/modification-request.schema.json`,
+  `schemas/v1/modification-result.schema.json`,
+  `tests/fixtures/placement_outside_outline/` (new),
+  `tests/unit/authoring/test_placement_coordinate.py` (new),
+  `tests/unit/authoring/test_models_identifiers.py`,
+  `tests/integration/test_modify_placement_coordinate_revision.py` (new),
+  `PROJECT_SPEC.md`, `docs/CAPABILITIES.md`, `README.md`,
+  `README.zh-CN.md`, `HANDOFF.md` (this state and activity record).
+- Verification performed: `[CONFIRMED]` Complete-tree gates green
+  (Ruff format/check 207 files; mypy 189 files; Schema export/currency;
+  1002 tests at 90.43% branch coverage), committed as ac22e1c
+  (implementation) and faa8ce0 (documentation); a manual end-to-end
+  smoke produced rev-8c377e28af9e2947 READY_FOR_REVIEW with zero
+  validation Findings and only the intended token changed. See the
+  Verification bullet for the full evidence list.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The six local commits (eb202ff, 291943d,
+  6bb5fbe, ac22e1c, faa8ce0, and this HANDOFF commit) are unpublished;
+  CI verification requires the user-authorized push recorded in Next
+  Action.
+- Recommended next action: Publish with explicit user authorization, or
+  select the next Phase E candidate bounded in Next Action.
 
 ### 2026-08-05T12:10:00+08:00 — Claude — Placement reference designator modification operation
 
