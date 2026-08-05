@@ -231,13 +231,16 @@ v0.1 精确的输入子集与刻意保留的边界（不做网络表推断、不
 
 ## 受限 PCB 修改
 
-修改是独立的确定性能力，不是规则引擎的副作用。当前注册了两个 operation：
+修改是独立的确定性能力，不是规则引擎的副作用。当前注册了三个 operation：
 `set_excellon_tool_diameter/1.0` 把一个明确指定的 Excellon 圆孔刀具从预期
 旧直径改为新直径；`set_gerber_standard_aperture_diameter/1.0` 以同样方式
-修改一个明确指定的 Gerber 标准圆形光圈。它们只接受已确认、无
-warning/limitation、metric/absolute，且使用固定宽度普通定义
-（`TnnC0.000` 或 `%ADDnnC,0.000*%`）的源文件；与 routed slot 共用的刀具、
-带孔或非圆形光圈，以及不支持的语法都会 fail closed。
+修改一个明确指定的 Gerber 标准圆形光圈；`set_placement_reference_designator/1.0`
+把 placement CSV 中一条明确指定记录的 Reference 字段从预期值改为新值。
+前两者只接受已确认、无 warning/limitation、metric/absolute，且使用固定宽度
+普通定义（`TnnC0.000` 或 `%ADDnnC,0.000*%`）的源文件；第三者只接受每行
+单行的、无引号的已确认 placement CSV，且新引用不得与任何现有引用冲突。
+与 routed slot 共用的刀具、带孔或非圆形光圈、多行或带引号的记录，
+以及不支持的语法都会 fail closed。
 
 先运行 `inspect`，从已验证的 `manifest.json` 取得 base project/source ID
 与 SHA-256。仓库原创 `drill_too_small` fixture 对应的 request 为：

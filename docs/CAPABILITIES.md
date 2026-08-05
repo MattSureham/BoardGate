@@ -26,7 +26,7 @@ approval.
 | Offline viewer | Separately distributed, single-file `file://` loader validates an explicitly selected exact six-artifact bundle, displays its original identity, status, counts, risk modes, and safe failure diagnostics, imports a namespace-correct passive preview.svg into a presentation-only DOM copy with layer visibility toggles and Finding-ID focus, renders report.md through a deterministic-subset tokenizer built only with createElement/textContent, and keeps report Finding headings and the preview Finding list on one shared selection state | No upload, persistence, review trigger, evidence write-back, Markdown library/innerHTML rendering, or readiness reinterpretation; interactions change only trusted CSS visibility/classes on the presentation copy, never geometry-defining attributes, selected bundle bytes, or review evidence |
 | Narrative | Offline deterministic provider protocol | No network LLM provider or API key support |
 | Readiness | Conservative status and explicit partial/skipped/failed coverage | Never a manufacturability guarantee; actual fabricator limits require engineer confirmation |
-| PCB modification | Exact `set_excellon_tool_diameter` 1.0 and `set_gerber_standard_aperture_diameter` 1.0 operations on one confirmed warning-free metric/absolute Excellon or Gerber source; stale base/source identity, old diameter, target tool or aperture code, and syntax are checked before one same-width token change; before/after parses prove the protected semantic delta; a separate atomic revision includes canonical evidence and a fresh six-artifact review | No in-place edits, raw/free-form patches, arbitrary Gerber/Excellon round trips, tools shared with slots, holed or non-circle apertures, unsupported definition syntax, or inferred design intent; request/profile files and non-design siblings are rejected from v1 design inputs |
+| PCB modification | Exact `set_excellon_tool_diameter` 1.0, `set_gerber_standard_aperture_diameter` 1.0, and `set_placement_reference_designator` 1.0 operations on one confirmed warning-free metric/absolute Excellon or Gerber source or one confirmed placement CSV source; stale base/source identity, old diameter or reference, target tool, aperture code, or reference, and syntax are checked before one same-width token change; before/after parses prove the protected semantic delta; a separate atomic revision includes canonical evidence and a fresh six-artifact review | No in-place edits, raw/free-form patches, arbitrary Gerber/Excellon/CSV round trips, tools shared with slots, holed or non-circle apertures, unsupported definition syntax, quoted or multiline placement rows, colliding new references, or inferred design intent; request/profile files and non-design siblings are rejected from v1 design inputs |
 | PCB generation | Two exact 1.0 requirements contracts: `generate_two_layer_coupon` emits a bounded metric rectangular two-layer coupon with explicit plated round holes/pads and straight round-aperture traces; `generate_two_layer_coupon_with_npth` additionally requires a distinct NPTH set and emits separate explicitly plated and non-plated drill payloads. Registered deterministic executors reparse every emitted file, prove exact requested semantics, and publish canonical evidence only with a fresh six-artifact review from the unchanged `ReviewService` | No implicit NPTH pad, free-form writer path, schematic synthesis, arbitrary placement/routing, slots, vias, non-round holes/apertures, or native/general-purpose EDA authoring; manufacturing clearances are review-profile decisions, and the pinned disclaimer states that generation does not guarantee manufacturability or replace fabricator and engineer approval |
 
 ## Bounded derived geometry policy
@@ -94,6 +94,17 @@ allowed; N+1 fails before emission. Only a plain
 without changing source length or downstream byte spans. The changed file is
 reparsed and all non-target primitive facts are compared before the unchanged
 project review pipeline runs.
+
+The placement reference adapter policy 1.0 admits at most 50 MiB, 1,000,000
+lines, and 1 MiB per data-row line. Equality is allowed; N+1 fails before
+emission. Only a plain unquoted reference token in a single-line CSV row is
+patched, without changing source length or downstream byte spans; the token
+must resolve uniquely against both the raw rows and the parsed placements,
+and the new reference must not collide with any existing parsed reference.
+Quoted cells, embedded delimiters, multiline rows, and lowercase or otherwise
+normalized-only matches fail closed. The changed file is reparsed and all
+non-target placement facts are compared before the unchanged project review
+pipeline runs.
 
 The revision workspace contains exactly:
 

@@ -84,8 +84,9 @@ preconditions, deterministic byte or semantic transformation, and
 postconditions. Operations are registered and versioned individually.
 
 The supported vertical slices are a constrained Excellon round-drill tool
-diameter change and a constrained Gerber standard round-aperture diameter
-change. Later candidates include bounded placement-field edits,
+diameter change, a constrained Gerber standard round-aperture diameter
+change, and a constrained placement-CSV reference-designator rename. Later
+candidates include further bounded placement-field edits,
 explicit layer transformations, and edits through native EDA adapters. Each
 candidate requires its own capability and round-trip evidence; support for one
 operation does not imply general Gerber, Excellon, or EDA editing.
@@ -286,6 +287,9 @@ separate from deterministic evidence.
 - **Implemented:** change one supported metric absolute Gerber standard round
   aperture diameter, preserve all unrelated bytes, and prove the parsed
   semantic delta.
+- **Implemented:** rename one supported placement-CSV row's reference
+  designator, preserve all unrelated bytes, and prove the parsed semantic
+  delta.
 - Stale-input, ambiguity, unsupported-syntax, and rollback tests accompany each
   operation slice.
 
