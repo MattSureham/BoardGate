@@ -17,12 +17,14 @@ from boardgate.authoring.models import (
     MODIFICATION_DISCLAIMER,
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
+    AppliedPlacementReferenceDesignatorChange,
     ModificationRequest,
     ModificationResult,
     PayloadFileEvidence,
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
+    SetPlacementReferenceDesignator,
 )
 from boardgate.domain.enums import ReviewStatus
 from boardgate.domain.provenance import SourceSpan
@@ -476,3 +478,161 @@ def test_gerber_applied_change_round_trips_inside_result() -> None:
     assert isinstance(admitted.operation, AppliedGerberStandardApertureDiameterChange)
     assert admitted.operation.aperture_code == "D11"
     assert admitted.operation.adapter_id == "boardgate-gerber-aperture-diameter-patch"
+
+
+def placement_operation() -> SetPlacementReferenceDesignator:
+    return SetPlacementReferenceDesignator(
+        schema_version="1.0",
+        operation_version="1.0",
+        source_logical_path="assembly/component-placement.csv",
+        source_file_id=INPUT_SOURCE_ID,
+        source_sha256=INPUT_SHA,
+        expected_reference="C1",
+        new_reference="R2",
+        instruction="Rename the explicitly selected placement reference.",
+    )
+
+
+def placement_applied_change() -> AppliedPlacementReferenceDesignatorChange:
+    span = SourceSpan(
+        start_line=3,
+        end_line=3,
+        start_byte=42,
+        end_byte=44,
+    )
+    return AppliedPlacementReferenceDesignatorChange(
+        source_logical_path="assembly/component-placement.csv",
+        input_source_file_id=INPUT_SOURCE_ID,
+        output_source_file_id=OUTPUT_SOURCE_ID,
+        input_sha256=INPUT_SHA,
+        output_sha256=OUTPUT_SHA,
+        old_reference="C1",
+        new_reference="R2",
+        input_value_span=span,
+        output_value_span=span,
+        affected_input_placement_ids=("plc-input",),
+        affected_output_placement_ids=("plc-output",),
+    )
+
+
+def test_placement_request_round_trip_and_hash_is_content_derived() -> None:
+    value = ModificationRequest(
+        schema_version="1.0",
+        base_project_id=BASE_PROJECT_ID,
+        operation=placement_operation(),
+    )
+
+    admitted = ModificationRequest.model_validate_json(value.model_dump_json())
+    assert admitted == value
+    assert isinstance(admitted.operation, SetPlacementReferenceDesignator)
+    assert admitted.operation.kind == "set_placement_reference_designator"
+
+    changed_instruction = value.model_copy(
+        update={
+            "operation": value.operation.model_copy(
+                update={"instruction": "A different explicit instruction."}
+            )
+        }
+    )
+    assert request_sha256(changed_instruction) != request_sha256(value)
+    assert operation_sha256(changed_instruction.operation) == operation_sha256(
+        value.operation
+    )
+
+
+def test_placement_operation_rejects_noop_and_bad_references() -> None:
+    payload = placement_operation().model_dump()
+    payload["new_reference"] = payload["expected_reference"]
+    with pytest.raises(ValidationError, match="must differ"):
+        SetPlacementReferenceDesignator.model_validate(payload)
+
+    for reference in ("c1", "R 2", "", "-R2", "R2" * 17):
+        with pytest.raises(ValidationError, match="new_reference"):
+            SetPlacementReferenceDesignator.model_validate(
+                {**placement_operation().model_dump(), "new_reference": reference}
+            )
+    for reference in ("R2", "TP10", "J1A", "X1_2", "A"):
+        admitted = SetPlacementReferenceDesignator.model_validate(
+            {**placement_operation().model_dump(), "new_reference": reference}
+        )
+        assert admitted.new_reference == reference
+
+
+def test_placement_applied_change_requires_new_identity_and_one_to_one_targets() -> (
+    None
+):
+    value = placement_applied_change()
+
+    with pytest.raises(ValidationError, match="must change the source digest"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {**value.model_dump(), "output_sha256": INPUT_SHA}
+        )
+    with pytest.raises(ValidationError, match="new source_file_id"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {**value.model_dump(), "output_source_file_id": INPUT_SOURCE_ID}
+        )
+    with pytest.raises(ValidationError, match="must change the reference designator"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {**value.model_dump(), "new_reference": value.old_reference}
+        )
+    with pytest.raises(ValidationError, match="one-to-one"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_input_placement_ids": ("plc-input", "plc-input"),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+
+
+def test_placement_applied_change_requires_the_exact_same_width_token_span() -> None:
+    value = placement_applied_change()
+    shifted = value.output_value_span.model_copy(
+        update={"start_byte": 43, "end_byte": 45}
+    )
+    with pytest.raises(ValidationError, match="preserve the value source span"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {**value.model_dump(), "output_value_span": shifted.model_dump()}
+        )
+
+    empty = value.input_value_span.model_copy(update={"start_byte": 42, "end_byte": 42})
+    with pytest.raises(ValidationError, match="non-empty source token span"):
+        AppliedPlacementReferenceDesignatorChange.model_validate(
+            {
+                **value.model_dump(),
+                "input_value_span": empty.model_dump(),
+                "output_value_span": empty.model_dump(),
+            }
+        )
+
+
+def test_placement_applied_change_round_trips_inside_result() -> None:
+    evidence = result()
+    payload_files = tuple(
+        item.model_copy(
+            update={
+                "logical_path": "assembly/component-placement.csv"
+                if item.changed
+                else item.logical_path
+            }
+        )
+        for item in evidence.payload_files
+    )
+    placement_result = evidence.model_copy(
+        update={"operation": placement_applied_change(), "payload_files": payload_files}
+    )
+    admitted = ModificationResult.model_validate_json(
+        placement_result.model_dump_json()
+    )
+    assert isinstance(admitted.operation, AppliedPlacementReferenceDesignatorChange)
+    assert admitted.operation.new_reference == "R2"
+    assert admitted.operation.adapter_id == (
+        "boardgate-placement-reference-designator-patch"
+    )

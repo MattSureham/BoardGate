@@ -1,0 +1,4 @@
+Reference,Quantity,Value,Footprint,DNP
+R1,1,10k,R0603,no
+R2,1,20k,R0603,no
+R9,0,DNP,R0603,yes

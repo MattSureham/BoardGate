@@ -47,11 +47,9 @@ from boardgate.application.revision_workspace import (
 )
 from boardgate.authoring.excellon import (
     AuthoringOperationError,
-    ExcellonToolDefinitionWitness,
     scan_excellon_tool_definitions,
 )
 from boardgate.authoring.gerber import (
-    GerberApertureDefinitionWitness,
     scan_gerber_aperture_definitions,
 )
 from boardgate.authoring.identifiers import (
@@ -62,6 +60,7 @@ from boardgate.authoring.identifiers import (
 from boardgate.authoring.models import (
     MODIFICATION_DISCLAIMER,
     AppliedExcellonToolDiameterChange,
+    AppliedGerberStandardApertureDiameterChange,
     AppliedModificationOperation,
     ModificationOperation,
     ModificationRequest,
@@ -69,6 +68,11 @@ from boardgate.authoring.models import (
     PayloadFileEvidence,
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
+    SetGerberStandardApertureDiameter,
+    SetPlacementReferenceDesignator,
+)
+from boardgate.authoring.placement import (
+    scan_placement_references,
 )
 from boardgate.config.models import RuleProfile
 from boardgate.domain.enums import FileType, ReviewStatus
@@ -103,6 +107,10 @@ _INPUT_OPERATION_ERROR_CODES = frozenset(
         "AUTHORING_GERBER_APERTURE_UNUSED",
         "AUTHORING_GERBER_NEW_DIAMETER_PRECISION",
         "AUTHORING_GERBER_NEW_DIAMETER_WIDTH",
+        "AUTHORING_PLACEMENT_NEW_REFERENCE_COLLISION",
+        "AUTHORING_PLACEMENT_NEW_REFERENCE_WIDTH",
+        "AUTHORING_PLACEMENT_REFERENCE_AMBIGUOUS",
+        "AUTHORING_PLACEMENT_REFERENCE_NOT_FOUND",
         "AUTHORING_PRECONDITION_MISMATCH",
         "AUTHORING_SOURCE_ID_MISMATCH",
         "AUTHORING_SOURCE_SHA_MISMATCH",
@@ -198,16 +206,43 @@ def _copy_design(
             shutil.copyfile(item.staged_path, target)
 
 
-def _operation_target_code(
+def _operation_evidence_key(
     operation: ModificationOperation | AppliedModificationOperation,
-) -> str:
-    """Return the operation's addressed tool or aperture code."""
+) -> tuple[str, object, object]:
+    """Return the operation's addressed target and expected/old and new values."""
     if isinstance(
         operation,
         (SetExcellonToolDiameter, AppliedExcellonToolDiameterChange),
     ):
-        return operation.tool_code
-    return operation.aperture_code
+        target = operation.tool_code
+    elif isinstance(
+        operation,
+        (
+            SetGerberStandardApertureDiameter,
+            AppliedGerberStandardApertureDiameterChange,
+        ),
+    ):
+        target = operation.aperture_code
+    elif isinstance(operation, SetPlacementReferenceDesignator):
+        target = operation.expected_reference
+    else:
+        target = operation.old_reference
+    if isinstance(
+        operation,
+        (SetExcellonToolDiameter, SetGerberStandardApertureDiameter),
+    ):
+        return target, operation.expected_diameter_mm, operation.new_diameter_mm
+    if isinstance(operation, SetPlacementReferenceDesignator):
+        return target, operation.expected_reference, operation.new_reference
+    if isinstance(
+        operation,
+        (
+            AppliedExcellonToolDiameterChange,
+            AppliedGerberStandardApertureDiameterChange,
+        ),
+    ):
+        return target, operation.old_diameter_mm, operation.new_diameter_mm
+    return target, operation.old_reference, operation.new_reference
 
 
 def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
@@ -266,10 +301,8 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         request_operation.source_logical_path != result_operation.source_logical_path
         or request_operation.source_file_id != result_operation.input_source_file_id
         or request_operation.source_sha256 != result_operation.input_sha256
-        or request_operation.expected_diameter_mm != result_operation.old_diameter_mm
-        or request_operation.new_diameter_mm != result_operation.new_diameter_mm
-        or _operation_target_code(request_operation)
-        != _operation_target_code(result_operation)
+        or _operation_evidence_key(request_operation)
+        != _operation_evidence_key(result_operation)
     ):
         raise ValueError("request operation does not match applied operation evidence")
     if (
@@ -308,12 +341,11 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         if hashlib.sha256(payload).hexdigest() != item.after_sha256:
             raise ValueError("design payload digest does not match result evidence")
         if item.logical_path == result_operation.source_logical_path:
-            witnesses: (
-                tuple[ExcellonToolDefinitionWitness, ...]
-                | tuple[GerberApertureDefinitionWitness, ...]
+            token_mismatch = ValueError(
+                "operation token evidence does not match the design payload"
             )
             if isinstance(result_operation, AppliedExcellonToolDiameterChange):
-                witnesses = tuple(
+                excellon_witnesses = tuple(
                     witness
                     for witness in scan_excellon_tool_definitions(
                         payload,
@@ -321,8 +353,19 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     )
                     if witness.tool_code == result_operation.tool_code
                 )
-            else:
-                witnesses = tuple(
+                if (
+                    len(excellon_witnesses) != 1
+                    or excellon_witnesses[0].value_span
+                    != result_operation.output_value_span
+                    or excellon_witnesses[0].diameter_mm
+                    != Decimal(str(result_operation.new_diameter_mm))
+                ):
+                    raise token_mismatch
+            elif isinstance(
+                result_operation,
+                AppliedGerberStandardApertureDiameterChange,
+            ):
+                gerber_witnesses = tuple(
                     witness
                     for witness in scan_gerber_aperture_definitions(
                         payload,
@@ -330,15 +373,29 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     )
                     if witness.aperture_code == result_operation.aperture_code
                 )
-            if (
-                len(witnesses) != 1
-                or witnesses[0].value_span != result_operation.output_value_span
-                or witnesses[0].diameter_mm
-                != Decimal(str(result_operation.new_diameter_mm))
-            ):
-                raise ValueError(
-                    "operation token evidence does not match the design payload"
+                if (
+                    len(gerber_witnesses) != 1
+                    or gerber_witnesses[0].value_span
+                    != result_operation.output_value_span
+                    or gerber_witnesses[0].diameter_mm
+                    != Decimal(str(result_operation.new_diameter_mm))
+                ):
+                    raise token_mismatch
+            else:
+                placement_witnesses = tuple(
+                    witness
+                    for witness in scan_placement_references(
+                        payload,
+                        subject="<design-source>",
+                    )
+                    if witness.reference == result_operation.new_reference
                 )
+                if (
+                    len(placement_witnesses) != 1
+                    or placement_witnesses[0].value_span
+                    != result_operation.output_value_span
+                ):
+                    raise token_mismatch
 
     bundle = load_validation_bundle(root)
     validate_artifact_bundle(bundle)
@@ -397,7 +454,10 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
             for drill in output_target_drills
         ):
             raise ValueError("operation output drills do not match validation project")
-    else:
+    elif isinstance(
+        result_operation,
+        AppliedGerberStandardApertureDiameterChange,
+    ):
         output_target_primitives = tuple(
             primitive
             for layer in validation_project.layers
@@ -421,6 +481,28 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         ):
             raise ValueError(
                 "operation output primitives do not match validation project"
+            )
+    else:
+        output_target_placements = tuple(
+            placement
+            for placement in validation_project.components
+            if placement.provenance.source_file_id
+            == result_operation.output_source_file_id
+            and placement.reference == result_operation.new_reference
+        )
+        output_placement_ids = tuple(
+            sorted(
+                placement.provenance.object_id
+                for placement in output_target_placements
+                if placement.provenance.object_id is not None
+            )
+        )
+        if len(output_target_placements) != len(output_placement_ids) or (
+            output_placement_ids
+            != tuple(sorted(result_operation.affected_output_placement_ids))
+        ):
+            raise ValueError(
+                "operation output placements do not match validation project"
             )
 
 

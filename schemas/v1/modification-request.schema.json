@@ -4,7 +4,8 @@
       "discriminator": {
         "mapping": {
           "set_excellon_tool_diameter": "#/$defs/SetExcellonToolDiameter",
-          "set_gerber_standard_aperture_diameter": "#/$defs/SetGerberStandardApertureDiameter"
+          "set_gerber_standard_aperture_diameter": "#/$defs/SetGerberStandardApertureDiameter",
+          "set_placement_reference_designator": "#/$defs/SetPlacementReferenceDesignator"
         },
         "propertyName": "kind"
       },
@@ -14,6 +15,9 @@
         },
         {
           "$ref": "#/$defs/SetGerberStandardApertureDiameter"
+        },
+        {
+          "$ref": "#/$defs/SetPlacementReferenceDesignator"
         }
       ]
     },
@@ -163,6 +167,72 @@
         "instruction"
       ],
       "title": "SetGerberStandardApertureDiameter",
+      "type": "object"
+    },
+    "SetPlacementReferenceDesignator": {
+      "additionalProperties": false,
+      "description": "One explicitly targeted, stale-safe placement reference rename request.",
+      "properties": {
+        "expected_reference": {
+          "pattern": "^[A-Z0-9][A-Z0-9_.\\-]{0,31}$",
+          "title": "Expected Reference",
+          "type": "string"
+        },
+        "instruction": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Instruction",
+          "type": "string"
+        },
+        "kind": {
+          "const": "set_placement_reference_designator",
+          "default": "set_placement_reference_designator",
+          "title": "Kind",
+          "type": "string"
+        },
+        "new_reference": {
+          "pattern": "^[A-Z0-9][A-Z0-9_.\\-]{0,31}$",
+          "title": "New Reference",
+          "type": "string"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Source File Id",
+          "type": "string"
+        },
+        "source_logical_path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Source Logical Path",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "operation_version",
+        "source_logical_path",
+        "source_file_id",
+        "source_sha256",
+        "expected_reference",
+        "new_reference",
+        "instruction"
+      ],
+      "title": "SetPlacementReferenceDesignator",
       "type": "object"
     }
   },

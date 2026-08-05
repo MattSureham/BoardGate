@@ -238,7 +238,8 @@
       "discriminator": {
         "mapping": {
           "set_excellon_tool_diameter": "#/$defs/AppliedExcellonToolDiameterChange",
-          "set_gerber_standard_aperture_diameter": "#/$defs/AppliedGerberStandardApertureDiameterChange"
+          "set_gerber_standard_aperture_diameter": "#/$defs/AppliedGerberStandardApertureDiameterChange",
+          "set_placement_reference_designator": "#/$defs/AppliedPlacementReferenceDesignatorChange"
         },
         "propertyName": "kind"
       },
@@ -248,8 +249,120 @@
         },
         {
           "$ref": "#/$defs/AppliedGerberStandardApertureDiameterChange"
+        },
+        {
+          "$ref": "#/$defs/AppliedPlacementReferenceDesignatorChange"
         }
       ]
+    },
+    "AppliedPlacementReferenceDesignatorChange": {
+      "additionalProperties": false,
+      "description": "Auditable semantic and byte-span evidence for the applied operation.",
+      "properties": {
+        "adapter_id": {
+          "const": "boardgate-placement-reference-designator-patch",
+          "default": "boardgate-placement-reference-designator-patch",
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_policy_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Adapter Policy Version",
+          "type": "string"
+        },
+        "affected_input_placement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Affected Input Placement Ids",
+          "type": "array"
+        },
+        "affected_output_placement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Affected Output Placement Ids",
+          "type": "array"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Input Source File Id",
+          "type": "string"
+        },
+        "input_value_span": {
+          "$ref": "#/$defs/SourceSpan"
+        },
+        "kind": {
+          "const": "set_placement_reference_designator",
+          "default": "set_placement_reference_designator",
+          "title": "Kind",
+          "type": "string"
+        },
+        "new_reference": {
+          "pattern": "^[A-Z0-9][A-Z0-9_.\\-]{0,31}$",
+          "title": "New Reference",
+          "type": "string"
+        },
+        "old_reference": {
+          "pattern": "^[A-Z0-9][A-Z0-9_.\\-]{0,31}$",
+          "title": "Old Reference",
+          "type": "string"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "output_source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Output Source File Id",
+          "type": "string"
+        },
+        "output_value_span": {
+          "$ref": "#/$defs/SourceSpan"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_logical_path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Source Logical Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_logical_path",
+        "input_source_file_id",
+        "output_source_file_id",
+        "input_sha256",
+        "output_sha256",
+        "old_reference",
+        "new_reference",
+        "input_value_span",
+        "output_value_span",
+        "affected_input_placement_ids",
+        "affected_output_placement_ids"
+      ],
+      "title": "AppliedPlacementReferenceDesignatorChange",
+      "type": "object"
     },
     "PayloadFileEvidence": {
       "additionalProperties": false,

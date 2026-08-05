@@ -20,6 +20,7 @@ _FINDING_ID_PATTERN = r"^fnd-[0-9a-f]{16}$"
 _REVISION_ID_PATTERN = r"^rev-[0-9a-f]{16}$"
 _TOOL_CODE_PATTERN = r"^T[0-9]{2,6}$"
 _APERTURE_CODE_PATTERN = r"^D[0-9]{1,6}$"
+_REFERENCE_PATTERN = r"^[A-Z0-9][A-Z0-9_.\-]{0,31}$"
 _MAX_DRILL_DIAMETER_MM = 100.0
 _MAX_APERTURE_DIAMETER_MM = 1000.0
 MODIFICATION_DISCLAIMER = (
@@ -31,6 +32,7 @@ MODIFICATION_OPERATION_KEYS = frozenset(
     {
         ("set_excellon_tool_diameter", "1.0"),
         ("set_gerber_standard_aperture_diameter", "1.0"),
+        ("set_placement_reference_designator", "1.0"),
     }
 )
 
@@ -116,8 +118,38 @@ class SetGerberStandardApertureDiameter(VersionedModel):
         return self
 
 
+class SetPlacementReferenceDesignator(VersionedModel):
+    """One explicitly targeted, stale-safe placement reference rename request."""
+
+    schema_version: Literal["1.0"]
+    kind: Literal["set_placement_reference_designator"] = (
+        "set_placement_reference_designator"
+    )
+    operation_version: Literal["1.0"]
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    source_sha256: str = Field(pattern=_SHA256_PATTERN)
+    expected_reference: str = Field(pattern=_REFERENCE_PATTERN)
+    new_reference: str = Field(pattern=_REFERENCE_PATTERN)
+    instruction: str = Field(min_length=1, max_length=500)
+
+    _safe_source_path = field_validator("source_logical_path")(
+        _validate_safe_logical_path
+    )
+
+    @model_validator(mode="after")
+    def require_real_change(self) -> Self:
+        """Reject no-op requests before any source is touched."""
+        if self.expected_reference == self.new_reference:
+            msg = "new_reference must differ from expected_reference"
+            raise ValueError(msg)
+        return self
+
+
 type ModificationOperation = Annotated[
-    SetExcellonToolDiameter | SetGerberStandardApertureDiameter,
+    SetExcellonToolDiameter
+    | SetGerberStandardApertureDiameter
+    | SetPlacementReferenceDesignator,
     Field(discriminator="kind"),
 ]
 
@@ -281,8 +313,74 @@ class AppliedGerberStandardApertureDiameterChange(VersionedModel):
         return self
 
 
+class AppliedPlacementReferenceDesignatorChange(VersionedModel):
+    """Auditable semantic and byte-span evidence for the applied operation."""
+
+    kind: Literal["set_placement_reference_designator"] = (
+        "set_placement_reference_designator"
+    )
+    operation_version: Literal["1.0"] = "1.0"
+    adapter_id: Literal["boardgate-placement-reference-designator-patch"] = (
+        "boardgate-placement-reference-designator-patch"
+    )
+    adapter_policy_version: Literal["1.0"] = "1.0"
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    input_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    output_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    input_sha256: str = Field(pattern=_SHA256_PATTERN)
+    output_sha256: str = Field(pattern=_SHA256_PATTERN)
+    old_reference: str = Field(pattern=_REFERENCE_PATTERN)
+    new_reference: str = Field(pattern=_REFERENCE_PATTERN)
+    input_value_span: SourceSpan
+    output_value_span: SourceSpan
+    affected_input_placement_ids: tuple[str, ...] = Field(min_length=1)
+    affected_output_placement_ids: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_applied_change(self) -> Self:
+        """Require new content identity and one-to-one affected objects."""
+        if self.input_sha256 == self.output_sha256:
+            msg = "applied operation must change the source digest"
+            raise ValueError(msg)
+        if self.input_source_file_id == self.output_source_file_id:
+            msg = "changed source bytes must receive a new source_file_id"
+            raise ValueError(msg)
+        if self.old_reference == self.new_reference:
+            msg = "applied operation must change the reference designator"
+            raise ValueError(msg)
+        if len(self.affected_input_placement_ids) != len(
+            self.affected_output_placement_ids
+        ):
+            msg = "affected input and output placements must correspond one-to-one"
+            raise ValueError(msg)
+        if len(self.affected_input_placement_ids) != len(
+            set(self.affected_input_placement_ids)
+        ) or len(self.affected_output_placement_ids) != len(
+            set(self.affected_output_placement_ids)
+        ):
+            msg = "affected placement identifiers must be unique"
+            raise ValueError(msg)
+        span = self.input_value_span
+        if span != self.output_value_span:
+            msg = "same-width v1 patches must preserve the value source span"
+            raise ValueError(msg)
+        if (
+            span.start_line is None
+            or span.end_line is None
+            or span.start_line != span.end_line
+            or span.start_byte is None
+            or span.end_byte is None
+            or span.start_byte >= span.end_byte
+        ):
+            msg = "reference evidence requires one non-empty source token span"
+            raise ValueError(msg)
+        return self
+
+
 type AppliedModificationOperation = Annotated[
-    AppliedExcellonToolDiameterChange | AppliedGerberStandardApertureDiameterChange,
+    AppliedExcellonToolDiameterChange
+    | AppliedGerberStandardApertureDiameterChange
+    | AppliedPlacementReferenceDesignatorChange,
     Field(discriminator="kind"),
 ]
 

@@ -25,18 +25,27 @@ from boardgate.authoring.models import (
     MODIFICATION_OPERATION_KEYS,
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
+    AppliedPlacementReferenceDesignatorChange,
     ModificationOperation,
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
+    SetPlacementReferenceDesignator,
+)
+from boardgate.authoring.placement import (
+    prepare_placement_reference_designator_patch,
+    verify_placement_reference_designator_patch,
 )
 from boardgate.domain.enums import FileType
 from boardgate.domain.source import SourceFile
 from boardgate.parsers.excellon import ExcellonParseResult
 from boardgate.parsers.gerber import GerberParseResult
+from boardgate.parsers.placement import PlacementParseResult
 
 type ParserExecutor = Callable[[ParserJob], ParserExecution]
 type AppliedModification = (
-    AppliedExcellonToolDiameterChange | AppliedGerberStandardApertureDiameterChange
+    AppliedExcellonToolDiameterChange
+    | AppliedGerberStandardApertureDiameterChange
+    | AppliedPlacementReferenceDesignatorChange
 )
 
 
@@ -289,11 +298,109 @@ class GerberStandardApertureDiameterExecutor:
         )
 
 
+def _parse_placement(
+    source: SourceFile,
+    payload: bytes,
+    *,
+    parser_executor: ParserExecutor,
+) -> PlacementParseResult:
+    execution = parser_executor(
+        ParserJob(
+            source_file_id=source.source_file_id,
+            logical_path=source.logical_path,
+            file_type=source.file_type,
+            payload=payload,
+        )
+    )
+    if execution.failure is not None:
+        raise OperationExecutionError(
+            "MODIFICATION_SOURCE_PARSE_FAILED",
+            source.logical_path,
+            f"source parser did not complete ({execution.failure.code})",
+        )
+    result = execution.result
+    if not isinstance(result, PlacementParseResult):
+        raise OperationExecutionError(
+            "MODIFICATION_SOURCE_PARSE_TYPE_MISMATCH",
+            source.logical_path,
+            "source parser did not return normalized placement evidence",
+        )
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementReferenceDesignatorExecutor:
+    """Executor for one exact, same-width placement reference-token change."""
+
+    kind: str = "set_placement_reference_designator"
+    operation_version: str = "1.0"
+    file_type: FileType = FileType.PLACEMENT_CSV
+
+    def execute(
+        self,
+        source: SourceFile,
+        payload: bytes,
+        operation: ModificationOperation,
+        *,
+        parser_executor: ParserExecutor = run_parser,
+    ) -> ExecutedModification:
+        """Patch, reparse, and prove the exact requested semantic delta."""
+        if not isinstance(operation, SetPlacementReferenceDesignator):
+            raise OperationRegistryError(
+                "MODIFICATION_EXECUTOR_TYPE_MISMATCH",
+                "registered operation model does not match its executor",
+            )
+        before = _parse_placement(
+            source,
+            payload,
+            parser_executor=parser_executor,
+        )
+        candidate = prepare_placement_reference_designator_patch(
+            payload,
+            before,
+            operation,
+        )
+        output_source = source.model_copy(
+            update={
+                "source_file_id": candidate.output_source_file_id,
+                "sha256": candidate.output_sha256,
+                "size_bytes": len(candidate.payload),
+            }
+        )
+        after = _parse_placement(
+            output_source,
+            candidate.payload,
+            parser_executor=parser_executor,
+        )
+        try:
+            applied = verify_placement_reference_designator_patch(
+                before,
+                after,
+                operation,
+                candidate,
+            )
+        except AuthoringOperationError as error:
+            raise OperationExecutionError(
+                error.code,
+                error.subject,
+                error.detail,
+            ) from error
+        return ExecutedModification(
+            payload=candidate.payload,
+            output_source_file_id=candidate.output_source_file_id,
+            output_sha256=candidate.output_sha256,
+            applied=applied,
+        )
+
+
 _EXECUTORS: Mapping[tuple[str, str], ModificationExecutor] = MappingProxyType(
     {
         ("set_excellon_tool_diameter", "1.0"): ExcellonToolDiameterExecutor(),
         ("set_gerber_standard_aperture_diameter", "1.0"): (
             GerberStandardApertureDiameterExecutor()
+        ),
+        ("set_placement_reference_designator", "1.0"): (
+            PlacementReferenceDesignatorExecutor()
         ),
     }
 )
