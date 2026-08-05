@@ -19,24 +19,18 @@
 
 ## Current State
 
-- Last updated: `2026-08-05T10:50:00+08:00`
+- Last updated: `2026-08-05T11:05:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows the Gerber aperture-diameter implementation commit 972edb9 and
-  documentation commit 505fe9c, which follow the published
-  background-task-schema baseline fdef221.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at fdef221.
-  GitHub Actions run 30892752492 completed with success on all eight jobs
-  for that published baseline, verified via gh on 2026-08-05. The earlier
-  sync note (origin at 7b015a0 with plan-minting commits local) was stale:
-  the authorized push of the plan-minting and protocol commits completed
-  between sessions, and runs 30891198384, 30892057266, and 30892752492 each
-  passed all eight jobs. The Gerber aperture-diameter implementation,
-  documentation, and this branch-tip HANDOFF commit remain local until the
-  authorized normal push; no force push, rebase, or remote-history rewrite
-  occurred.`
+  records the publication and CI verification of the Gerber
+  aperture-diameter slice 972edb9+505fe9c+278a9fb.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 278a9fb.
+  GitHub Actions run 30970697188 completed with success on all eight jobs
+  for that published slice tip, verified via gh on 2026-08-05. This
+  branch-tip HANDOFF evidence commit is included in the same authorized
+  normal push; no force push, rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -373,6 +367,11 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] GitHub Actions run 30970697188 at published slice tip
+    278a9fb completed with success on all eight jobs (quality, tests 3.12,
+    tests 3.14, viewer-quality, viewer-browsers, and the Ubuntu, macOS, and
+    Windows CLI smokes), verified via gh on 2026-08-05 after the authorized
+    push fdef221..278a9fb.`
   - `[CONFIRMED] Gerber aperture-diameter gates on 2026-08-05 passed on the
     complete tree: Ruff format/check (202 files); mypy (184 source files);
     checked-in Schema export/currency for the eleven Schemas
@@ -684,8 +683,8 @@
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main. It remains linearly ahead of origin/main=fdef221
-  until the authorized normal push is performed.`
+  leave a clean local main that equals origin/main after the same
+  authorized normal push that published 278a9fb.`
 
 ### Background Tasks
 
@@ -1109,13 +1108,48 @@ the current capabilities.
 
 ## Next Action
 
-Publish the completed Gerber aperture-diameter slice (972edb9, 505fe9c, and
-the branch-tip HANDOFF commit) to origin/main with the user's explicit
-authorization, then verify the resulting GitHub Actions run passes all eight
-jobs and record the evidence here. No force push, rebase, or remote-history
-rewrite.
+Select the next registered authoring operation from PROJECT_SPEC's Phase E
+candidates (bounded placement-field edit, explicit layer transformation, or
+native EDA adapter) and implement it as a Phase B-style slice: strict
+request/result contracts and exact registry admission first, then
+stale-input, ambiguity, unsupported-syntax, and rollback tests, plus
+round-trip evidence that the emitted revision resolves a targeted Finding
+through the unchanged review pipeline without hiding new Findings.
 
 ## Recent Activity
+
+### 2026-08-05T11:05:00+08:00 — Claude — Gerber aperture-diameter publication and CI verification
+
+- Role: publication agent
+- Task: Execute the bounded Next Action: publish the completed Gerber
+  aperture-diameter slice with the user's explicit authorization and verify
+  the resulting GitHub Actions run.
+- Context: Implementation 972edb9, documentation 505fe9c, and the HANDOFF
+  completion record 278a9fb were committed locally on 2026-08-05 with the
+  complete gates green (924 tests, 90.02% branch coverage); publication
+  awaited explicit user authorization.
+- Actions performed:
+  - `[CONFIRMED]` Received explicit user instruction "commit and push" on
+    2026-08-05; the tree was already fully committed, so only publication
+    remained.
+  - `[CONFIRMED]` Performed a normal push fdef221..278a9fb to origin/main;
+    no force push, rebase, or remote-history rewrite.
+  - `[CONFIRMED]` Watched GitHub Actions run 30970697188 to completion in
+    the foreground: all eight jobs (quality, tests 3.12, tests 3.14,
+    viewer-quality, viewer-browsers, Ubuntu/macOS/Windows CLI smokes)
+    concluded success; ISSUE-008 did not recur.
+- Files modified: `HANDOFF.md` (this state and activity record).
+- Verification performed: `[CONFIRMED]` gh run view confirmed run
+  30970697188 status completed, conclusion success, with every job green,
+  at published slice tip 278a9fb on 2026-08-05.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: This branch-tip HANDOFF evidence commit is
+  published in the same authorized push and triggers its own run; a
+  viewer-browsers failure there would be the recorded ISSUE-008 flake
+  requiring no action.
+- Recommended next action: The next registered authoring operation
+  selection and slice bounded in Next Action.
 
 ### 2026-08-05T10:50:00+08:00 — Claude — Gerber standard aperture diameter modification operation
 
