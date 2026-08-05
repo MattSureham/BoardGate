@@ -19,33 +19,37 @@
 
 ## Current State
 
-- Last updated: `2026-08-04T12:40:00+08:00`
+- Last updated: `2026-08-05T10:50:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  follows the plan-minting implementation and documentation commits, which
-  follow the published ISSUE-008-evidence baseline 7b015a0.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 7b015a0.
-  GitHub Actions run 30874653380 completed with success on all eight jobs
-  for that published baseline, verified via gh on 2026-08-04, confirming
-  the ce12d20 viewer-browsers failures were the documented ISSUE-008
-  environment flake rather than a product regression. The plan-minting
-  implementation, documentation, and this branch-tip HANDOFF commit remain
-  local until the authorized normal push; no force push, rebase, or
-  remote-history rewrite occurred.`
+  follows the Gerber aperture-diameter implementation commit 972edb9 and
+  documentation commit 505fe9c, which follow the published
+  background-task-schema baseline fdef221.`
+- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at fdef221.
+  GitHub Actions run 30892752492 completed with success on all eight jobs
+  for that published baseline, verified via gh on 2026-08-05. The earlier
+  sync note (origin at 7b015a0 with plan-minting commits local) was stale:
+  the authorized push of the plan-minting and protocol commits completed
+  between sessions, and runs 30891198384, 30892057266, and 30892752492 each
+  passed all eight jobs. The Gerber aperture-diameter implementation,
+  documentation, and this branch-tip HANDOFF commit remain local until the
+  authorized normal push; no force push, rebase, or remote-history rewrite
+  occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
   and cross-panel Finding navigation. Authoring Phases A-D and the first
   Phase E registered extension now have an
-  accepted separate-subsystem architecture, strict public contracts, one
-  deterministic Excellon modification operation, two bounded deterministic
-  two-layer coupon generation operations, independent review validation
-  for every emitted design, and a typed authoring-plan admission boundary
-  with a separate authorization digest, explicit-approval CLI minting, and
-  CLI consumption through `--plan`.`
+  accepted separate-subsystem architecture, strict public contracts, two
+  deterministic single-token modification operations (Excellon tool
+  diameter and Gerber standard round-aperture diameter), two bounded
+  deterministic two-layer coupon generation operations, independent review
+  validation for every emitted design, and a typed authoring-plan admission
+  boundary with a separate authorization digest, explicit-approval CLI
+  minting, and CLI consumption through `--plan`.`
 - Entry points: `[CONFIRMED] uv run pcb-review inspect INPUT... --rules
   rules/default.yaml --output REVIEW_OUTPUT; uv run pcb-review modify
   INPUT... --request CHANGE.json --rules rules/default.yaml --output
@@ -242,6 +246,15 @@
     warning-free Excellon source, using one same-width decimal-token patch,
     isolated before/after parsing, protected drill/slot comparison, and
     exact token-span evidence.`
+  - `[CONFIRMED] The authoring registry's second executor implements only
+    set_gerber_standard_aperture_diameter 1.0 for a confirmed
+    metric/absolute, warning-free Gerber source, using a bounded strict
+    %ADDnnC,<fixed-width-decimal>*% scanner, one same-width decimal-token
+    patch, isolated before/after parsing, protected primitive/metadata
+    comparison (normalized circle height derives from the changed width),
+    and exact token-span evidence. Holed or non-circle apertures, unused or
+    duplicated definitions, unsupported definition syntax, and unwritable
+    precision/width fail closed before emission.`
   - `[CONFIRMED] ModificationService safely rebuilds and binds the base
     project, rejects control/non-design inputs and stale or unsupported
     requests, emits a separate design/evidence/validation workspace, invokes
@@ -255,6 +268,12 @@
     stable request/result/design/first-five validation bytes, and receives a
     fresh READY_FOR_REVIEW result with that rule PASS/FULL and no new
     Findings.`
+  - `[CONFIRMED] The original trace_too_narrow fixture proves the base
+    review has exactly one minimum_trace_width blocker at 0.050 mm; the
+    explicit D11 0.050 -> 0.300 mm revision changes only the intended
+    aperture-definition token, produces stable request/result/design/
+    first-five validation bytes, and receives a fresh READY_FOR_REVIEW
+    result with that rule PASS/FULL and no new Findings.`
   - `[CONFIRMED] GenerationRequest/GenerationResult 1.0 are strict,
     explicit-version public contracts with checked-in Draft 2020-12 Schemas,
     bounded duplicate-safe JSON admission, full request and prose-independent
@@ -354,6 +373,23 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Gerber aperture-diameter gates on 2026-08-05 passed on the
+    complete tree: Ruff format/check (202 files); mypy (184 source files);
+    checked-in Schema export/currency for the eleven Schemas
+    (modification-request/result widened for the second operation); and the
+    complete Python 3.12 suite with 924 tests at 90.02% branch coverage,
+    including 17 focused scanner/patch/verify unit tests, five new contract
+    tests, and twelve integration tests proving the trace_too_narrow base
+    blocker, CLI/service byte-identical publication, public-Schema
+    validation, stale-source fail-closed, precondition/capability exit
+    separation, duplicate-definition exit 2, control-file and non-design
+    rejection, workspace tamper rejection, blocker publication with exit 1,
+    and rollback without residue. A manual end-to-end smoke produced
+    rev-d09e657084fddaa5 READY_FOR_REVIEW with validate_modification_workspace
+    green and only the intended definition token changed.`
+  - `[CONFIRMED] GitHub Actions run 30892752492 at published baseline
+    fdef221 completed with success on all eight jobs, verified via gh on
+    2026-08-05.`
   - `[CONFIRMED] Plan-minting gates on 2026-08-04 passed on the complete
     tree: Ruff format/check (181 files); mypy (181 source files); and the
     complete Python 3.12 suite with 890 tests at 89.89% branch coverage,
@@ -633,19 +669,22 @@
     validated summary, preview.svg, and report.md with layer toggles,
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-  - `[CONFIRMED] Authoring currently supports exactly one Excellon
-    tool-diameter operation and exactly two bounded two-layer coupon
+  - `[CONFIRMED] Authoring currently supports exactly two single-token
+    modification operations (one Excellon tool-diameter operation and one
+    Gerber standard round-aperture diameter operation) and exactly two
+    bounded two-layer coupon
     generation operations (plated-only and mixed PTH/NPTH). The typed
     authoring-plan boundary admits only those registered kind/version pairs;
     the modify and generate CLI commands consume an admitted plan through
     the optional --plan flag while keeping the plan-less path unchanged. The
     operations are neither
     arbitrary nor lossless source editing and do not guarantee
-    manufacturability. No slots, non-round holes, native EDA writer, inferred
+    manufacturability. No slots, non-round holes, holed or non-circle
+    aperture editing, native EDA writer, inferred
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main. It remains linearly ahead of origin/main=7b015a0
+  leave a clean local main. It remains linearly ahead of origin/main=fdef221
   until the authorized normal push is performed.`
 
 ### Background Tasks
@@ -674,7 +713,7 @@ this fixed lifecycle:
   relevant.
 
 Current background tasks: `[CONFIRMED] none — no live, terminal, or
-unreconciled background tasks exist as of 2026-08-04T13:30:00+08:00.`
+unreconciled background tasks exist as of 2026-08-05T10:50:00+08:00.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -1070,16 +1109,89 @@ the current capabilities.
 
 ## Next Action
 
-Implement the second registered modification operation as a Phase B-style
-slice: `set_gerber_standard_aperture_diameter/1.0` — change one confirmed
-standard round aperture's diameter definition in a supported Gerber copper
-source while preserving every unrelated byte. Deliver strict request/result
-contracts and registry admission first, then stale-input, ambiguity,
-unsupported-syntax, and rollback tests, and prove round-trip evidence that
-a minimum_trace_width blocker resolves through the unchanged review
-pipeline without hiding new Findings.
+Publish the completed Gerber aperture-diameter slice (972edb9, 505fe9c, and
+the branch-tip HANDOFF commit) to origin/main with the user's explicit
+authorization, then verify the resulting GitHub Actions run passes all eight
+jobs and record the evidence here. No force push, rebase, or remote-history
+rewrite.
 
 ## Recent Activity
+
+### 2026-08-05T10:50:00+08:00 — Claude — Gerber standard aperture diameter modification operation
+
+- Role: implementation agent
+- Task: Implement the second registered modification operation bounded in
+  the prior Next Action: `set_gerber_standard_aperture_diameter/1.0` —
+  change one confirmed standard round aperture's diameter definition in a
+  supported Gerber source while preserving every unrelated byte, and prove
+  round-trip evidence that a minimum_trace_width blocker resolves through
+  the unchanged review pipeline without hiding new Findings.
+- Context: The Excellon tool-diameter slice established the contracts,
+  registry, service, and fixture pattern; this slice widens the admitted
+  operation unions to a second kind and adds its executor without changing
+  the review pipeline, the revision-workspace layout, or the CLI contract.
+- Actions performed:
+  - `[CONFIRMED]` Added strict `SetGerberStandardApertureDiameter` and
+    `AppliedGerberStandardApertureDiameterChange` 1.0 contracts
+    (kind-discriminated unions, `D[0-9]{1,6}` aperture codes, no-op and
+    same-width token-span validators) and regenerated the two checked-in
+    modification Schemas.
+  - `[CONFIRMED]` Implemented `authoring/gerber.py`: a bounded strict
+    `%ADDnnC,<fixed-width-decimal>*%` scanner (50 MiB / 1,000,000 lines /
+    4,096 bytes per line / 1,024 definitions, inclusive) with exact
+    token-span witnesses; same-width Decimal-quantized token replacement;
+    and a semantic postcondition verifier comparing source metadata,
+    primitive counts, protected per-index signatures, required diameters,
+    and affected target sets.
+  - `[CONFIRMED]` Registered `GerberStandardApertureDiameterExecutor` in
+    the exact kind/version registry and generalized ModificationService
+    target-code, witness, and affected-object cross-checks for both
+    operation kinds.
+  - `[CONFIRMED]` Created the original `tests/fixtures/trace_too_narrow`
+    project (D11 0.050 mm trace) verified to yield exactly one
+    minimum_trace_width blocker.
+  - `[CONFIRMED]` Fixed two discovered normalization mismatches: plain
+    circle apertures normalize with height equal to width (so the scope
+    check rejects only holed/non-circle targets) and the protected
+    signature excludes circle height as width-derived.
+  - `[CONFIRMED]` Corrected the stale Remote-sync note: origin/main is at
+    fdef221 with run 30892752492 green on all eight jobs (verified via gh);
+    the plan-minting and protocol commits were pushed between sessions.
+- Files modified: `src/boardgate/authoring/models.py`,
+  `src/boardgate/authoring/gerber.py` (new),
+  `src/boardgate/authoring/identifiers.py`,
+  `src/boardgate/authoring/__init__.py`,
+  `src/boardgate/application/modification_registry.py`,
+  `src/boardgate/application/modification_service.py`,
+  `schemas/v1/modification-request.schema.json`,
+  `schemas/v1/modification-result.schema.json`,
+  `tests/unit/authoring/test_gerber.py` (new),
+  `tests/unit/authoring/test_models_identifiers.py`,
+  `tests/unit/authoring/test_request.py`,
+  `tests/integration/test_modify_gerber_revision.py` (new),
+  `tests/integration/test_modify_revision.py`,
+  `tests/fixtures/trace_too_narrow/` (new), `PROJECT_SPEC.md`,
+  `docs/CAPABILITIES.md`, `README.md`, `README.zh-CN.md`, and `HANDOFF.md`;
+  committed as 972edb9 (implementation) and 505fe9c (documentation).
+- Verification performed: `[CONFIRMED]` Complete gates on the full tree:
+  Ruff format/check (202 files), mypy (184 source files), checked-in Schema
+  export/currency, and the full Python 3.12 suite with 924 tests at 90.02%
+  branch coverage. New evidence: 17 scanner/patch/verify unit tests, five
+  contract tests, and twelve integration tests covering base-blocker
+  identity, CLI/service byte-identical publication, public-Schema
+  validation, stale-source fail-closed, exit 2/3 separation, duplicate
+  definitions, control-file/non-design rejection, workspace tampering,
+  blocker publication with exit 1, and rollback without residue. A manual
+  end-to-end smoke produced rev-d09e657084fddaa5 READY_FOR_REVIEW with only
+  the intended definition token changed.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The slice is not yet exercised by its own GitHub
+  Actions run (a viewer-browsers failure there would be the recorded
+  ISSUE-008 flake requiring no action). The manual smoke and integration
+  fixtures are original, not third-party CAM output.
+- Recommended next action: The publication and CI verification bounded in
+  Next Action.
 
 ### 2026-08-04T13:50:00+08:00 — Claude — Protocol correction: lifecycle schema belongs to HANDOFF state
 
