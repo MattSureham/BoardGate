@@ -19,27 +19,29 @@
 
 ## Current State
 
-- Last updated: `2026-08-05T11:05:00+08:00`
+- Last updated: `2026-08-05T12:10:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  records the publication and CI verification of the Gerber
-  aperture-diameter slice 972edb9+505fe9c+278a9fb.`
+  records the completed placement reference-designator modification slice
+  eb202ff+291943d.`
 - Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 278a9fb.
   GitHub Actions run 30970697188 completed with success on all eight jobs
-  for that published slice tip, verified via gh on 2026-08-05. This
-  branch-tip HANDOFF evidence commit is included in the same authorized
-  normal push; no force push, rebase, or remote-history rewrite occurred.`
+  for that published slice tip, verified via gh on 2026-08-05. Local main
+  is three commits ahead of origin/main (eb202ff, 291943d, and this
+  HANDOFF commit); publication awaits explicit user authorization. No
+  force push, rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
   and cross-panel Finding navigation. Authoring Phases A-D and the first
   Phase E registered extension now have an
-  accepted separate-subsystem architecture, strict public contracts, two
+  accepted separate-subsystem architecture, strict public contracts, three
   deterministic single-token modification operations (Excellon tool
-  diameter and Gerber standard round-aperture diameter), two bounded
+  diameter, Gerber standard round-aperture diameter, and placement-CSV
+  reference designator), two bounded
   deterministic two-layer coupon generation operations, independent review
   validation for every emitted design, and a typed authoring-plan admission
   boundary with a separate authorization digest, explicit-approval CLI
@@ -249,6 +251,16 @@
     and exact token-span evidence. Holed or non-circle apertures, unused or
     duplicated definitions, unsupported definition syntax, and unwritable
     precision/width fail closed before emission.`
+  - `[CONFIRMED] The authoring registry's third executor implements only
+    set_placement_reference_designator 1.0 for a confirmed placement CSV
+    source, using a bounded strict single-line unquoted-token scanner, one
+    same-width reference-token patch, isolated before/after parsing,
+    protected per-row placement comparison (position, rotation, side,
+    value, footprint, dnp, metadata, and provenance spans), dual raw and
+    parsed target uniqueness, new-reference collision rejection, and exact
+    token-span evidence. Quoted cells, embedded delimiters, multiline rows,
+    lowercase or otherwise normalized-only matches, and colliding or
+    width-changing new references fail closed before emission.`
   - `[CONFIRMED] ModificationService safely rebuilds and binds the base
     project, rejects control/non-design inputs and stale or unsupported
     requests, emits a separate design/evidence/validation workspace, invokes
@@ -268,6 +280,15 @@
     aperture-definition token, produces stable request/result/design/
     first-five validation bytes, and receives a fresh READY_FOR_REVIEW
     result with that rule PASS/FULL and no new Findings.`
+  - `[CONFIRMED] The original placement_reference_mismatch fixture proves
+    the base review has exactly one bom_placement_reference_match high
+    Finding (placement-only C1, BOM-only R2); the explicit C1 -> R2
+    revision changes only the intended reference token, produces stable
+    request/result/design/first-five validation bytes, and receives a
+    fresh READY_FOR_REVIEW result with that rule PASS/FULL and no new
+    Findings. Under a blocker-severity profile the same revision moves the
+    validation review from NOT_READY_FOR_FABRICATION to
+    READY_FOR_REVIEW.`
   - `[CONFIRMED] GenerationRequest/GenerationResult 1.0 are strict,
     explicit-version public contracts with checked-in Draft 2020-12 Schemas,
     bounded duplicate-safe JSON admission, full request and prose-independent
@@ -386,6 +407,21 @@
     and rollback without residue. A manual end-to-end smoke produced
     rev-d09e657084fddaa5 READY_FOR_REVIEW with validate_modification_workspace
     green and only the intended definition token changed.`
+  - `[CONFIRMED] Placement reference-designator gates on 2026-08-05 passed
+    on the complete tree: Ruff format/check (187 files); mypy (187 source
+    files); checked-in Schema export/currency for the eleven Schemas
+    (modification-request/result widened for the third operation); and the
+    complete Python 3.12 suite with 954 tests at 90.22% branch coverage,
+    including 16 focused scanner/patch/verify unit tests, six new contract
+    tests, registry resolution for all three executors, and twelve
+    integration tests proving the placement_reference_mismatch base
+    Finding, CLI/service byte-identical publication, public-Schema
+    validation, stale-source fail-closed with workspace preservation,
+    precondition/capability exit separation (NOT_FOUND, COLLISION, and
+    WIDTH at exit 2; ambiguous duplicate and quoted-token rejections at
+    exit 2 and 3 respectively), blocker-profile status transition,
+    blocker publication with exit 1, span-tamper workspace rejection, and
+    ANALYSIS_FAILED rollback without residue.`
   - `[CONFIRMED] GitHub Actions run 30892752492 at published baseline
     fdef221 completed with success on all eight jobs, verified via gh on
     2026-08-05.`
@@ -712,7 +748,7 @@ this fixed lifecycle:
   relevant.
 
 Current background tasks: `[CONFIRMED] none — no live, terminal, or
-unreconciled background tasks exist as of 2026-08-05T10:50:00+08:00.`
+unreconciled background tasks exist as of 2026-08-05T12:10:00+08:00.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -1108,15 +1144,73 @@ the current capabilities.
 
 ## Next Action
 
-Select the next registered authoring operation from PROJECT_SPEC's Phase E
-candidates (bounded placement-field edit, explicit layer transformation, or
-native EDA adapter) and implement it as a Phase B-style slice: strict
-request/result contracts and exact registry admission first, then
-stale-input, ambiguity, unsupported-syntax, and rollback tests, plus
-round-trip evidence that the emitted revision resolves a targeted Finding
-through the unchanged review pipeline without hiding new Findings.
+Select the next registered authoring operation from PROJECT_SPEC's
+remaining Phase E candidates (a further bounded placement-field edit, an
+explicit layer transformation, or a native EDA adapter) and implement it
+as a Phase B-style slice: strict request/result contracts and exact
+registry admission first, then stale-input, ambiguity,
+unsupported-syntax, and rollback tests, plus round-trip evidence that
+the emitted revision resolves a targeted Finding through the unchanged
+review pipeline without hiding new Findings. Publication of the
+placement reference-designator slice (eb202ff, 291943d, and the
+branch-tip HANDOFF commit) additionally awaits explicit user
+authorization for a normal push to origin/main.
 
 ## Recent Activity
+
+### 2026-08-05T12:10:00+08:00 — Claude — Placement reference designator modification operation
+
+- Role: implementation agent
+- Task: Execute the bounded Next Action: select the next registered
+  authoring operation from PROJECT_SPEC's Phase E candidates and
+  implement it as a Phase B-style slice.
+- Context: The previous session's recovery report selected the bounded
+  placement-field edit candidate: `set_placement_reference_designator`
+  1.0 renames one explicitly identified placement-CSV row's Reference
+  field so BOM/CPL references reconcile, resolving a targeted
+  bom_placement_reference_match Finding.
+- Actions performed:
+  - `[CONFIRMED]` Added the SetPlacementReferenceDesignator and
+    AppliedPlacementReferenceDesignatorChange 1.0 contracts with a third
+    MODIFICATION_OPERATION_KEYS entry and full registry admission.
+  - `[CONFIRMED]` Implemented the bounded placement adapter: strict
+    single-line unquoted-token scanner, one same-width reference patch,
+    isolated before/after parsing, protected per-row comparison, dual
+    raw/parsed target uniqueness, and collision/width rejection.
+  - `[CONFIRMED]` Registered the third executor and integrated the new
+    kind into ModificationService evidence-key comparison, workspace
+    witness rescans, and validation-project checks.
+  - `[CONFIRMED]` Created the original placement_reference_mismatch
+    fixture (placement-only C1, BOM-only R2) and verified its baseline
+    review empirically before writing tests.
+  - `[CONFIRMED]` Updated PROJECT_SPEC, CAPABILITIES, and both READMEs
+    for the third operation.
+- Files modified: `src/boardgate/authoring/models.py`,
+  `src/boardgate/authoring/placement.py` (new),
+  `src/boardgate/authoring/__init__.py`,
+  `src/boardgate/application/modification_registry.py`,
+  `src/boardgate/application/modification_service.py`,
+  `schemas/v1/modification-request.schema.json`,
+  `schemas/v1/modification-result.schema.json`,
+  `tests/fixtures/placement_reference_mismatch/` (new),
+  `tests/unit/authoring/test_placement.py` (new),
+  `tests/unit/authoring/test_models_identifiers.py`,
+  `tests/unit/authoring/test_registry.py`,
+  `tests/integration/test_modify_placement_revision.py` (new),
+  `PROJECT_SPEC.md`, `docs/CAPABILITIES.md`, `README.md`,
+  `README.zh-CN.md`, `HANDOFF.md` (this state and activity record).
+- Verification performed: `[CONFIRMED]` Complete-tree gates green
+  (Ruff format/check 187 files; mypy 187 files; Schema export/currency;
+  954 tests at 90.22% branch coverage), committed as eb202ff
+  (implementation) and 291943d (documentation); see the Verification
+  bullet for the full evidence list.
+- Issues created or updated: none. ISSUE-002, ISSUE-005, ISSUE-007, and
+  ISSUE-008 remain OPEN, low, non-blocking, and unchanged.
+- Remaining uncertainty: The three local commits (eb202ff, 291943d, and
+  this HANDOFF commit) are unpublished; CI verification requires the
+  user-authorized push recorded in Next Action.
+- Recommended next action: Publish with explicit user authorization, or
+  select the next Phase E candidate bounded in Next Action.
 
 ### 2026-08-05T11:05:00+08:00 — Claude — Gerber aperture-diameter publication and CI verification
 
