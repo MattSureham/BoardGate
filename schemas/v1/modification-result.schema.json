@@ -117,6 +117,140 @@
       "title": "AppliedExcellonToolDiameterChange",
       "type": "object"
     },
+    "AppliedGerberStandardApertureDiameterChange": {
+      "additionalProperties": false,
+      "description": "Auditable semantic and byte-span evidence for the applied operation.",
+      "properties": {
+        "adapter_id": {
+          "const": "boardgate-gerber-aperture-diameter-patch",
+          "default": "boardgate-gerber-aperture-diameter-patch",
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "adapter_policy_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Adapter Policy Version",
+          "type": "string"
+        },
+        "affected_input_primitive_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Affected Input Primitive Ids",
+          "type": "array"
+        },
+        "affected_output_primitive_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Affected Output Primitive Ids",
+          "type": "array"
+        },
+        "aperture_code": {
+          "pattern": "^D[0-9]{1,6}$",
+          "title": "Aperture Code",
+          "type": "string"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Input Source File Id",
+          "type": "string"
+        },
+        "input_value_span": {
+          "$ref": "#/$defs/SourceSpan"
+        },
+        "kind": {
+          "const": "set_gerber_standard_aperture_diameter",
+          "default": "set_gerber_standard_aperture_diameter",
+          "title": "Kind",
+          "type": "string"
+        },
+        "new_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1000.0,
+          "title": "New Diameter Mm",
+          "type": "number"
+        },
+        "old_diameter_mm": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1000.0,
+          "title": "Old Diameter Mm",
+          "type": "number"
+        },
+        "operation_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Operation Version",
+          "type": "string"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "output_source_file_id": {
+          "pattern": "^src-[0-9a-f]{16}$",
+          "title": "Output Source File Id",
+          "type": "string"
+        },
+        "output_value_span": {
+          "$ref": "#/$defs/SourceSpan"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_logical_path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Source Logical Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_logical_path",
+        "input_source_file_id",
+        "output_source_file_id",
+        "input_sha256",
+        "output_sha256",
+        "aperture_code",
+        "old_diameter_mm",
+        "new_diameter_mm",
+        "input_value_span",
+        "output_value_span",
+        "affected_input_primitive_ids",
+        "affected_output_primitive_ids"
+      ],
+      "title": "AppliedGerberStandardApertureDiameterChange",
+      "type": "object"
+    },
+    "AppliedModificationOperation": {
+      "discriminator": {
+        "mapping": {
+          "set_excellon_tool_diameter": "#/$defs/AppliedExcellonToolDiameterChange",
+          "set_gerber_standard_aperture_diameter": "#/$defs/AppliedGerberStandardApertureDiameterChange"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AppliedExcellonToolDiameterChange"
+        },
+        {
+          "$ref": "#/$defs/AppliedGerberStandardApertureDiameterChange"
+        }
+      ]
+    },
     "PayloadFileEvidence": {
       "additionalProperties": false,
       "description": "Before/after digest evidence for one emitted design file.",
@@ -322,7 +456,7 @@
       "type": "string"
     },
     "operation": {
-      "$ref": "#/$defs/AppliedExcellonToolDiameterChange"
+      "$ref": "#/$defs/AppliedModificationOperation"
     },
     "operation_sha256": {
       "pattern": "^[0-9a-f]{64}$",

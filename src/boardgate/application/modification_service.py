@@ -47,7 +47,12 @@ from boardgate.application.revision_workspace import (
 )
 from boardgate.authoring.excellon import (
     AuthoringOperationError,
+    ExcellonToolDefinitionWitness,
     scan_excellon_tool_definitions,
+)
+from boardgate.authoring.gerber import (
+    GerberApertureDefinitionWitness,
+    scan_gerber_aperture_definitions,
 )
 from boardgate.authoring.identifiers import (
     operation_sha256,
@@ -56,14 +61,19 @@ from boardgate.authoring.identifiers import (
 )
 from boardgate.authoring.models import (
     MODIFICATION_DISCLAIMER,
+    AppliedExcellonToolDiameterChange,
+    AppliedModificationOperation,
+    ModificationOperation,
     ModificationRequest,
     ModificationResult,
     PayloadFileEvidence,
     RevisionValidationEvidence,
+    SetExcellonToolDiameter,
 )
 from boardgate.config.models import RuleProfile
 from boardgate.domain.enums import FileType, ReviewStatus
 from boardgate.domain.identifiers import project_id, source_file_id
+from boardgate.domain.layer import RegionPrimitive
 from boardgate.domain.project import PCBProject
 from boardgate.domain.source import ProjectManifest, SourceFile
 from boardgate.ingestion import build_manifest, discover_inputs
@@ -87,6 +97,12 @@ _INPUT_OPERATION_ERROR_CODES = frozenset(
         "AUTHORING_EXCELLON_TOOL_DUPLICATE",
         "AUTHORING_EXCELLON_TOOL_NOT_FOUND",
         "AUTHORING_EXCELLON_TOOL_UNUSED",
+        "AUTHORING_GERBER_APERTURE_AMBIGUOUS",
+        "AUTHORING_GERBER_APERTURE_DUPLICATE",
+        "AUTHORING_GERBER_APERTURE_NOT_FOUND",
+        "AUTHORING_GERBER_APERTURE_UNUSED",
+        "AUTHORING_GERBER_NEW_DIAMETER_PRECISION",
+        "AUTHORING_GERBER_NEW_DIAMETER_WIDTH",
         "AUTHORING_PRECONDITION_MISMATCH",
         "AUTHORING_SOURCE_ID_MISMATCH",
         "AUTHORING_SOURCE_SHA_MISMATCH",
@@ -182,6 +198,18 @@ def _copy_design(
             shutil.copyfile(item.staged_path, target)
 
 
+def _operation_target_code(
+    operation: ModificationOperation | AppliedModificationOperation,
+) -> str:
+    """Return the operation's addressed tool or aperture code."""
+    if isinstance(
+        operation,
+        (SetExcellonToolDiameter, AppliedExcellonToolDiameterChange),
+    ):
+        return operation.tool_code
+    return operation.aperture_code
+
+
 def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
     """Validate exact revision inventory, hashes, identities, and nested review."""
     actual_files, actual_directories = workspace_inventory(root)
@@ -232,13 +260,16 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         raise ValueError("output project_id is inconsistent with payload evidence")
     request_operation = request.operation
     result_operation = result.operation
+    if request_operation.kind != result_operation.kind:
+        raise ValueError("request operation does not match applied operation evidence")
     if (
         request_operation.source_logical_path != result_operation.source_logical_path
         or request_operation.source_file_id != result_operation.input_source_file_id
         or request_operation.source_sha256 != result_operation.input_sha256
-        or request_operation.tool_code != result_operation.tool_code
         or request_operation.expected_diameter_mm != result_operation.old_diameter_mm
         or request_operation.new_diameter_mm != result_operation.new_diameter_mm
+        or _operation_target_code(request_operation)
+        != _operation_target_code(result_operation)
     ):
         raise ValueError("request operation does not match applied operation evidence")
     if (
@@ -277,14 +308,28 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         if hashlib.sha256(payload).hexdigest() != item.after_sha256:
             raise ValueError("design payload digest does not match result evidence")
         if item.logical_path == result_operation.source_logical_path:
-            witnesses = tuple(
-                witness
-                for witness in scan_excellon_tool_definitions(
-                    payload,
-                    subject="<design-source>",
-                )
-                if witness.tool_code == result_operation.tool_code
+            witnesses: (
+                tuple[ExcellonToolDefinitionWitness, ...]
+                | tuple[GerberApertureDefinitionWitness, ...]
             )
+            if isinstance(result_operation, AppliedExcellonToolDiameterChange):
+                witnesses = tuple(
+                    witness
+                    for witness in scan_excellon_tool_definitions(
+                        payload,
+                        subject="<design-source>",
+                    )
+                    if witness.tool_code == result_operation.tool_code
+                )
+            else:
+                witnesses = tuple(
+                    witness
+                    for witness in scan_gerber_aperture_definitions(
+                        payload,
+                        subject="<design-source>",
+                    )
+                    if witness.aperture_code == result_operation.aperture_code
+                )
             if (
                 len(witnesses) != 1
                 or witnesses[0].value_span != result_operation.output_value_span
@@ -333,24 +378,50 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
         or target_sources[0].source_file_id != result_operation.output_source_file_id
     ):
         raise ValueError("operation output source does not match validation manifest")
-    output_target_drills = tuple(
-        drill
-        for drill in validation_project.drills
-        if drill.provenance.source_file_id == result_operation.output_source_file_id
-        and drill.tool_code == result_operation.tool_code
-    )
-    if tuple(sorted(drill.drill_id for drill in output_target_drills)) != tuple(
-        sorted(result_operation.affected_output_drill_ids)
-    ) or any(
-        not math.isclose(
-            drill.diameter_mm,
-            result_operation.new_diameter_mm,
-            rel_tol=0.0,
-            abs_tol=1e-9,
+    if isinstance(result_operation, AppliedExcellonToolDiameterChange):
+        output_target_drills = tuple(
+            drill
+            for drill in validation_project.drills
+            if drill.provenance.source_file_id == result_operation.output_source_file_id
+            and drill.tool_code == result_operation.tool_code
         )
-        for drill in output_target_drills
-    ):
-        raise ValueError("operation output drills do not match validation project")
+        if tuple(sorted(drill.drill_id for drill in output_target_drills)) != tuple(
+            sorted(result_operation.affected_output_drill_ids)
+        ) or any(
+            not math.isclose(
+                drill.diameter_mm,
+                result_operation.new_diameter_mm,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+            for drill in output_target_drills
+        ):
+            raise ValueError("operation output drills do not match validation project")
+    else:
+        output_target_primitives = tuple(
+            primitive
+            for layer in validation_project.layers
+            for primitive in layer.primitives
+            if not isinstance(primitive, RegionPrimitive)
+            and primitive.provenance.source_file_id
+            == result_operation.output_source_file_id
+            and primitive.provenance.metadata.get("aperture_code")
+            == result_operation.aperture_code
+        )
+        if tuple(
+            sorted(primitive.primitive_id for primitive in output_target_primitives)
+        ) != tuple(sorted(result_operation.affected_output_primitive_ids)) or any(
+            not math.isclose(
+                primitive.aperture.width_mm,
+                result_operation.new_diameter_mm,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+            for primitive in output_target_primitives
+        ):
+            raise ValueError(
+                "operation output primitives do not match validation project"
+            )
 
 
 class ModificationService:

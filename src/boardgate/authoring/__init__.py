@@ -27,11 +27,13 @@ from boardgate.authoring.identifiers import (
 )
 from boardgate.authoring.models import (
     AppliedExcellonToolDiameterChange,
+    AppliedGerberStandardApertureDiameterChange,
     ModificationRequest,
     ModificationResult,
     PayloadFileEvidence,
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
+    SetGerberStandardApertureDiameter,
 )
 from boardgate.authoring.plan_admission import (
     AdmittedAuthoringPlan,
@@ -59,6 +61,7 @@ __all__ = [
     "PLAN_AUTHORIZATION_STATEMENT",
     "AdmittedAuthoringPlan",
     "AppliedExcellonToolDiameterChange",
+    "AppliedGerberStandardApertureDiameterChange",
     "AppliedTwoLayerCouponGeneration",
     "AppliedTwoLayerCouponWithNpthGeneration",
     "AuthoringPlan",
@@ -79,6 +82,7 @@ __all__ = [
     "PlanAuthorization",
     "RevisionValidationEvidence",
     "SetExcellonToolDiameter",
+    "SetGerberStandardApertureDiameter",
     "admit_authoring_plan",
     "generation_id",
     "generation_operation_sha256",

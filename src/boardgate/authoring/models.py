@@ -19,13 +19,20 @@ _PROJECT_ID_PATTERN = r"^prj-[0-9a-f]{16}$"
 _FINDING_ID_PATTERN = r"^fnd-[0-9a-f]{16}$"
 _REVISION_ID_PATTERN = r"^rev-[0-9a-f]{16}$"
 _TOOL_CODE_PATTERN = r"^T[0-9]{2,6}$"
+_APERTURE_CODE_PATTERN = r"^D[0-9]{1,6}$"
 _MAX_DRILL_DIAMETER_MM = 100.0
+_MAX_APERTURE_DIAMETER_MM = 1000.0
 MODIFICATION_DISCLAIMER = (
     "This revision records a deterministic file modification and an independent "
     "BoardGate review; it does not guarantee manufacturability or replace "
     "fabricator and engineer approval."
 )
-MODIFICATION_OPERATION_KEYS = frozenset({("set_excellon_tool_diameter", "1.0")})
+MODIFICATION_OPERATION_KEYS = frozenset(
+    {
+        ("set_excellon_tool_diameter", "1.0"),
+        ("set_gerber_standard_aperture_diameter", "1.0"),
+    }
+)
 
 
 def _validate_safe_logical_path(value: str) -> str:
@@ -74,8 +81,43 @@ class SetExcellonToolDiameter(VersionedModel):
         return self
 
 
+class SetGerberStandardApertureDiameter(VersionedModel):
+    """One explicitly targeted, stale-safe Gerber circle-aperture request."""
+
+    schema_version: Literal["1.0"]
+    kind: Literal["set_gerber_standard_aperture_diameter"] = (
+        "set_gerber_standard_aperture_diameter"
+    )
+    operation_version: Literal["1.0"]
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    source_sha256: str = Field(pattern=_SHA256_PATTERN)
+    aperture_code: str = Field(pattern=_APERTURE_CODE_PATTERN)
+    expected_diameter_mm: float = Field(
+        gt=0.0,
+        le=_MAX_APERTURE_DIAMETER_MM,
+    )
+    new_diameter_mm: float = Field(
+        gt=0.0,
+        le=_MAX_APERTURE_DIAMETER_MM,
+    )
+    instruction: str = Field(min_length=1, max_length=500)
+
+    _safe_source_path = field_validator("source_logical_path")(
+        _validate_safe_logical_path
+    )
+
+    @model_validator(mode="after")
+    def require_real_change(self) -> Self:
+        """Reject no-op requests before any source is touched."""
+        if self.expected_diameter_mm == self.new_diameter_mm:
+            msg = "new_diameter_mm must differ from expected_diameter_mm"
+            raise ValueError(msg)
+        return self
+
+
 type ModificationOperation = Annotated[
-    SetExcellonToolDiameter,
+    SetExcellonToolDiameter | SetGerberStandardApertureDiameter,
     Field(discriminator="kind"),
 ]
 
@@ -174,6 +216,77 @@ class AppliedExcellonToolDiameterChange(VersionedModel):
         return self
 
 
+class AppliedGerberStandardApertureDiameterChange(VersionedModel):
+    """Auditable semantic and byte-span evidence for the applied operation."""
+
+    kind: Literal["set_gerber_standard_aperture_diameter"] = (
+        "set_gerber_standard_aperture_diameter"
+    )
+    operation_version: Literal["1.0"] = "1.0"
+    adapter_id: Literal["boardgate-gerber-aperture-diameter-patch"] = (
+        "boardgate-gerber-aperture-diameter-patch"
+    )
+    adapter_policy_version: Literal["1.0"] = "1.0"
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    input_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    output_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    input_sha256: str = Field(pattern=_SHA256_PATTERN)
+    output_sha256: str = Field(pattern=_SHA256_PATTERN)
+    aperture_code: str = Field(pattern=_APERTURE_CODE_PATTERN)
+    old_diameter_mm: float = Field(gt=0.0, le=_MAX_APERTURE_DIAMETER_MM)
+    new_diameter_mm: float = Field(gt=0.0, le=_MAX_APERTURE_DIAMETER_MM)
+    input_value_span: SourceSpan
+    output_value_span: SourceSpan
+    affected_input_primitive_ids: tuple[str, ...] = Field(min_length=1)
+    affected_output_primitive_ids: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_applied_change(self) -> Self:
+        """Require new content identity and one-to-one affected objects."""
+        if self.input_sha256 == self.output_sha256:
+            msg = "applied operation must change the source digest"
+            raise ValueError(msg)
+        if self.input_source_file_id == self.output_source_file_id:
+            msg = "changed source bytes must receive a new source_file_id"
+            raise ValueError(msg)
+        if self.old_diameter_mm == self.new_diameter_mm:
+            msg = "applied operation must change the aperture diameter"
+            raise ValueError(msg)
+        if len(self.affected_input_primitive_ids) != len(
+            self.affected_output_primitive_ids
+        ):
+            msg = "affected input and output primitives must correspond one-to-one"
+            raise ValueError(msg)
+        if len(self.affected_input_primitive_ids) != len(
+            set(self.affected_input_primitive_ids)
+        ) or len(self.affected_output_primitive_ids) != len(
+            set(self.affected_output_primitive_ids)
+        ):
+            msg = "affected primitive identifiers must be unique"
+            raise ValueError(msg)
+        span = self.input_value_span
+        if span != self.output_value_span:
+            msg = "same-width v1 patches must preserve the value source span"
+            raise ValueError(msg)
+        if (
+            span.start_line is None
+            or span.end_line is None
+            or span.start_line != span.end_line
+            or span.start_byte is None
+            or span.end_byte is None
+            or span.start_byte >= span.end_byte
+        ):
+            msg = "aperture-diameter evidence requires one non-empty source token span"
+            raise ValueError(msg)
+        return self
+
+
+type AppliedModificationOperation = Annotated[
+    AppliedExcellonToolDiameterChange | AppliedGerberStandardApertureDiameterChange,
+    Field(discriminator="kind"),
+]
+
+
 class RevisionValidationEvidence(VersionedModel):
     """Identity and conclusion of the independent post-emission review."""
 
@@ -214,7 +327,7 @@ class ModificationResult(VersionedModel):
     request_sha256: str = Field(pattern=_SHA256_PATTERN)
     operation_sha256: str = Field(pattern=_SHA256_PATTERN)
     implementation_version: str = Field(min_length=1)
-    operation: AppliedExcellonToolDiameterChange
+    operation: AppliedModificationOperation
     payload_files: tuple[PayloadFileEvidence, ...] = Field(min_length=1)
     validation: RevisionValidationEvidence
     disclaimer: str = Field(

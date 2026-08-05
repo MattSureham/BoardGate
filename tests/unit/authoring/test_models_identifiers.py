@@ -16,11 +16,13 @@ from boardgate.authoring.identifiers import (
 from boardgate.authoring.models import (
     MODIFICATION_DISCLAIMER,
     AppliedExcellonToolDiameterChange,
+    AppliedGerberStandardApertureDiameterChange,
     ModificationRequest,
     ModificationResult,
     PayloadFileEvidence,
     RevisionValidationEvidence,
     SetExcellonToolDiameter,
+    SetGerberStandardApertureDiameter,
 )
 from boardgate.domain.enums import ReviewStatus
 from boardgate.domain.provenance import SourceSpan
@@ -320,3 +322,157 @@ def test_result_rejects_unsorted_inventory_and_multiple_changed_files() -> None:
                 "payload_files": (payloads[0], second_changed),
             }
         )
+
+
+def gerber_operation() -> SetGerberStandardApertureDiameter:
+    return SetGerberStandardApertureDiameter(
+        schema_version="1.0",
+        operation_version="1.0",
+        source_logical_path="fab/board-top-copper.gtl",
+        source_file_id=INPUT_SOURCE_ID,
+        source_sha256=INPUT_SHA,
+        aperture_code="D11",
+        expected_diameter_mm=0.05,
+        new_diameter_mm=0.3,
+        instruction="Increase the explicitly selected standard round aperture.",
+    )
+
+
+def gerber_applied_change() -> AppliedGerberStandardApertureDiameterChange:
+    span = SourceSpan(
+        start_line=5,
+        end_line=5,
+        start_byte=42,
+        end_byte=47,
+    )
+    return AppliedGerberStandardApertureDiameterChange(
+        source_logical_path="fab/board-top-copper.gtl",
+        input_source_file_id=INPUT_SOURCE_ID,
+        output_source_file_id=OUTPUT_SOURCE_ID,
+        input_sha256=INPUT_SHA,
+        output_sha256=OUTPUT_SHA,
+        aperture_code="D11",
+        old_diameter_mm=0.05,
+        new_diameter_mm=0.3,
+        input_value_span=span,
+        output_value_span=span,
+        affected_input_primitive_ids=("prm-input",),
+        affected_output_primitive_ids=("prm-output",),
+    )
+
+
+def test_gerber_request_round_trip_and_hash_is_content_derived() -> None:
+    value = ModificationRequest(
+        schema_version="1.0",
+        base_project_id=BASE_PROJECT_ID,
+        operation=gerber_operation(),
+    )
+
+    admitted = ModificationRequest.model_validate_json(value.model_dump_json())
+    assert admitted == value
+    assert isinstance(admitted.operation, SetGerberStandardApertureDiameter)
+    assert admitted.operation.kind == "set_gerber_standard_aperture_diameter"
+
+    changed_instruction = value.model_copy(
+        update={
+            "operation": value.operation.model_copy(
+                update={"instruction": "A different explicit instruction."}
+            )
+        }
+    )
+    assert request_sha256(changed_instruction) != request_sha256(value)
+    assert operation_sha256(changed_instruction.operation) == operation_sha256(
+        value.operation
+    )
+
+
+def test_gerber_operation_rejects_noop_and_bad_aperture_codes() -> None:
+    payload = gerber_operation().model_dump()
+    payload["new_diameter_mm"] = payload["expected_diameter_mm"]
+    with pytest.raises(ValidationError, match="must differ"):
+        SetGerberStandardApertureDiameter.model_validate(payload)
+
+    for aperture_code in ("T01", "d10", "D", "D1234567"):
+        with pytest.raises(ValidationError, match="aperture_code"):
+            SetGerberStandardApertureDiameter.model_validate(
+                {**gerber_operation().model_dump(), "aperture_code": aperture_code}
+            )
+    for aperture_code in ("D1", "D10", "D123456"):
+        admitted = SetGerberStandardApertureDiameter.model_validate(
+            {**gerber_operation().model_dump(), "aperture_code": aperture_code}
+        )
+        assert admitted.aperture_code == aperture_code
+
+
+def test_gerber_applied_change_requires_new_identity_and_one_to_one_targets() -> None:
+    value = gerber_applied_change()
+
+    with pytest.raises(ValidationError, match="must change the source digest"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {**value.model_dump(), "output_sha256": INPUT_SHA}
+        )
+    with pytest.raises(ValidationError, match="new source_file_id"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {**value.model_dump(), "output_source_file_id": INPUT_SOURCE_ID}
+        )
+    with pytest.raises(ValidationError, match="must change the aperture diameter"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {**value.model_dump(), "new_diameter_mm": value.old_diameter_mm}
+        )
+    with pytest.raises(ValidationError, match="one-to-one"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_output_primitive_ids": ("prm-output-a", "prm-output-b"),
+            }
+        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_input_primitive_ids": ("prm-input", "prm-input"),
+                "affected_output_primitive_ids": ("prm-output-a", "prm-output-b"),
+            }
+        )
+
+
+def test_gerber_applied_change_requires_the_exact_same_width_token_span() -> None:
+    value = gerber_applied_change()
+    shifted = value.output_value_span.model_copy(
+        update={"start_byte": 43, "end_byte": 48}
+    )
+    with pytest.raises(ValidationError, match="preserve the value source span"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {**value.model_dump(), "output_value_span": shifted.model_dump()}
+        )
+
+    empty = value.input_value_span.model_copy(update={"start_byte": 42, "end_byte": 42})
+    with pytest.raises(ValidationError, match="non-empty source token span"):
+        AppliedGerberStandardApertureDiameterChange.model_validate(
+            {
+                **value.model_dump(),
+                "input_value_span": empty.model_dump(),
+                "output_value_span": empty.model_dump(),
+            }
+        )
+
+
+def test_gerber_applied_change_round_trips_inside_result() -> None:
+    evidence = result()
+    payload_files = tuple(
+        item.model_copy(
+            update={
+                "logical_path": "fab/board-top-copper.gtl"
+                if item.changed
+                else item.logical_path
+            }
+        )
+        for item in evidence.payload_files
+    )
+    gerber_result = evidence.model_copy(
+        update={"operation": gerber_applied_change(), "payload_files": payload_files}
+    )
+    admitted = ModificationResult.model_validate_json(gerber_result.model_dump_json())
+    assert isinstance(admitted.operation, AppliedGerberStandardApertureDiameterChange)
+    assert admitted.operation.aperture_code == "D11"
+    assert admitted.operation.adapter_id == "boardgate-gerber-aperture-diameter-patch"

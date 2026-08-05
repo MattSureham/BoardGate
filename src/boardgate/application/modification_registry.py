@@ -17,18 +17,27 @@ from boardgate.authoring.excellon import (
     prepare_excellon_tool_diameter_patch,
     verify_excellon_tool_diameter_patch,
 )
+from boardgate.authoring.gerber import (
+    prepare_gerber_aperture_diameter_patch,
+    verify_gerber_aperture_diameter_patch,
+)
 from boardgate.authoring.models import (
     MODIFICATION_OPERATION_KEYS,
     AppliedExcellonToolDiameterChange,
+    AppliedGerberStandardApertureDiameterChange,
     ModificationOperation,
     SetExcellonToolDiameter,
+    SetGerberStandardApertureDiameter,
 )
 from boardgate.domain.enums import FileType
 from boardgate.domain.source import SourceFile
 from boardgate.parsers.excellon import ExcellonParseResult
+from boardgate.parsers.gerber import GerberParseResult
 
 type ParserExecutor = Callable[[ParserJob], ParserExecution]
-type AppliedModification = AppliedExcellonToolDiameterChange
+type AppliedModification = (
+    AppliedExcellonToolDiameterChange | AppliedGerberStandardApertureDiameterChange
+)
 
 
 class OperationRegistryError(ValueError):
@@ -185,9 +194,107 @@ class ExcellonToolDiameterExecutor:
         )
 
 
+def _parse_gerber(
+    source: SourceFile,
+    payload: bytes,
+    *,
+    parser_executor: ParserExecutor,
+) -> GerberParseResult:
+    execution = parser_executor(
+        ParserJob(
+            source_file_id=source.source_file_id,
+            logical_path=source.logical_path,
+            file_type=source.file_type,
+            payload=payload,
+        )
+    )
+    if execution.failure is not None:
+        raise OperationExecutionError(
+            "MODIFICATION_SOURCE_PARSE_FAILED",
+            source.logical_path,
+            f"source parser did not complete ({execution.failure.code})",
+        )
+    result = execution.result
+    if not isinstance(result, GerberParseResult):
+        raise OperationExecutionError(
+            "MODIFICATION_SOURCE_PARSE_TYPE_MISMATCH",
+            source.logical_path,
+            "source parser did not return normalized Gerber evidence",
+        )
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class GerberStandardApertureDiameterExecutor:
+    """Executor for one exact, same-width Gerber diameter-token change."""
+
+    kind: str = "set_gerber_standard_aperture_diameter"
+    operation_version: str = "1.0"
+    file_type: FileType = FileType.GERBER
+
+    def execute(
+        self,
+        source: SourceFile,
+        payload: bytes,
+        operation: ModificationOperation,
+        *,
+        parser_executor: ParserExecutor = run_parser,
+    ) -> ExecutedModification:
+        """Patch, reparse, and prove the exact requested semantic delta."""
+        if not isinstance(operation, SetGerberStandardApertureDiameter):
+            raise OperationRegistryError(
+                "MODIFICATION_EXECUTOR_TYPE_MISMATCH",
+                "registered operation model does not match its executor",
+            )
+        before = _parse_gerber(
+            source,
+            payload,
+            parser_executor=parser_executor,
+        )
+        candidate = prepare_gerber_aperture_diameter_patch(
+            payload,
+            before,
+            operation,
+        )
+        output_source = source.model_copy(
+            update={
+                "source_file_id": candidate.output_source_file_id,
+                "sha256": candidate.output_sha256,
+                "size_bytes": len(candidate.payload),
+            }
+        )
+        after = _parse_gerber(
+            output_source,
+            candidate.payload,
+            parser_executor=parser_executor,
+        )
+        try:
+            applied = verify_gerber_aperture_diameter_patch(
+                before,
+                after,
+                operation,
+                candidate,
+            )
+        except AuthoringOperationError as error:
+            raise OperationExecutionError(
+                error.code,
+                error.subject,
+                error.detail,
+            ) from error
+        return ExecutedModification(
+            payload=candidate.payload,
+            output_source_file_id=candidate.output_source_file_id,
+            output_sha256=candidate.output_sha256,
+            applied=applied,
+        )
+
+
 _EXECUTORS: Mapping[tuple[str, str], ModificationExecutor] = MappingProxyType(
     {
         ("set_excellon_tool_diameter", "1.0"): ExcellonToolDiameterExecutor(),
+        ("set_gerber_standard_aperture_diameter", "1.0"): (
+            GerberStandardApertureDiameterExecutor()
+        ),
     }
 )
 

@@ -10,8 +10,8 @@ from boardgate.authoring.generation_models import (
     GenerationRequest,
 )
 from boardgate.authoring.models import (
+    ModificationOperation,
     ModificationRequest,
-    SetExcellonToolDiameter,
 )
 from boardgate.domain.serialization import canonical_json
 
@@ -21,7 +21,7 @@ def request_sha256(request: ModificationRequest) -> str:
     return hashlib.sha256(canonical_json(request).encode("utf-8")).hexdigest()
 
 
-def operation_sha256(operation: SetExcellonToolDiameter) -> str:
+def operation_sha256(operation: ModificationOperation) -> str:
     """Hash executable fields while excluding non-semantic instruction prose."""
     payload = json.dumps(
         operation.model_dump(mode="json", exclude={"instruction"}),

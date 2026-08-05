@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import boardgate.authoring.request as request_module
-from boardgate.authoring.models import ModificationRequest
+from boardgate.authoring.models import ModificationRequest, SetExcellonToolDiameter
 from boardgate.authoring.request import (
     ModificationRequestError,
     load_modification_request,
@@ -49,6 +49,7 @@ def test_valid_request_bytes_and_json_file_are_admitted(tmp_path: Path) -> None:
 
     assert isinstance(from_bytes, ModificationRequest)
     assert from_file == from_bytes
+    assert isinstance(from_bytes.operation, SetExcellonToolDiameter)
     assert from_bytes.operation.tool_code == "T01"
 
 
