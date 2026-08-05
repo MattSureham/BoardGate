@@ -248,16 +248,20 @@ checks, and so on), see [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md).
 ## Constrained PCB modification
 
 Modification is a separate deterministic capability, not a rule-engine side
-effect. Three operations are registered: `set_excellon_tool_diameter/1.0`
+effect. Four operations are registered: `set_excellon_tool_diameter/1.0`
 changes one explicitly identified Excellon round drill tool from an expected
 diameter to a new diameter, `set_gerber_standard_aperture_diameter/1.0`
 changes one explicitly identified Gerber standard round aperture the same
-way, and `set_placement_reference_designator/1.0` renames one explicitly
-identified placement-CSV row's reference designator. Each accepts
+way, `set_placement_reference_designator/1.0` renames one explicitly
+identified placement-CSV row's reference designator, and
+`set_placement_anchor_coordinate/1.0` moves one explicitly identified
+placement-CSV row's X or Y anchor to an expected-position-verified new
+coordinate. Each accepts
 only a confirmed, warning-free, metric/absolute source with a plain fixed-width
 definition (`TnnC0.000` or `%ADDnnC,0.000*%`) or a confirmed placement CSV
 whose rows are single-line and unquoted; tools shared with routed slots,
-holed or non-circle apertures, colliding new references, and unsupported
+holed or non-circle apertures, colliding new references, non-metric or
+non-plain-decimal coordinate tokens, precision loss, and unsupported
 syntax fail closed.
 
 First run `inspect` and take the base project/source IDs and SHA-256 from its

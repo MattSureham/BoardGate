@@ -85,7 +85,8 @@ postconditions. Operations are registered and versioned individually.
 
 The supported vertical slices are a constrained Excellon round-drill tool
 diameter change, a constrained Gerber standard round-aperture diameter
-change, and a constrained placement-CSV reference-designator rename. Later
+change, a constrained placement-CSV reference-designator rename, and a
+constrained placement-CSV anchor-coordinate change. Later
 candidates include further bounded placement-field edits,
 explicit layer transformations, and edits through native EDA adapters. Each
 candidate requires its own capability and round-trip evidence; support for one
@@ -289,6 +290,9 @@ separate from deterministic evidence.
   semantic delta.
 - **Implemented:** rename one supported placement-CSV row's reference
   designator, preserve all unrelated bytes, and prove the parsed semantic
+  delta.
+- **Implemented:** change one supported placement-CSV row's X or Y anchor
+  coordinate, preserve all unrelated bytes, and prove the parsed semantic
   delta.
 - Stale-input, ambiguity, unsupported-syntax, and rollback tests accompany each
   operation slice.
