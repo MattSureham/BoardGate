@@ -19,20 +19,19 @@
 
 ## Current State
 
-- Last updated: `2026-08-05T13:40:00+08:00`
+- Last updated: `2026-08-05T17:49:16+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  records the completed placement anchor-coordinate modification slice
-  ac22e1c+faa8ce0.`
-- Remote sync: `[CONFIRMED] origin/main and origin/HEAD are at 178ff48,
-  verified via git fetch on 2026-08-05; the prior state's claim that
-  origin was at 278a9fb was stale (178ff48 was pushed and CI-verified in
-  the same authorized publication as 278a9fb). Local main is six commits
-  ahead of origin/main (eb202ff, 291943d, 6bb5fbe, ac22e1c, faa8ce0, and
-  this HANDOFF commit); publication awaits explicit user authorization.
-  No force push, rebase, or remote-history rewrite occurred.`
+  records publication of the placement reference-designator and anchor-
+  coordinate modification slices plus the patched Viewer URI dependency.`
+- Remote sync: `[CONFIRMED] The authorized normal fast-forward published
+  the six recovered authoring commits and security commit through 9e9b0b3
+  to origin/main and origin/HEAD on 2026-08-05. Actions run 30994317914 at
+  9e9b0b3 passed all eight jobs. The branch-tip HANDOFF commit containing
+  this state is the final documentation-only fast-forward; no force push,
+  rebase, or remote-history rewrite occurred.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
@@ -389,6 +388,30 @@
   bom_placement_reference_match, duplicate_reference_designator, and
   placement_outside_board_outline v1 (16/16 registered rules).`
 - Verification:
+  - `[CONFIRMED] Recovery gates on 2026-08-05 independently passed on the
+    complete authoring tree before publication: uv lock/check and locked
+    sync; Ruff format/check (207 files); mypy (189 source files); all eleven
+    checked-in Schemas current; and the complete Python 3.12 suite with 1002
+    tests at 90.43% branch coverage. Viewer Biome, TypeScript, 165 Vitest
+    tests with one opt-in private-scale skip (92.84% statements, 87.54%
+    branches, 98.65% functions, 92.74% lines), and deterministic standalone
+    build verification also passed.`
+  - `[CONFIRMED] Viewer dependency recovery replaced only the transitive
+    fast-uri 3.1.4 lock entry with patched 3.1.5. Fresh npm ci and
+    npm audit --audit-level=high reported zero vulnerabilities; package.json,
+    Ajv, Viewer source, generated validators, and the standalone HTML did not
+    change. SHA-256 remained 21a25078b3b8dd4d5362a1a9a7913cc3c1e592f5ea4d9ca7206a2a8236314aeb
+    for boardgate-viewer.html, d79d084e5ae9ef5baec7c50338d16015b379e3851e8e106c0b18fd1e0241e9f9
+    for schema-validators.js, and 49351d9b8e8bb16b856ee1371fcab625d7d3aa433d31927c66c8bc39e5998dbd
+    for schema-validators.d.ts.`
+  - `[CONFIRMED] GitHub Actions run 30971073730 at previously published
+    baseline 178ff48 passed all eight jobs, independently correcting the
+    prior HANDOFF omission.`
+  - `[CONFIRMED] GitHub Actions run 30994317914 at implementation/security
+    publication tip 9e9b0b3 passed all eight jobs: quality, Python 3.12 and
+    3.14 tests, Viewer quality and three-engine browsers, and Ubuntu/macOS/
+    Windows CLI smokes. The Playwright failure-evidence upload step was
+    skipped and the run retained zero artifacts, so ISSUE-008 did not recur.`
   - `[CONFIRMED] Placement anchor-coordinate gates on 2026-08-05 passed on
     the complete tree: Ruff format/check (207 files); mypy (189 source
     files); checked-in Schema export/currency for the eleven Schemas
@@ -722,10 +745,10 @@
     validated summary, preview.svg, and report.md with layer toggles,
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-  - `[CONFIRMED] Authoring currently supports exactly two single-token
-    modification operations (one Excellon tool-diameter operation and one
-    Gerber standard round-aperture diameter operation) and exactly two
-    bounded two-layer coupon
+  - `[CONFIRMED] Authoring currently supports exactly four single-token
+    modification operations (Excellon tool diameter, Gerber standard round-
+    aperture diameter, placement-CSV reference designator, and placement-CSV
+    anchor coordinate) and exactly two bounded two-layer coupon
     generation operations (plated-only and mixed PTH/NPTH). The typed
     authoring-plan boundary admits only those registered kind/version pairs;
     the modify and generate CLI commands consume an admitted plan through
@@ -737,8 +760,8 @@
     circuit intent, autorouter, free-form generation path, or autonomous
     production-release path is implemented.`
 - Working tree: `[CONFIRMED] The branch-tip HANDOFF commit is expected to
-  leave a clean local main that equals origin/main after the same
-  authorized normal push that published 278a9fb.`
+  leave a clean local main that equals origin/main and origin/HEAD after its
+  authorized normal fast-forward publication.`
 
 ### Background Tasks
 
@@ -766,13 +789,43 @@ this fixed lifecycle:
   relevant.
 
 Current background tasks: `[CONFIRMED] none — no live, terminal, or
-unreconciled background tasks exist as of 2026-08-05T12:10:00+08:00.`
+unreconciled background tasks exist as of 2026-08-05T17:49:16+08:00.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
 the current capabilities.
 
 ## Active Issues
+
+### ISSUE-011 — Locked fast-uri version affected by host-confusion advisory
+
+- Status: RESOLVED
+- Severity: high
+- Owner: Codex
+- State label: `[CONFIRMED]`
+- Context: Viewer package-lock transitively pinned fast-uri 3.1.4 through
+  Ajv 8.20.0 when GHSA-7p8r-x3mc-p8w7 was published on 2026-08-03 with high
+  severity; patched fast-uri 3.x starts at 3.1.5.
+- Evidence: npm audit identified the advisory against the clean locked
+  dependency tree. BoardGate uses fixed local Schemas with Ajv
+  `validateFormats: false`, runs the Viewer offline under a CSP whose
+  connect-src is none, and does not accept remote Schema references, which
+  limits practical reachability but does not justify retaining a known
+  vulnerable dependency.
+- Suspected cause: The reproducible lock predated both the advisory and the
+  patched fast-uri release.
+- Attempted approaches: Rehearsed and then applied a package-lock-only
+  transitive update; no direct dependency or Ajv upgrade was necessary.
+- Current resolution state: Resolved by 9e9b0b3. fast-uri is locked at 3.1.5;
+  fresh npm ci and npm audit --audit-level=high report zero vulnerabilities.
+  Viewer Biome, TypeScript, the 165-test coverage suite, deterministic build,
+  and Actions run 30994317914 all passed. package.json, Viewer source,
+  generated validators, and boardgate-viewer.html remained byte-identical
+  with the SHA-256 values recorded in Current State.
+- Remaining work: Monitor future locked-dependency advisories during bounded
+  maintenance. Do not add a live network-backed npm audit to reproducible CI.
+- Relevant files: `viewer/package-lock.json`
+- Blocking: No.
 
 ### ISSUE-009 — SVG admission accepted animation and foreign namespaces
 
@@ -1162,21 +1215,57 @@ the current capabilities.
 
 ## Next Action
 
-Publish the six local commits (the placement reference-designator slice
-eb202ff+291943d+6bb5fbe and the placement anchor-coordinate slice
-ac22e1c+faa8ce0 plus the branch-tip HANDOFF commit) to origin/main with
-explicit user authorization, then verify the resulting GitHub Actions
-run in the foreground. If publication is not yet authorized, select the
-next registered authoring operation from PROJECT_SPEC's remaining
-Phase E candidates (a further bounded placement-field edit, an explicit
-layer transformation, or a native EDA adapter) and implement it as a
-Phase B-style slice: strict request/result contracts and exact registry
-admission first, then stale-input, ambiguity, unsupported-syntax, and
-rollback tests, plus round-trip evidence that the emitted revision
-resolves a targeted Finding through the unchanged review pipeline
-without hiding new Findings.
+Implement set_placement_dnp_state/1.0 for an explicit DNP column using only
+same-width plain 0↔1 tokens: bind one unique placement row and stale-safe
+source identity, reject Fitted/Populate or ambiguous syntax, reparse and
+preserve every non-target fact, and prove through the unchanged ReviewService
+that marking one placement-only reference DNP resolves
+bom_placement_reference_match without introducing new Findings.
 
 ## Recent Activity
+
+### 2026-08-05T17:49:16+08:00 — Codex — Authoring publication and Viewer dependency recovery
+
+- Role: implementation/recovery agent
+- Task: Recover the six unpublished placement-authoring commits, repair the
+  newly disclosed locked dependency, publish by normal fast-forward, verify
+  CI, and leave a single bounded authoring Next Action.
+- Context: Read BOOTSTRAP.md, PROJECT_SPEC.md, HANDOFF.md, all accepted ADRs
+  0001-0007, authoring contracts/registries/services, placement adapters,
+  review validation, tests, git history, remote refs, and public repository/
+  Actions evidence. Repository evidence confirmed clean local main ca889a1
+  was six linear commits ahead of origin/main 178ff48; the two unpublished
+  slices were complete rather than abandoned. HANDOFF undercounted the four
+  modification operations, omitted the latest published CI, and retained a
+  conditional Next Action.
+- Actions performed:
+  - `[CONFIRMED]` Independently re-ran the complete Python and Viewer gates
+    recorded in Current State before touching the recovered commits.
+  - `[CONFIRMED]` Identified high-severity GHSA-7p8r-x3mc-p8w7 against
+    transitive fast-uri 3.1.4, updated only its package-lock entry to patched
+    3.1.5, and verified zero audit findings plus byte-identical generated
+    Viewer files.
+  - `[CONFIRMED]` Created 9e9b0b3 and normally fast-forward pushed the six
+    recovered authoring commits plus that security commit. Actions run
+    30994317914 passed all eight jobs; the Viewer failure-upload step was
+    skipped and the artifact API reported zero retained artifacts.
+  - `[CONFIRMED]` Corrected only this agent's Current State/Active Issue/Next
+    Action records, preserving all prior activity and evidence.
+- Files modified: `viewer/package-lock.json`, `HANDOFF.md`
+- Verification performed: Python lock/sync, Ruff, mypy, eleven-Schema
+  currency, 1002 tests at 90.43% branch coverage; npm ci and high-severity
+  audit, Viewer Biome/TypeScript, 165-test configured coverage and
+  deterministic build; GitHub Actions run 30994317914 with eight successful
+  jobs, skipped failure upload, and zero artifacts.
+- Issues created/updated: ISSUE-011 created and resolved with patched-lock,
+  local-gate, and CI evidence. ISSUE-002, ISSUE-005, ISSUE-007, and ISSUE-008
+  remain open, low severity, and non-blocking; no existing issue was closed
+  without new evidence.
+- Remaining uncertainty: The branch-tip documentation-only HANDOFF commit
+  still requires its own foreground eight-job Actions verification after
+  normal publication.
+- Recommended next action: Implement set_placement_dnp_state/1.0 exactly as
+  bounded in the sole Next Action above.
 
 ### 2026-08-05T13:40:00+08:00 — Claude — Placement anchor coordinate modification operation
 
