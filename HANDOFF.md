@@ -19,29 +19,30 @@
 
 ## Current State
 
-- Last updated: `2026-08-05T17:49:16+08:00`
+- Last updated: `2026-08-07T11:40:00+08:00`
 - Repository: `[CONFIRMED] https://github.com/MattSureham/BoardGate`
 - Visibility: `[CONFIRMED] PUBLIC`
 - Branch: `[CONFIRMED] main`
 - HEAD: `[CONFIRMED] The branch-tip HANDOFF commit containing this state
-  records publication of the placement reference-designator and anchor-
-  coordinate modification slices plus the patched Viewer URI dependency.`
-- Remote sync: `[CONFIRMED] The authorized normal fast-forward published
-  the six recovered authoring commits and security commit through 9e9b0b3
-  to origin/main and origin/HEAD on 2026-08-05. Actions run 30994317914 at
-  9e9b0b3 passed all eight jobs. The branch-tip HANDOFF commit containing
-  this state is the final documentation-only fast-forward; no force push,
-  rebase, or remote-history rewrite occurred.`
+  records completion of the placement-CSV explicit-DNP-state modification
+  slice (set_placement_dnp_state/1.0), the fifth registered modification
+  operation.`
+- Remote sync: `[CONFIRMED] Local main was clean and equal to origin/main
+  and origin/HEAD at e1df48a before this slice. The DNP implementation,
+  documentation, and HANDOFF commits are new local commits that require an
+  explicitly authorized normal fast-forward publication; no push, force
+  push, rebase, or remote-history rewrite has occurred for them.`
 - Phase: `[CONFIRMED] Phase 9 end-to-end review pipeline and Phase 10
   deterministic agent orchestration are complete; the Phase 11 offline
   static Viewer is complete through bundle admission, project/status
   summary, validated SVG exploration, validated Markdown report rendering,
   and cross-panel Finding navigation. Authoring Phases A-D and the first
   Phase E registered extension now have an
-  accepted separate-subsystem architecture, strict public contracts, four
+  accepted separate-subsystem architecture, strict public contracts, five
   deterministic single-token modification operations (Excellon tool
   diameter, Gerber standard round-aperture diameter, placement-CSV
-  reference designator, and placement-CSV anchor coordinate), two bounded
+  reference designator, placement-CSV anchor coordinate, and placement-CSV
+  explicit DNP state), two bounded
   deterministic two-layer coupon generation operations, independent review
   validation for every emitted design, and a typed authoring-plan admission
   boundary with a separate authorization digest, explicit-approval CLI
@@ -412,6 +413,24 @@
     3.14 tests, Viewer quality and three-engine browsers, and Ubuntu/macOS/
     Windows CLI smokes. The Playwright failure-evidence upload step was
     skipped and the run retained zero artifacts, so ISSUE-008 did not recur.`
+  - `[CONFIRMED] Placement DNP-state gates on 2026-08-07 passed on the
+    complete tree: Ruff format/check (209 files); mypy (191 source files);
+    checked-in Schema export/currency for the eleven Schemas
+    (modification-request/result widened for the fifth operation); and the
+    complete Python 3.12 suite with 1039 passed tests at 90.94% branch
+    coverage, including 22 focused scanner/patch/verify unit tests, five
+    new contract tests, and eleven integration tests proving the
+    placement_only_reference base Finding, CLI/service equivalence,
+    stale/invalid/ambiguous requests at exit 2 without publication,
+    non-plain DNP token and inverted Fitted/Populate column at exit 3
+    without publication, blocker publication with exit 1, fabricated-span
+    workspace rejection, and ANALYSIS_FAILED preservation. A manual
+    end-to-end smoke produced rev-9384dec72fc79b41 READY_FOR_REVIEW with
+    zero validation Findings and only the intended DNP token changed. One
+    pre-existing Hypothesis boundary failure in
+    tests/unit/geometry/test_arcs.py (measured chord error
+    1.0000000424e-06 mm against a 1e-06 mm request) was reproduced against
+    clean HEAD and deselected for this run; recorded as ISSUE-012.`
   - `[CONFIRMED] Placement anchor-coordinate gates on 2026-08-05 passed on
     the complete tree: Ruff format/check (207 files); mypy (189 source
     files); checked-in Schema export/currency for the eleven Schemas
@@ -745,10 +764,11 @@
     validated summary, preview.svg, and report.md with layer toggles,
     Finding-ID focus, and cross-panel Finding navigation, but provides no
     API/upload/review/persistence channel.`
-  - `[CONFIRMED] Authoring currently supports exactly four single-token
+  - `[CONFIRMED] Authoring currently supports exactly five single-token
     modification operations (Excellon tool diameter, Gerber standard round-
-    aperture diameter, placement-CSV reference designator, and placement-CSV
-    anchor coordinate) and exactly two bounded two-layer coupon
+    aperture diameter, placement-CSV reference designator, placement-CSV
+    anchor coordinate, and placement-CSV explicit DNP state) and exactly
+    two bounded two-layer coupon
     generation operations (plated-only and mixed PTH/NPTH). The typed
     authoring-plan boundary admits only those registered kind/version pairs;
     the modify and generate CLI commands consume an admitted plan through
@@ -789,7 +809,7 @@ this fixed lifecycle:
   relevant.
 
 Current background tasks: `[CONFIRMED] none — no live, terminal, or
-unreconciled background tasks exist as of 2026-08-05T17:49:16+08:00.`
+unreconciled background tasks exist as of 2026-08-07T11:40:00+08:00.`
 
 Current State is the evidence-backed present snapshot. Recent Activity explains
 how the repository reached that state and must not be required to understand
@@ -825,6 +845,38 @@ the current capabilities.
 - Remaining work: Monitor future locked-dependency advisories during bounded
   maintenance. Do not add a live network-backed npm audit to reproducible CI.
 - Relevant files: `viewer/package-lock.json`
+- Blocking: No.
+
+### ISSUE-012 — Arc approximation can marginally exceed requested chord error
+
+- Status: OPEN
+- Severity: low
+- Owner: unassigned
+- State label: `[CONFIRMED]`
+- Context: On 2026-08-07 the Hypothesis property test
+  `test_quarter_arc_respects_chord_error` found radius 876.5153430855582 mm
+  with requested max chord error 1e-06 mm producing a measured chord error
+  of 1.0000000424156593e-06 mm, exceeding the requested bound by about
+  4.2e-14 mm (relative excess ~4.2e-8, beyond the test's 1e-9 tolerance).
+- Evidence: The exact failing example was re-evaluated against clean HEAD
+  e1df48a in a separate worktree and fails identically, so the slice under
+  test (placement DNP authoring) does not cause it; the example now replays
+  from the local Hypothesis database.
+- Suspected cause: Floating-point rounding at the segment-count boundary in
+  the analytic arc subdivision, or an over-tight test tolerance; not yet
+  investigated.
+- Attempted approaches: Reproduced in isolation against clean HEAD; no code
+  change attempted because the failing code is outside the authorized
+  slice.
+- Current resolution state: Unresolved. The absolute overrun is
+  ~4.2e-14 mm, far below the geometry epsilon and any fabrication
+  threshold, but it is a genuine contract overrun at the requested bound.
+- Remaining work: Determine whether the subdivision needs a one-segment
+  safety margin at the boundary or the test tolerance needs widening;
+  whichever is chosen, add the radius=876.5153430855582, error=1e-06 case
+  as a permanent regression example.
+- Relevant files: `src/boardgate/geometry/arcs.py`,
+  `tests/unit/geometry/test_arcs.py`
 - Blocking: No.
 
 ### ISSUE-009 — SVG admission accepted animation and foreign namespaces
@@ -1215,14 +1267,86 @@ the current capabilities.
 
 ## Next Action
 
-Implement set_placement_dnp_state/1.0 for an explicit DNP column using only
-same-width plain 0↔1 tokens: bind one unique placement row and stale-safe
-source identity, reject Fitted/Populate or ambiguous syntax, reparse and
-preserve every non-target fact, and prove through the unchanged ReviewService
-that marking one placement-only reference DNP resolves
-bom_placement_reference_match without introducing new Findings.
+Implement set_placement_rotation/1.0 for an explicit Rotation column using
+only same-width plain decimal tokens: bind one unique placement row and
+stale-safe source identity, reject quoted/ambiguous or non-plain rotation
+syntax, reparse and preserve every non-target fact, and prove through the
+unchanged ReviewService that the emitted design reviews cleanly with no new
+or hidden Findings (no current v1 rule consumes rotation, so the required
+evidence is the exact parsed semantic delta plus a truthful unchanged
+review, not a resolved Finding).
 
 ## Recent Activity
+
+### 2026-08-07T11:40:00+08:00 — Claude — Placement explicit-DNP-state modification operation
+
+- Role: implementation agent
+- Task: Execute the bounded Next Action: implement
+  set_placement_dnp_state/1.0 for an explicit DNP column using only
+  same-width plain 0↔1 tokens, and prove through the unchanged
+  ReviewService that marking one placement-only reference DNP resolves
+  bom_placement_reference_match without introducing new Findings.
+- Context: Read BOOTSTRAP.md, PROJECT_SPEC.md, HANDOFF.md, accepted ADRs
+  0001-0007, authoring contracts/registry/service, placement adapters, and
+  the prior four modification slices. Repository evidence confirmed clean
+  local main equal to origin/main at e1df48a with the DNP slice as the sole
+  Next Action. The prior entry's only remaining uncertainty (branch-tip CI
+  verification of run 30994998111) was resolved from Actions evidence: all
+  eight jobs succeeded.
+- Actions performed:
+  - `[CONFIRMED]` Added the SetPlacementDnpState and
+    AppliedPlacementDnpStateChange 1.0 contracts (reference pattern,
+    expected/new DNP booleans, no-op rejection, span validators) with a
+    fifth MODIFICATION_OPERATION_KEYS entry, full registry admission, and
+    regenerated modification Schemas.
+  - `[CONFIRMED]` Added scan_placement_dnp_states with exact value spans,
+    rejecting Fitted/Populate inverted-semantics columns and non-plain
+    0/1 lexemes; prepare_placement_dnp_state_patch enforces stale-safe
+    source identity and the expected-state precondition before one
+    same-width token replacement; verify_placement_dnp_state_patch proves
+    the parsed DNP delta while protecting every non-target placement fact.
+  - `[CONFIRMED]` Created the placement_only_reference fixture whose only
+    base Finding is the placement-only U1 reference, so the DNP flip
+    observably resolves bom_placement_reference_match; baseline verified
+    empirically before tests were written.
+  - `[CONFIRMED]` Extended validate_modification_workspace with token-
+    witness and validation-project DNP checks, and restructured
+    _operation_evidence_key into a target helper plus an explicit
+    old/new-attribute table to keep Ruff complexity gates green.
+  - `[CONFIRMED]` Updated PROJECT_SPEC.md, docs/CAPABILITIES.md, README.md,
+    and README.zh-CN.md to record the fifth operation and its fail-closed
+    boundaries.
+  - `[CONFIRMED]` Recorded the pre-existing arc chord-error Hypothesis
+    boundary failure as ISSUE-012 instead of fixing unrelated geometry code
+    inside this slice.
+- Files modified: `src/boardgate/authoring/models.py`,
+  `src/boardgate/authoring/placement.py`, `src/boardgate/authoring/__init__.py`,
+  `src/boardgate/application/modification_registry.py`,
+  `src/boardgate/application/modification_service.py`,
+  `schemas/v1/modification-request.schema.json`,
+  `schemas/v1/modification-result.schema.json`,
+  `tests/unit/authoring/test_placement_dnp.py` (new),
+  `tests/unit/authoring/test_models_identifiers.py`,
+  `tests/integration/test_modify_placement_dnp_revision.py` (new),
+  `tests/fixtures/placement_only_reference/` (new),
+  `PROJECT_SPEC.md`, `docs/CAPABILITIES.md`, `README.md`,
+  `README.zh-CN.md`, `HANDOFF.md`
+- Verification performed: Ruff format/check (209 files), mypy (191 source
+  files), checked-in Schema export/currency, and the complete Python 3.12
+  suite with 1039 passed tests at 90.94% branch coverage (one pre-existing
+  ISSUE-012 Hypothesis example deselected after reproduction against clean
+  HEAD); manual end-to-end smoke published rev-9384dec72fc79b41
+  READY_FOR_REVIEW with zero validation Findings and only the intended DNP
+  token changed.
+- Issues created/updated: ISSUE-012 created (open, low, non-blocking).
+  ISSUE-002, ISSUE-005, ISSUE-007, and ISSUE-008 remain open, low severity,
+  and non-blocking; no existing issue was closed without new evidence.
+- Remaining uncertainty: The DNP implementation, documentation, and HANDOFF
+  commits require explicit owner authorization before a normal fast-forward
+  push, and the published tip then requires its own foreground eight-job
+  Actions verification.
+- Recommended next action: Implement set_placement_rotation/1.0 exactly as
+  bounded in the sole Next Action above.
 
 ### 2026-08-05T17:49:16+08:00 — Codex — Authoring publication and Viewer dependency recovery
 
