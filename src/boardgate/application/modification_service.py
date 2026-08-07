@@ -63,6 +63,7 @@ from boardgate.authoring.models import (
     AppliedGerberStandardApertureDiameterChange,
     AppliedModificationOperation,
     AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementDnpStateChange,
     AppliedPlacementReferenceDesignatorChange,
     ModificationOperation,
     ModificationRequest,
@@ -72,10 +73,12 @@ from boardgate.authoring.models import (
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
     SetPlacementAnchorCoordinate,
+    SetPlacementDnpState,
     SetPlacementReferenceDesignator,
 )
 from boardgate.authoring.placement import (
     scan_placement_coordinates,
+    scan_placement_dnp_states,
     scan_placement_references,
 )
 from boardgate.config.models import RuleProfile
@@ -212,52 +215,63 @@ def _copy_design(
             shutil.copyfile(item.staged_path, target)
 
 
-def _operation_evidence_key(
+def _operation_target(
     operation: ModificationOperation | AppliedModificationOperation,
-) -> tuple[object, object, object]:
-    """Return the operation's addressed target and expected/old and new values."""
+) -> object:
+    """Return the operation's addressed target object."""
     if isinstance(
         operation,
         (SetExcellonToolDiameter, AppliedExcellonToolDiameterChange),
     ):
-        target: object = operation.tool_code
-    elif isinstance(
+        return operation.tool_code
+    if isinstance(
         operation,
         (
             SetGerberStandardApertureDiameter,
             AppliedGerberStandardApertureDiameterChange,
         ),
     ):
-        target = operation.aperture_code
-    elif isinstance(operation, SetPlacementReferenceDesignator):
-        target = operation.expected_reference
-    elif isinstance(
+        return operation.aperture_code
+    if isinstance(operation, SetPlacementReferenceDesignator):
+        return operation.expected_reference
+    if isinstance(operation, AppliedPlacementReferenceDesignatorChange):
+        return operation.old_reference
+    if isinstance(
         operation,
         (SetPlacementAnchorCoordinate, AppliedPlacementAnchorCoordinateChange),
     ):
-        target = (operation.reference, operation.coordinate)
-    else:
-        target = operation.old_reference
-    if isinstance(
-        operation,
-        (SetExcellonToolDiameter, SetGerberStandardApertureDiameter),
-    ):
-        return target, operation.expected_diameter_mm, operation.new_diameter_mm
-    if isinstance(operation, SetPlacementReferenceDesignator):
-        return target, operation.expected_reference, operation.new_reference
-    if isinstance(operation, SetPlacementAnchorCoordinate):
-        return target, operation.expected_position_mm, operation.new_position_mm
-    if isinstance(
-        operation,
-        (
-            AppliedExcellonToolDiameterChange,
-            AppliedGerberStandardApertureDiameterChange,
-        ),
-    ):
-        return target, operation.old_diameter_mm, operation.new_diameter_mm
-    if isinstance(operation, AppliedPlacementAnchorCoordinateChange):
-        return target, operation.old_position_mm, operation.new_position_mm
-    return target, operation.old_reference, operation.new_reference
+        return (operation.reference, operation.coordinate)
+    return operation.reference
+
+
+_EVIDENCE_VALUE_ATTRIBUTES: tuple[tuple[type, str, str], ...] = (
+    (SetExcellonToolDiameter, "expected_diameter_mm", "new_diameter_mm"),
+    (SetGerberStandardApertureDiameter, "expected_diameter_mm", "new_diameter_mm"),
+    (SetPlacementReferenceDesignator, "expected_reference", "new_reference"),
+    (SetPlacementAnchorCoordinate, "expected_position_mm", "new_position_mm"),
+    (SetPlacementDnpState, "expected_dnp", "new_dnp"),
+    (AppliedExcellonToolDiameterChange, "old_diameter_mm", "new_diameter_mm"),
+    (AppliedGerberStandardApertureDiameterChange, "old_diameter_mm", "new_diameter_mm"),
+    (AppliedPlacementReferenceDesignatorChange, "old_reference", "new_reference"),
+    (AppliedPlacementAnchorCoordinateChange, "old_position_mm", "new_position_mm"),
+    (AppliedPlacementDnpStateChange, "old_dnp", "new_dnp"),
+)
+
+
+def _operation_evidence_key(
+    operation: ModificationOperation | AppliedModificationOperation,
+) -> tuple[object, object, object]:
+    """Return the operation's addressed target and expected/old and new values."""
+    target = _operation_target(operation)
+    for model, old_attribute, new_attribute in _EVIDENCE_VALUE_ATTRIBUTES:
+        if isinstance(operation, model):
+            return (
+                target,
+                getattr(operation, old_attribute),
+                getattr(operation, new_attribute),
+            )
+    msg = "operation model is outside the admitted modification contract"
+    raise AssertionError(msg)
 
 
 def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR0915
@@ -414,7 +428,10 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     != result_operation.output_value_span
                 ):
                     raise token_mismatch
-            else:
+            elif isinstance(
+                result_operation,
+                AppliedPlacementAnchorCoordinateChange,
+            ):
                 coordinate_witnesses = tuple(
                     witness
                     for witness in scan_placement_coordinates(
@@ -430,6 +447,21 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                     != result_operation.output_value_span
                     or coordinate_witnesses[0].value_mm
                     != Decimal(str(result_operation.new_position_mm))
+                ):
+                    raise token_mismatch
+            else:
+                dnp_witnesses = tuple(
+                    witness
+                    for witness in scan_placement_dnp_states(
+                        payload,
+                        subject="<design-source>",
+                    )
+                    if witness.reference == result_operation.reference
+                )
+                if (
+                    len(dnp_witnesses) != 1
+                    or dnp_witnesses[0].value_span != result_operation.output_value_span
+                    or dnp_witnesses[0].value is not result_operation.new_dnp
                 ):
                     raise token_mismatch
 
@@ -543,7 +575,10 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
             raise ValueError(
                 "operation output placements do not match validation project"
             )
-    else:
+    elif isinstance(
+        result_operation,
+        AppliedPlacementAnchorCoordinateChange,
+    ):
         output_target_placements = tuple(
             placement
             for placement in validation_project.components
@@ -560,6 +595,29 @@ def validate_modification_workspace(root: Path) -> None:  # noqa: PLR0912, PLR09
                 rel_tol=0.0,
                 abs_tol=1e-9,
             )
+        )
+        output_placement_ids = tuple(
+            sorted(
+                placement.provenance.object_id
+                for placement in output_target_placements
+                if placement.provenance.object_id is not None
+            )
+        )
+        if len(output_target_placements) != len(output_placement_ids) or (
+            output_placement_ids
+            != tuple(sorted(result_operation.affected_output_placement_ids))
+        ):
+            raise ValueError(
+                "operation output placements do not match validation project"
+            )
+    else:
+        output_target_placements = tuple(
+            placement
+            for placement in validation_project.components
+            if placement.provenance.source_file_id
+            == result_operation.output_source_file_id
+            and placement.reference == result_operation.reference
+            and placement.dnp is result_operation.new_dnp
         )
         output_placement_ids = tuple(
             sorted(

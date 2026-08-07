@@ -29,6 +29,7 @@ from boardgate.authoring.models import (
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
     AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementDnpStateChange,
     AppliedPlacementReferenceDesignatorChange,
     ModificationRequest,
     ModificationResult,
@@ -37,6 +38,7 @@ from boardgate.authoring.models import (
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
     SetPlacementAnchorCoordinate,
+    SetPlacementDnpState,
     SetPlacementReferenceDesignator,
 )
 from boardgate.authoring.plan_admission import (
@@ -67,6 +69,7 @@ __all__ = [
     "AppliedExcellonToolDiameterChange",
     "AppliedGerberStandardApertureDiameterChange",
     "AppliedPlacementAnchorCoordinateChange",
+    "AppliedPlacementDnpStateChange",
     "AppliedPlacementReferenceDesignatorChange",
     "AppliedTwoLayerCouponGeneration",
     "AppliedTwoLayerCouponWithNpthGeneration",
@@ -90,6 +93,7 @@ __all__ = [
     "SetExcellonToolDiameter",
     "SetGerberStandardApertureDiameter",
     "SetPlacementAnchorCoordinate",
+    "SetPlacementDnpState",
     "SetPlacementReferenceDesignator",
     "admit_authoring_plan",
     "generation_id",

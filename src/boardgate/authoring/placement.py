@@ -12,8 +12,10 @@ from typing import Literal
 from boardgate.authoring.excellon import AuthoringOperationError
 from boardgate.authoring.models import (
     AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementDnpStateChange,
     AppliedPlacementReferenceDesignatorChange,
     SetPlacementAnchorCoordinate,
+    SetPlacementDnpState,
     SetPlacementReferenceDesignator,
 )
 from boardgate.domain.component import ComponentPlacement
@@ -54,6 +56,17 @@ class PlacementCoordinateWitness:
     reference: str
     coordinate_lexeme: str
     value_mm: Decimal | None
+    value_span: SourceSpan
+
+
+@dataclass(frozen=True, slots=True)
+class PlacementDnpWitness:
+    """One exact, supported DNP token and its source location."""
+
+    row_index: int
+    reference: str
+    dnp_lexeme: str
+    value: bool | None
     value_span: SourceSpan
 
 
@@ -265,6 +278,66 @@ def scan_placement_coordinates(
                 reference=reference,
                 coordinate_lexeme=lexeme,
                 value_mm=value,
+                value_span=SourceSpan(
+                    start_line=row.line_number,
+                    end_line=row.line_number,
+                    start_byte=token_start,
+                    end_byte=token_start + token_length,
+                ),
+            )
+        )
+    return tuple(witnesses)
+
+
+def scan_placement_dnp_states(
+    payload: bytes,
+    *,
+    subject: str,
+) -> tuple[PlacementDnpWitness, ...]:
+    """Scan only the strict single-line, unquoted explicit-DNP-cell subset."""
+    _require_source_size(payload, subject=subject)
+    try:
+        table = parse_csv(payload, logical_path=subject)
+        columns = resolve_columns(
+            table,
+            aliases={
+                "reference": _PLACEMENT_ALIASES["reference"],
+                "dnp": _PLACEMENT_ALIASES["dnp"],
+            },
+            required=frozenset({"reference", "dnp"}),
+            logical_path=subject,
+        )
+    except ParserError as error:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_TABLE_UNSUPPORTED",
+            subject,
+            f"placement table is outside the supported subset ({error.code})",
+        ) from error
+    dnp_index = columns["dnp"]
+    if table.normalized_headers[dnp_index].casefold() in {"fitted", "populate"}:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_DNP_COLUMN_UNSUPPORTED",
+            subject,
+            "v1 requires an explicit DNP-semantics column, not an inverted "
+            "Fitted/Populate column",
+        )
+    delimiter_bytes, rows = _row_cells(payload, table, subject=subject)
+    reference_index = columns["reference"]
+    witnesses: list[PlacementDnpWitness] = []
+    for row in rows:
+        reference, _, _ = _cell_token(row, reference_index, delimiter_bytes)
+        lexeme, token_start, token_length = _cell_token(row, dnp_index, delimiter_bytes)
+        value: bool | None = None
+        if lexeme == "0":
+            value = False
+        elif lexeme == "1":
+            value = True
+        witnesses.append(
+            PlacementDnpWitness(
+                row_index=row.row_index,
+                reference=reference,
+                dnp_lexeme=lexeme,
+                value=value,
                 value_span=SourceSpan(
                     start_line=row.line_number,
                     end_line=row.line_number,
@@ -772,6 +845,204 @@ def verify_placement_anchor_coordinate_patch(
         coordinate=operation.coordinate,
         old_position_mm=operation.expected_position_mm,
         new_position_mm=operation.new_position_mm,
+        input_value_span=candidate.input_value_span,
+        output_value_span=candidate.output_value_span,
+        affected_input_placement_ids=candidate.affected_input_placement_ids,
+        affected_output_placement_ids=tuple(affected_output),
+    )
+
+
+def _target_dnp_row(
+    payload: bytes,
+    parsed: PlacementParseResult,
+    operation: SetPlacementDnpState,
+) -> tuple[PlacementDnpWitness, ComponentPlacement]:
+    subject = operation.source_logical_path
+    parsed_matches = tuple(
+        (index, placement)
+        for index, placement in enumerate(parsed.placements)
+        if placement.reference == operation.reference
+    )
+    if not parsed_matches:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_REFERENCE_NOT_FOUND",
+            subject,
+            f"reference {operation.reference} has no parsed placement row",
+        )
+    if len(parsed_matches) != 1:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_REFERENCE_AMBIGUOUS",
+            subject,
+            f"reference {operation.reference} does not resolve uniquely",
+        )
+    witnesses = scan_placement_dnp_states(payload, subject=subject)
+    token_matches = tuple(
+        witness for witness in witnesses if witness.reference == operation.reference
+    )
+    if len(token_matches) != 1:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_REFERENCE_UNSUPPORTED",
+            subject,
+            "v1 requires one plain unquoted uppercase reference token",
+        )
+    witness = token_matches[0]
+    row_index, target = parsed_matches[0]
+    if witness.row_index != row_index:  # pragma: no cover - scanner/parse invariant
+        raise RuntimeError("placement witness and parsed target rows diverged")
+    if witness.value is None:
+        raise AuthoringOperationError(
+            "AUTHORING_PLACEMENT_DNP_UNSUPPORTED",
+            subject,
+            "v1 requires a plain 0 or 1 DNP token",
+        )
+    return witness, target
+
+
+def prepare_placement_dnp_state_patch(
+    payload: bytes,
+    parsed: PlacementParseResult,
+    operation: SetPlacementDnpState,
+) -> PlacementPatchCandidate:
+    """Validate preconditions and replace exactly one same-width DNP token."""
+    subject = operation.source_logical_path
+    input_digest = hashlib.sha256(payload).hexdigest()
+    if input_digest != operation.source_sha256:
+        raise AuthoringOperationError(
+            "AUTHORING_SOURCE_SHA_MISMATCH",
+            subject,
+            "source bytes do not match the request digest",
+        )
+    if parsed.source_file_id != operation.source_file_id:
+        raise AuthoringOperationError(
+            "AUTHORING_SOURCE_ID_MISMATCH",
+            subject,
+            "parsed source identity does not match the request",
+        )
+    witness, target = _target_dnp_row(payload, parsed, operation)
+    if witness.value is not operation.expected_dnp or target.dnp is not (
+        operation.expected_dnp
+    ):
+        raise AuthoringOperationError(
+            "AUTHORING_PRECONDITION_MISMATCH",
+            subject,
+            "DNP token or parsed state does not match expected_dnp",
+        )
+    replacement = b"1" if operation.new_dnp else b"0"
+    start = witness.value_span.start_byte
+    end = witness.value_span.end_byte
+    if start is None or end is None:  # pragma: no cover - witness invariant
+        raise RuntimeError("placement DNP witness omitted byte offsets")
+    if end - start != 1:  # pragma: no cover - plain-token invariant
+        raise RuntimeError("plain DNP token must occupy exactly one byte")
+    output = payload[:start] + replacement + payload[end:]
+    if len(output) != len(payload):  # pragma: no cover - width-check invariant
+        raise RuntimeError("same-width placement patch changed source length")
+    output_digest = hashlib.sha256(output).hexdigest()
+    if output_digest == input_digest:  # pragma: no cover - request rejects no-op
+        raise RuntimeError("placement patch did not change source bytes")
+    target_id = target.provenance.object_id
+    if target_id is None:  # pragma: no cover - parser invariant
+        raise RuntimeError("parsed target placement omitted its object_id")
+    return PlacementPatchCandidate(
+        payload=output,
+        input_sha256=input_digest,
+        output_sha256=output_digest,
+        output_source_file_id=source_file_id(
+            operation.source_logical_path,
+            output_digest,
+        ),
+        input_value_span=witness.value_span,
+        output_value_span=witness.value_span,
+        target_row_index=witness.row_index,
+        affected_input_placement_ids=(target_id,),
+    )
+
+
+def _dnp_placement_signature(placement: ComponentPlacement) -> tuple[object, ...]:
+    return (
+        placement.reference,
+        placement.position,
+        placement.rotation_degrees,
+        placement.side,
+        placement.value,
+        placement.footprint,
+        tuple(sorted(placement.metadata.items())),
+        _provenance_signature(placement.provenance),
+    )
+
+
+def verify_placement_dnp_state_patch(
+    before: PlacementParseResult,
+    after: PlacementParseResult,
+    operation: SetPlacementDnpState,
+    candidate: PlacementPatchCandidate,
+) -> AppliedPlacementDnpStateChange:
+    """Prove the reparsed delta is exactly the requested DNP-state change."""
+    subject = operation.source_logical_path
+    if after.source_file_id != candidate.output_source_file_id:
+        raise AuthoringOperationError(
+            "AUTHORING_POSTCONDITION_SOURCE_MISMATCH",
+            subject,
+            "reparsed output source identity is inconsistent",
+        )
+    if before.source_unit != after.source_unit:
+        raise AuthoringOperationError(
+            "AUTHORING_POSTCONDITION_METADATA_CHANGED",
+            subject,
+            "reparsed source metadata changed outside the requested operation",
+        )
+    if len(before.placements) != len(after.placements):
+        raise AuthoringOperationError(
+            "AUTHORING_POSTCONDITION_FEATURE_COUNT_CHANGED",
+            subject,
+            "reparsed placement count changed",
+        )
+    affected_output: list[str] = []
+    for index, (original, emitted) in enumerate(
+        zip(before.placements, after.placements, strict=True)
+    ):
+        target = index == candidate.target_row_index
+        if target:
+            if _dnp_placement_signature(original) != _dnp_placement_signature(emitted):
+                raise AuthoringOperationError(
+                    "AUTHORING_POSTCONDITION_PLACEMENT_CHANGED",
+                    subject,
+                    "a protected placement fact changed",
+                )
+        elif _placement_signature(
+            original, include_reference=True
+        ) != _placement_signature(emitted, include_reference=True):
+            raise AuthoringOperationError(
+                "AUTHORING_POSTCONDITION_PLACEMENT_CHANGED",
+                subject,
+                "a protected placement fact changed",
+            )
+        if target:
+            if emitted.dnp is not operation.new_dnp:
+                raise AuthoringOperationError(
+                    "AUTHORING_POSTCONDITION_DNP_MISMATCH",
+                    subject,
+                    "reparsed DNP state does not match the requested delta",
+                )
+            emitted_id = emitted.provenance.object_id
+            if emitted_id is None:  # pragma: no cover - parser invariant
+                raise RuntimeError("reparsed target placement omitted its object_id")
+            affected_output.append(emitted_id)
+    if len(affected_output) != len(candidate.affected_input_placement_ids):
+        raise AuthoringOperationError(
+            "AUTHORING_POSTCONDITION_TARGET_COUNT_CHANGED",
+            subject,
+            "the target placement set changed during emission",
+        )
+    return AppliedPlacementDnpStateChange(
+        source_logical_path=operation.source_logical_path,
+        input_source_file_id=operation.source_file_id,
+        output_source_file_id=candidate.output_source_file_id,
+        input_sha256=candidate.input_sha256,
+        output_sha256=candidate.output_sha256,
+        reference=operation.reference,
+        old_dnp=operation.expected_dnp,
+        new_dnp=operation.new_dnp,
         input_value_span=candidate.input_value_span,
         output_value_span=candidate.output_value_span,
         affected_input_placement_ids=candidate.affected_input_placement_ids,

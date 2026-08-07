@@ -18,6 +18,7 @@ from boardgate.authoring.models import (
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
     AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementDnpStateChange,
     AppliedPlacementReferenceDesignatorChange,
     ModificationRequest,
     ModificationResult,
@@ -26,6 +27,7 @@ from boardgate.authoring.models import (
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
     SetPlacementAnchorCoordinate,
+    SetPlacementDnpState,
     SetPlacementReferenceDesignator,
 )
 from boardgate.domain.enums import ReviewStatus
@@ -822,3 +824,160 @@ def test_coordinate_applied_change_round_trips_inside_result() -> None:
     assert admitted.operation.adapter_id == (
         "boardgate-placement-anchor-coordinate-patch"
     )
+
+
+def dnp_operation() -> SetPlacementDnpState:
+    return SetPlacementDnpState(
+        schema_version="1.0",
+        operation_version="1.0",
+        source_logical_path="assembly/component-placement.csv",
+        source_file_id=INPUT_SOURCE_ID,
+        source_sha256=INPUT_SHA,
+        reference="U1",
+        expected_dnp=False,
+        new_dnp=True,
+        instruction="Mark the explicitly selected placement reference DNP.",
+    )
+
+
+def dnp_applied_change() -> AppliedPlacementDnpStateChange:
+    span = SourceSpan(
+        start_line=3,
+        end_line=3,
+        start_byte=42,
+        end_byte=43,
+    )
+    return AppliedPlacementDnpStateChange(
+        source_logical_path="assembly/component-placement.csv",
+        input_source_file_id=INPUT_SOURCE_ID,
+        output_source_file_id=OUTPUT_SOURCE_ID,
+        input_sha256=INPUT_SHA,
+        output_sha256=OUTPUT_SHA,
+        reference="U1",
+        old_dnp=False,
+        new_dnp=True,
+        input_value_span=span,
+        output_value_span=span,
+        affected_input_placement_ids=("plc-input",),
+        affected_output_placement_ids=("plc-output",),
+    )
+
+
+def test_dnp_request_round_trip_and_hash_is_content_derived() -> None:
+    value = ModificationRequest(
+        schema_version="1.0",
+        base_project_id=BASE_PROJECT_ID,
+        operation=dnp_operation(),
+    )
+
+    admitted = ModificationRequest.model_validate_json(value.model_dump_json())
+    assert admitted == value
+    assert isinstance(admitted.operation, SetPlacementDnpState)
+    assert admitted.operation.kind == "set_placement_dnp_state"
+
+    changed_instruction = value.model_copy(
+        update={
+            "operation": value.operation.model_copy(
+                update={"instruction": "A different explicit instruction."}
+            )
+        }
+    )
+    assert request_sha256(changed_instruction) != request_sha256(value)
+    assert operation_sha256(changed_instruction.operation) == operation_sha256(
+        value.operation
+    )
+
+
+def test_dnp_operation_rejects_noop_and_bad_references() -> None:
+    payload = dnp_operation().model_dump()
+    payload["new_dnp"] = payload["expected_dnp"]
+    with pytest.raises(ValidationError, match="must differ"):
+        SetPlacementDnpState.model_validate(payload)
+
+    with pytest.raises(ValidationError, match="reference"):
+        SetPlacementDnpState.model_validate(
+            {**dnp_operation().model_dump(), "reference": "u1"}
+        )
+    for field in ("expected_dnp", "new_dnp"):
+        with pytest.raises(ValidationError, match=field):
+            SetPlacementDnpState.model_validate(
+                {**dnp_operation().model_dump(), field: "maybe"}
+            )
+
+
+def test_dnp_applied_change_requires_new_identity_and_one_to_one_targets() -> None:
+    value = dnp_applied_change()
+
+    with pytest.raises(ValidationError, match="must change the source digest"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {**value.model_dump(), "output_sha256": INPUT_SHA}
+        )
+    with pytest.raises(ValidationError, match="new source_file_id"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {**value.model_dump(), "output_source_file_id": INPUT_SOURCE_ID}
+        )
+    with pytest.raises(ValidationError, match="must change the DNP state"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {**value.model_dump(), "new_dnp": value.old_dnp}
+        )
+    with pytest.raises(ValidationError, match="one-to-one"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+    with pytest.raises(ValidationError, match="must be unique"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {
+                **value.model_dump(),
+                "affected_input_placement_ids": ("plc-input", "plc-input"),
+                "affected_output_placement_ids": ("plc-output-a", "plc-output-b"),
+            }
+        )
+
+
+def test_dnp_applied_change_requires_the_exact_same_width_token_span() -> None:
+    value = dnp_applied_change()
+    shifted = value.output_value_span.model_copy(
+        update={"start_byte": 43, "end_byte": 44}
+    )
+    with pytest.raises(ValidationError, match="preserve the value source span"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {**value.model_dump(), "output_value_span": shifted.model_dump()}
+        )
+
+    empty = value.input_value_span.model_copy(update={"start_byte": 42, "end_byte": 42})
+    with pytest.raises(ValidationError, match="non-empty source token span"):
+        AppliedPlacementDnpStateChange.model_validate(
+            {
+                **value.model_dump(),
+                "input_value_span": empty.model_dump(),
+                "output_value_span": empty.model_dump(),
+            }
+        )
+
+
+def test_dnp_applied_change_round_trips_inside_result() -> None:
+    evidence = result()
+    payload_files = tuple(
+        item.model_copy(
+            update={
+                "logical_path": "assembly/component-placement.csv"
+                if item.changed
+                else item.logical_path
+            }
+        )
+        for item in evidence.payload_files
+    )
+    dnp_result = evidence.model_copy(
+        update={
+            "operation": dnp_applied_change(),
+            "payload_files": payload_files,
+        }
+    )
+    admitted = ModificationResult.model_validate_json(dnp_result.model_dump_json())
+    assert isinstance(admitted.operation, AppliedPlacementDnpStateChange)
+    assert admitted.operation.reference == "U1"
+    assert admitted.operation.new_dnp is True
+    assert admitted.operation.adapter_id == "boardgate-placement-dnp-state-patch"

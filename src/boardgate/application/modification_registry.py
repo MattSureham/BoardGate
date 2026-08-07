@@ -26,17 +26,21 @@ from boardgate.authoring.models import (
     AppliedExcellonToolDiameterChange,
     AppliedGerberStandardApertureDiameterChange,
     AppliedPlacementAnchorCoordinateChange,
+    AppliedPlacementDnpStateChange,
     AppliedPlacementReferenceDesignatorChange,
     ModificationOperation,
     SetExcellonToolDiameter,
     SetGerberStandardApertureDiameter,
     SetPlacementAnchorCoordinate,
+    SetPlacementDnpState,
     SetPlacementReferenceDesignator,
 )
 from boardgate.authoring.placement import (
     prepare_placement_anchor_coordinate_patch,
+    prepare_placement_dnp_state_patch,
     prepare_placement_reference_designator_patch,
     verify_placement_anchor_coordinate_patch,
+    verify_placement_dnp_state_patch,
     verify_placement_reference_designator_patch,
 )
 from boardgate.domain.enums import FileType
@@ -51,6 +55,7 @@ type AppliedModification = (
     | AppliedGerberStandardApertureDiameterChange
     | AppliedPlacementReferenceDesignatorChange
     | AppliedPlacementAnchorCoordinateChange
+    | AppliedPlacementDnpStateChange
 )
 
 
@@ -463,6 +468,71 @@ class PlacementAnchorCoordinateExecutor:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PlacementDnpStateExecutor:
+    """Executor for one exact, same-width placement DNP-token change."""
+
+    kind: str = "set_placement_dnp_state"
+    operation_version: str = "1.0"
+    file_type: FileType = FileType.PLACEMENT_CSV
+
+    def execute(
+        self,
+        source: SourceFile,
+        payload: bytes,
+        operation: ModificationOperation,
+        *,
+        parser_executor: ParserExecutor = run_parser,
+    ) -> ExecutedModification:
+        """Patch, reparse, and prove the exact requested semantic delta."""
+        if not isinstance(operation, SetPlacementDnpState):
+            raise OperationRegistryError(
+                "MODIFICATION_EXECUTOR_TYPE_MISMATCH",
+                "registered operation model does not match its executor",
+            )
+        before = _parse_placement(
+            source,
+            payload,
+            parser_executor=parser_executor,
+        )
+        candidate = prepare_placement_dnp_state_patch(
+            payload,
+            before,
+            operation,
+        )
+        output_source = source.model_copy(
+            update={
+                "source_file_id": candidate.output_source_file_id,
+                "sha256": candidate.output_sha256,
+                "size_bytes": len(candidate.payload),
+            }
+        )
+        after = _parse_placement(
+            output_source,
+            candidate.payload,
+            parser_executor=parser_executor,
+        )
+        try:
+            applied = verify_placement_dnp_state_patch(
+                before,
+                after,
+                operation,
+                candidate,
+            )
+        except AuthoringOperationError as error:
+            raise OperationExecutionError(
+                error.code,
+                error.subject,
+                error.detail,
+            ) from error
+        return ExecutedModification(
+            payload=candidate.payload,
+            output_source_file_id=candidate.output_source_file_id,
+            output_sha256=candidate.output_sha256,
+            applied=applied,
+        )
+
+
 _EXECUTORS: Mapping[tuple[str, str], ModificationExecutor] = MappingProxyType(
     {
         ("set_excellon_tool_diameter", "1.0"): ExcellonToolDiameterExecutor(),
@@ -475,6 +545,7 @@ _EXECUTORS: Mapping[tuple[str, str], ModificationExecutor] = MappingProxyType(
         ("set_placement_anchor_coordinate", "1.0"): (
             PlacementAnchorCoordinateExecutor()
         ),
+        ("set_placement_dnp_state", "1.0"): PlacementDnpStateExecutor(),
     }
 )
 

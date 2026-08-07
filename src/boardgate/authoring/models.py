@@ -35,6 +35,7 @@ MODIFICATION_OPERATION_KEYS = frozenset(
         ("set_gerber_standard_aperture_diameter", "1.0"),
         ("set_placement_reference_designator", "1.0"),
         ("set_placement_anchor_coordinate", "1.0"),
+        ("set_placement_dnp_state", "1.0"),
     }
 )
 
@@ -182,11 +183,39 @@ class SetPlacementAnchorCoordinate(VersionedModel):
         return self
 
 
+class SetPlacementDnpState(VersionedModel):
+    """One explicitly targeted, stale-safe placement DNP-state request."""
+
+    schema_version: Literal["1.0"]
+    kind: Literal["set_placement_dnp_state"] = "set_placement_dnp_state"
+    operation_version: Literal["1.0"]
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    source_sha256: str = Field(pattern=_SHA256_PATTERN)
+    reference: str = Field(pattern=_REFERENCE_PATTERN)
+    expected_dnp: bool
+    new_dnp: bool
+    instruction: str = Field(min_length=1, max_length=500)
+
+    _safe_source_path = field_validator("source_logical_path")(
+        _validate_safe_logical_path
+    )
+
+    @model_validator(mode="after")
+    def require_real_change(self) -> Self:
+        """Reject no-op requests before any source is touched."""
+        if self.expected_dnp == self.new_dnp:
+            msg = "new_dnp must differ from expected_dnp"
+            raise ValueError(msg)
+        return self
+
+
 type ModificationOperation = Annotated[
     SetExcellonToolDiameter
     | SetGerberStandardApertureDiameter
     | SetPlacementReferenceDesignator
-    | SetPlacementAnchorCoordinate,
+    | SetPlacementAnchorCoordinate
+    | SetPlacementDnpState,
     Field(discriminator="kind"),
 ]
 
@@ -484,11 +513,75 @@ class AppliedPlacementAnchorCoordinateChange(VersionedModel):
         return self
 
 
+class AppliedPlacementDnpStateChange(VersionedModel):
+    """Auditable semantic and byte-span evidence for the applied operation."""
+
+    kind: Literal["set_placement_dnp_state"] = "set_placement_dnp_state"
+    operation_version: Literal["1.0"] = "1.0"
+    adapter_id: Literal["boardgate-placement-dnp-state-patch"] = (
+        "boardgate-placement-dnp-state-patch"
+    )
+    adapter_policy_version: Literal["1.0"] = "1.0"
+    source_logical_path: str = Field(min_length=1, max_length=1024)
+    input_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    output_source_file_id: str = Field(pattern=_SOURCE_ID_PATTERN)
+    input_sha256: str = Field(pattern=_SHA256_PATTERN)
+    output_sha256: str = Field(pattern=_SHA256_PATTERN)
+    reference: str = Field(pattern=_REFERENCE_PATTERN)
+    old_dnp: bool
+    new_dnp: bool
+    input_value_span: SourceSpan
+    output_value_span: SourceSpan
+    affected_input_placement_ids: tuple[str, ...] = Field(min_length=1)
+    affected_output_placement_ids: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_applied_change(self) -> Self:
+        """Require new content identity and one-to-one affected objects."""
+        if self.input_sha256 == self.output_sha256:
+            msg = "applied operation must change the source digest"
+            raise ValueError(msg)
+        if self.input_source_file_id == self.output_source_file_id:
+            msg = "changed source bytes must receive a new source_file_id"
+            raise ValueError(msg)
+        if self.old_dnp == self.new_dnp:
+            msg = "applied operation must change the DNP state"
+            raise ValueError(msg)
+        if len(self.affected_input_placement_ids) != len(
+            self.affected_output_placement_ids
+        ):
+            msg = "affected input and output placements must correspond one-to-one"
+            raise ValueError(msg)
+        if len(self.affected_input_placement_ids) != len(
+            set(self.affected_input_placement_ids)
+        ) or len(self.affected_output_placement_ids) != len(
+            set(self.affected_output_placement_ids)
+        ):
+            msg = "affected placement identifiers must be unique"
+            raise ValueError(msg)
+        span = self.input_value_span
+        if span != self.output_value_span:
+            msg = "same-width v1 patches must preserve the value source span"
+            raise ValueError(msg)
+        if (
+            span.start_line is None
+            or span.end_line is None
+            or span.start_line != span.end_line
+            or span.start_byte is None
+            or span.end_byte is None
+            or span.start_byte >= span.end_byte
+        ):
+            msg = "DNP evidence requires one non-empty source token span"
+            raise ValueError(msg)
+        return self
+
+
 type AppliedModificationOperation = Annotated[
     AppliedExcellonToolDiameterChange
     | AppliedGerberStandardApertureDiameterChange
     | AppliedPlacementReferenceDesignatorChange
-    | AppliedPlacementAnchorCoordinateChange,
+    | AppliedPlacementAnchorCoordinateChange
+    | AppliedPlacementDnpStateChange,
     Field(discriminator="kind"),
 ]
 
